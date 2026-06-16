@@ -12,23 +12,21 @@ import {
   Factory,
   Gauge,
   Layers3,
-  LockKeyhole,
   PackageCheck,
-  Play,
-  ShieldCheck,
   Sparkles,
   TrendingUp,
-  UserRound,
   Warehouse,
   Zap,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { AccountCreateTabs } from "./account-create-tabs";
+
 type TabKey = "login" | "ui";
 
 const tabs: Array<{ key: TabKey; label: string }> = [
-  { key: "login", label: "Login" },
+  { key: "login", label: "Kullanıcı" },
   { key: "ui", label: "UI Hazırlık" },
 ];
 
@@ -109,7 +107,7 @@ function LoginPanel() {
             Atölyeni planla, vardiyayı başlat, rapordan öğren.
           </h2>
           <p className="max-w-xl text-base leading-7 text-[var(--fr-muted)] sm:text-lg">
-            Bu ekran şimdilik login hissini, ana renkleri ve oyun arayüzünün premium koyu zeminini test etmek için hazırlandı.
+            Bu ekran artık ilk kullanıcı oluşturma akışını da test ediyor. Player ve Admin hesapları normal form ile açılır, şifreler hashlenir.
           </p>
         </div>
 
@@ -124,40 +122,20 @@ function LoginPanel() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-[var(--fr-muted)]">Factory account</p>
-            <h3 className="text-2xl font-semibold">Giriş Yap</h3>
+            <h3 className="text-2xl font-semibold">Kullanıcı Oluştur</h3>
           </div>
           <div className="game-icon-button">
-            <LockKeyhole size={20} />
+            <Factory size={20} />
           </div>
         </div>
 
-        <form className="space-y-4">
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--fr-soft)]">E-posta</span>
-            <div className="game-input-wrap">
-              <UserRound size={18} />
-              <input className="game-input" placeholder="factory@runway.com" type="email" />
-            </div>
-          </label>
-          <label className="block space-y-2">
-            <span className="text-sm font-medium text-[var(--fr-soft)]">Şifre</span>
-            <div className="game-input-wrap">
-              <ShieldCheck size={18} />
-              <input className="game-input" placeholder="••••••••" type="password" />
-            </div>
-          </label>
-
-          <button className="game-button-primary w-full" type="button">
-            <Play size={18} />
-            Fabrikaya Gir
-          </button>
-        </form>
+        <AccountCreateTabs />
 
         <div className="mt-5 rounded-[8px] border border-[var(--fr-border)] bg-white/[0.03] p-4">
           <div className="flex items-start gap-3">
             <div className="status-dot bg-[var(--fr-green)]" />
             <p className="text-sm leading-6 text-[var(--fr-muted)]">
-              Login henüz gerçek auth sistemine bağlı değil. Şimdilik renk, kart, input ve buton hissini test ediyoruz.
+              Login/session bir sonraki adım. Bu aşamada kullanıcı kayıtlarının veritabanına doğru yazılmasını netleştiriyoruz.
             </p>
           </div>
         </div>
