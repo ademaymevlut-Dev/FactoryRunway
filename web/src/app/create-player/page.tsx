@@ -40,7 +40,7 @@ export default function CreatePlayerPage() {
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
                 <p className="text-sm text-[var(--fr-muted)]">CreatePlayer</p>
-                <h2 className="text-2xl font-semibold">Player Kaydı</h2>
+                <h2 className="text-2xl font-semibold">Player Kaydı Oluşturma</h2>
               </div>
               <div className="game-icon-button">
                 <Factory size={20} />
