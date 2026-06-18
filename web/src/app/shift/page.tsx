@@ -6,17 +6,22 @@ import {
   AlertTriangle,
   Bell,
   Boxes,
+  CalendarDays,
+  CircleDollarSign,
   ClipboardList,
   Clock3,
   Factory,
   Hammer,
+  Hash,
   LockKeyhole,
   MessageSquare,
   PackageCheck,
+  Palette,
   Plus,
   Scissors,
   Shirt,
   Star,
+  Tag,
   TrendingUp,
   Truck,
   Users,
@@ -26,7 +31,7 @@ import {
   Zap,
   type LucideIcon,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type DockPanel = "orders" | "tasks" | "warnings" | "actions" | "bottom" | null;
 
@@ -75,6 +80,33 @@ type CameraOffset = {
 type SelectedSlotRef = {
   departmentId: string;
   slotId: string;
+};
+
+type IncomingOrder = {
+  id: string;
+  productName: string;
+  productImage: string;
+  code: string;
+  collection: string;
+  theme: string;
+  qty: string;
+  due: string;
+  requestedDate: string;
+  price: string;
+  unitPrice: string;
+  level: string;
+  customer: string;
+  route: string;
+  status: string;
+  initial: string;
+  cardCopy: string[];
+  colors: {
+    primary: string;
+    secondary: string;
+    gradientFrom: string;
+    gradientTo: string;
+    foreground: string;
+  };
 };
 
 const SLOT_ROWS = 3;
@@ -186,11 +218,111 @@ const floorProps: FloorProp[] = [
   { id: "loading-bay-a", kind: "loading-bay", x: 3450, y: 600, width: 220, height: 360, rotate: 0 },
 ];
 
-const incomingOrders = [
-  { name: "Kapüşonlu Sweatshirt", qty: "2.000 adet", due: "5 gün", price: "₺ 385.000", level: "Orta" },
-  { name: "Basic T-Shirt", qty: "5.000 adet", due: "7 gün", price: "₺ 450.000", level: "Kolay" },
-  { name: "Kargo Pantolon", qty: "1.500 adet", due: "6 gün", price: "₺ 310.000", level: "Orta" },
-  { name: "Polo Yaka T-Shirt", qty: "3.000 adet", due: "8 gün", price: "₺ 420.000", level: "Kolay" },
+const incomingOrders: IncomingOrder[] = [
+  {
+    id: "ord-mois-urban",
+    productName: "Kapüşonlu Sweatshirt",
+    productImage: "/product_photos/mois_prd1.png",
+    code: "A6.KDS.MGL.03",
+    collection: "Kids",
+    theme: "Urban Edge",
+    qty: "2.000 adet",
+    due: "5 gün",
+    requestedDate: "Day 28",
+    price: "₺ 385.000",
+    unitPrice: "₺ 192,50",
+    level: "Orta",
+    customer: "MOIS",
+    route: "Kesim -> Baskı -> Dikim -> Ütü/Paket",
+    status: "Teklif açık",
+    initial: "M",
+    cardCopy: ["Soft shapes.", "Clean tones.", "Factory ready."],
+    colors: {
+      primary: "#D29D00",
+      secondary: "#ED719E",
+      gradientFrom: "#535353",
+      gradientTo: "#929292",
+      foreground: "Dark",
+    },
+  },
+  {
+    id: "ord-arte-spring",
+    productName: "Nakışlı Premium Hoodie",
+    productImage: "/product_photos/arte_prd1.png",
+    code: "A6.KDS.MGL.05",
+    collection: "Kids",
+    theme: "Spring Breeze",
+    qty: "1.200 adet",
+    due: "8 gün",
+    requestedDate: "Day 31",
+    price: "₺ 612.000",
+    unitPrice: "₺ 510,00",
+    level: "Zor",
+    customer: "Arte",
+    route: "Kesim -> Nakış -> Dikim -> Yıkama -> Ütü/Paket",
+    status: "Risk kontrolü",
+    initial: "A",
+    cardCopy: ["Playful tones.", "Bright energy.", "Everyday fun."],
+    colors: {
+      primary: "#8FDB5D",
+      secondary: "#A7A328",
+      gradientFrom: "#4B8428",
+      gradientTo: "#93D04A",
+      foreground: "Light",
+    },
+  },
+  {
+    id: "ord-filo-winter",
+    productName: "Kargo Pantolon",
+    productImage: "/product_photos/filo_prd1.png",
+    code: "A6.KDS.MGL.08",
+    collection: "Kids",
+    theme: "Winter Chic",
+    qty: "1.500 adet",
+    due: "6 gün",
+    requestedDate: "Day 29",
+    price: "₺ 310.000",
+    unitPrice: "₺ 206,66",
+    level: "Orta",
+    customer: "Filo",
+    route: "Kesim -> Dikim -> Boya -> Ütü/Paket",
+    status: "Plan bekliyor",
+    initial: "F",
+    cardCopy: ["Warm color.", "Core season.", "Fast repeat."],
+    colors: {
+      primary: "#F2A000",
+      secondary: "#7A5128",
+      gradientFrom: "#D22A00",
+      gradientTo: "#D99A00",
+      foreground: "Light",
+    },
+  },
+  {
+    id: "ord-rico-minimal",
+    productName: "Basic T-Shirt",
+    productImage: "/product_photos/rico_prd1.png",
+    code: "A6.KDS.MGL.02",
+    collection: "Kids",
+    theme: "Soft Minimal",
+    qty: "5.000 adet",
+    due: "7 gün",
+    requestedDate: "Day 30",
+    price: "₺ 450.000",
+    unitPrice: "₺ 90,00",
+    level: "Kolay",
+    customer: "Rico",
+    route: "Kesim -> Dikim -> Ütü/Paket",
+    status: "Uygun",
+    initial: "R",
+    cardCopy: ["Quiet base.", "Clean offer.", "Easy flow."],
+    colors: {
+      primary: "#BDBDBD",
+      secondary: "#967600",
+      gradientFrom: "#B9B6AF",
+      gradientTo: "#8F8F8B",
+      foreground: "Dark",
+    },
+  },
 ];
 
 const warnings = [
@@ -281,6 +413,7 @@ export default function ShiftPage() {
   const [departments, setDepartments] = useState<DepartmentBlock[]>(initialDepartments);
   const [offset, setOffset] = useState<CameraOffset>({ x: 0, y: 0 });
   const [selectedSlotRef, setSelectedSlotRef] = useState<SelectedSlotRef | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState(incomingOrders[0]?.id ?? "");
   const viewportRef = useRef<HTMLElement | null>(null);
   const suppressSlotClickRef = useRef(false);
   const dragState = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0 });
@@ -297,6 +430,10 @@ export default function ShiftPage() {
 
     return { department, slot };
   }, [departments, selectedSlotRef]);
+  const selectedOrder = useMemo(
+    () => incomingOrders.find((order) => order.id === selectedOrderId) ?? null,
+    [selectedOrderId],
+  );
 
   const boundOffsetToViewport = useCallback(
     (nextOffset: CameraOffset, viewportRect?: DOMRect) => {
@@ -322,6 +459,9 @@ export default function ShiftPage() {
 
   const openPanel = (panel: DockPanel) => {
     setSelectedSlotRef(null);
+    if (panel === "orders" && !selectedOrderId) {
+      setSelectedOrderId(incomingOrders[0]?.id ?? "");
+    }
     setActivePanel((current) => (current === panel ? null : panel));
   };
 
@@ -330,6 +470,11 @@ export default function ShiftPage() {
 
     setActivePanel(null);
     setSelectedSlotRef({ departmentId, slotId });
+  };
+
+  const selectOrder = (orderId: string) => {
+    setSelectedSlotRef(null);
+    setSelectedOrderId(orderId);
   };
 
   const releaseMapDrag = useCallback((target?: HTMLElement, pointerId?: number) => {
@@ -500,7 +645,17 @@ export default function ShiftPage() {
       <SideDock side="left" activePanel={activePanel} onOpen={openPanel} />
       <SideDock side="right" activePanel={activePanel} onOpen={openPanel} />
       <BottomDock activePanel={activePanel} onOpen={openPanel} />
-      <DrawerPanel activePanel={activePanel} onClose={() => setActivePanel(null)} />
+      <DrawerPanel
+        activePanel={activePanel}
+        onClose={() => setActivePanel(null)}
+        onSelectOrder={selectOrder}
+        selectedOrderId={selectedOrderId}
+      />
+      <OrderDetailPanel
+        key={activePanel === "orders" ? selectedOrder?.id ?? "no-order" : "no-order"}
+        onClose={() => setSelectedOrderId("")}
+        order={activePanel === "orders" ? selectedOrder : null}
+      />
       <SlotDetailPanel
         details={selectedSlotDetails}
         onClose={() => setSelectedSlotRef(null)}
@@ -760,7 +915,7 @@ function SideDock({
   const items =
     side === "left"
       ? [
-          { panel: "orders" as const, label: "Siparişler", icon: ClipboardList, count: "18" },
+          { panel: "orders" as const, label: "Siparişler", icon: ClipboardList, count: String(incomingOrders.length) },
           { panel: "tasks" as const, label: "Görevler", icon: Star, count: "3" },
         ]
       : [
@@ -803,7 +958,17 @@ function BottomDock({ activePanel, onOpen }: { activePanel: DockPanel; onOpen: (
   );
 }
 
-function DrawerPanel({ activePanel, onClose }: { activePanel: DockPanel; onClose: () => void }) {
+function DrawerPanel({
+  activePanel,
+  onClose,
+  onSelectOrder,
+  selectedOrderId,
+}: {
+  activePanel: DockPanel;
+  onClose: () => void;
+  onSelectOrder: (orderId: string) => void;
+  selectedOrderId: string;
+}) {
   if (!activePanel) return null;
 
   const isRight = activePanel === "warnings" || activePanel === "actions";
@@ -818,7 +983,7 @@ function DrawerPanel({ activePanel, onClose }: { activePanel: DockPanel; onClose
         </div>
         <button type="button" onClick={onClose}>Kapat</button>
       </div>
-      <div className="map-drawer-content">{drawerContent(activePanel)}</div>
+      <div className="map-drawer-content">{drawerContent(activePanel, selectedOrderId, onSelectOrder)}</div>
     </div>
   );
 }
@@ -839,15 +1004,44 @@ function drawerTitle(panel: Exclude<DockPanel, null>) {
   return "Fabrika Menüleri";
 }
 
-function drawerContent(panel: Exclude<DockPanel, null>) {
+function drawerContent(
+  panel: Exclude<DockPanel, null>,
+  selectedOrderId: string,
+  onSelectOrder: (orderId: string) => void,
+) {
   if (panel === "orders") {
-    return incomingOrders.map((order) => (
-      <div className="drawer-card" key={order.name}>
-        <h3>{order.name}</h3>
-        <p>{order.qty} · Teslim: {order.due}</p>
-        <strong>{order.price}</strong>
+    return (
+      <div className="order-drawer-list">
+        {incomingOrders.map((order, index) => (
+          <button
+            className={`order-list-item ${selectedOrderId === order.id ? "is-selected" : ""}`}
+            key={order.id}
+            onClick={() => onSelectOrder(order.id)}
+            style={orderColorStyle(order)}
+            type="button"
+          >
+            <span className="order-list-thumb">
+              <Image
+                alt=""
+                aria-hidden="true"
+                className="order-list-image"
+                draggable={false}
+                fill
+                sizes="48px"
+                src={order.productImage}
+              />
+            </span>
+            <span className="order-list-index">{String(index + 1).padStart(2, "0")}</span>
+            <span className="order-list-main">
+              <strong>{order.customer}</strong>
+              <span>{order.productName}</span>
+              <small>{order.qty} · Teslim: {order.due}</small>
+            </span>
+            <span className="order-list-price">{order.price}</span>
+          </button>
+        ))}
       </div>
-    ));
+    );
   }
 
   if (panel === "warnings") {
@@ -889,4 +1083,167 @@ function drawerContent(panel: Exclude<DockPanel, null>) {
       {item.label}
     </button>
   ));
+}
+
+function orderColorStyle(order: IncomingOrder) {
+  return {
+    "--order-primary": order.colors.primary,
+    "--order-secondary": order.colors.secondary,
+    "--order-gradient-from": order.colors.gradientFrom,
+    "--order-gradient-to": order.colors.gradientTo,
+  } as CSSProperties;
+}
+
+function OrderDetailPanel({
+  onClose,
+  order,
+}: {
+  onClose: () => void;
+  order: IncomingOrder | null;
+}) {
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
+
+  if (!order) return null;
+
+  return (
+    <aside
+      className={`order-detail-panel ${isImageExpanded ? "is-image-expanded" : ""}`}
+      onPointerDown={(event) => event.stopPropagation()}
+      style={orderColorStyle(order)}
+    >
+      <div className="order-detail-grip" />
+      <header className="order-detail-header">
+        <div>
+          <p>Seçili Sipariş</p>
+          <h2>{order.customer}</h2>
+          <span>
+            Koleksiyon: <b>{order.collection}</b>
+          </span>
+        </div>
+        <button aria-label="Sipariş detayını kapat" className="slot-detail-close" onClick={onClose} type="button">
+          <X size={18} />
+        </button>
+      </header>
+
+      <div className="order-theme-row">
+        <span className="order-theme-pill">
+          <Tag size={16} />
+          {order.theme}
+        </span>
+        <span className="order-level-badge">{order.level}</span>
+        <span className="order-status-chip">{order.status}</span>
+      </div>
+
+      <div className="order-preview-stage">
+        <div className="order-card-preview">
+          <span className="order-preview-letter">{order.initial}</span>
+          <div className="order-preview-copy">
+            {order.cardCopy.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </div>
+        </div>
+        <button
+          aria-label={isImageExpanded ? "Ürün görselini küçült" : "Ürün görselini büyüt"}
+          aria-pressed={isImageExpanded}
+          className="order-preview-product"
+          onClick={() => setIsImageExpanded((current) => !current)}
+          type="button"
+        >
+          <Image
+            alt={`${order.productName} ürün görseli`}
+            className="order-preview-image"
+            draggable={false}
+            fill
+            priority
+            sizes="220px"
+            src={order.productImage}
+          />
+        </button>
+      </div>
+
+      <button
+        aria-hidden={!isImageExpanded}
+        aria-label="Büyük ürün görselini kapat"
+        className={`order-expanded-view ${isImageExpanded ? "is-open" : ""}`}
+        onClick={() => setIsImageExpanded(false)}
+        tabIndex={isImageExpanded ? 0 : -1}
+        type="button"
+      >
+        <span className="order-expanded-card">
+          <span className="order-preview-letter">{order.initial}</span>
+          <span className="order-expanded-copy">
+            {order.cardCopy.map((line) => (
+              <span key={line}>{line}</span>
+            ))}
+          </span>
+        </span>
+        <span className="order-expanded-product">
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="order-preview-image"
+            draggable={false}
+            fill
+            sizes="360px"
+            src={order.productImage}
+          />
+        </span>
+        <span className="order-expanded-close">
+          <X size={18} />
+        </span>
+      </button>
+
+      <dl className="order-detail-list">
+        <OrderDetailRow icon={Hash} label="Kod" value={order.code} />
+        <OrderDetailRow icon={CalendarDays} label="İstenen Tarih" value={order.requestedDate} />
+        <OrderDetailRow icon={PackageCheck} label="Sipariş Adedi" value={order.qty} />
+        <OrderDetailRow icon={CircleDollarSign} label="Teklif Fiyatı" value={order.price} />
+        <OrderDetailRow icon={Tag} label="Birim Teklif" value={order.unitPrice} />
+        <OrderDetailRow icon={Palette} label="Kart Tonu" value={`${order.colors.primary} / ${order.colors.secondary}`} />
+        <OrderDetailRow icon={Truck} label="Rota" value={order.route} />
+        <OrderDetailRow icon={ClipboardList} label="Müşteri" value={order.productName} />
+      </dl>
+
+      <div className="order-color-strip">
+        <span style={{ background: order.colors.primary }} />
+        <span style={{ background: order.colors.secondary }} />
+        <span style={{ background: order.colors.gradientFrom }} />
+        <span style={{ background: order.colors.gradientTo }} />
+      </div>
+
+      <div className="order-detail-actions">
+        <button className="slot-detail-button primary" type="button">
+          <ClipboardList size={18} />
+          Planla
+        </button>
+        <button className="slot-detail-button" type="button">
+          <CircleDollarSign size={18} />
+          Teklifi Aç
+        </button>
+      </div>
+    </aside>
+  );
+}
+
+function OrderDetailRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <dt>
+        <span>
+          <Icon size={17} />
+        </span>
+        {label}
+      </dt>
+      <dd>{value}</dd>
+    </div>
+  );
 }

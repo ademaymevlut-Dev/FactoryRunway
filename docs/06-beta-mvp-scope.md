@@ -78,7 +78,7 @@ Oyuncu siparişleri görür, line atar, vardiyayı başlatır, sonucu izler, rap
 - Kalite sistemi.
 - Premium ve Luxury ürün grupları.
 - BSCI / ISO 9000 gibi sertifika gereksinimleri.
-- Baskı, nakış, taş yıkama ve parça boya kabiliyetlerini fabrika içine alma.
+- Baskı, nakış, boya ve yıkama kabiliyetlerini fabrika içine alma.
 - Kumaş üretimi ile tam entegre tesis seviyesi.
 - Personel yönetimi.
 - Kozmetik tema veya dengeli stratejik varyasyonlar.

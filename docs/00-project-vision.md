@@ -56,7 +56,7 @@ Bugün hangi siparişi kurtaracağım, hangi line'ı nereye vereceğim ve yarın
 - Electronics Pack.
 - Sektörlere özel üretim sorunları, makineler ve stratejik kararlar.
 - Premium ve Luxury ürünlerle daha yüksek karlılık, daha uzun rota, kalite kontrol ve sertifika hedefleri.
-- Baskı, nakış, taş yıkama, parça boya ve kumaş üretimi gibi yeni tesis kabiliyetleri.
+- Baskı, nakış, boya, yıkama ve kumaş üretimi gibi yeni tesis kabiliyetleri.
 - Dengeli expansion / pack bazlı monetization.
 
 ## Örnekler

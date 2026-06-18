@@ -81,14 +81,27 @@ Her ürün kodu kendi üretim reçetesine sahiptir.
 Reçete adımları operasyonlardan oluşur:
 
 ```text
-Depo -> Kesim -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Dikim -> Ütü/Paket -> Sevkiyat
 ```
 
 Baskılı ürün örneği:
 
 ```text
-Depo -> Kesim -> Baskı -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Baskı -> Dikim -> Ütü/Paket -> Sevkiyat
 ```
+
+Textile Pack için reçete sırası şu kanonik yapıyı izlemelidir:
+
+```text
+Kumaş Üretim -> Kumaş Depo -> Kesim -> Baskı/Nakış -> Dikim -> Boya/Yıkama -> Ütü/Paket -> Sevkiyat
+```
+
+Bu sırada tüm adımlar zorunlu değildir:
+
+- `Kumaş Üretim` yalnızca ileri seviye entegre tesislerde açılır.
+- `Baskı` ve `Nakış`, kesimden sonra dikimden önce gelen ara işlem adımlarıdır.
+- `Boya` ve `Yıkama`, dikimden sonra ütü/paket öncesi reçeteye bağlı terbiye adımlarıdır.
+- Reçete hem baskı hem nakış, hem boya hem yıkama isteyebilir; sıra ürün reçetesindeki `stepOrder` ile belirlenir.
 
 Her reçete adımı şu verileri taşımalıdır:
 

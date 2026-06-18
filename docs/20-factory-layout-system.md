@@ -61,15 +61,15 @@ Department Zone, harita üzerindeki üretim bölgesidir.
 Tekstil için önerilen ana sıra:
 
 ```text
-Kumaş Üretim -> Kumaş Depo -> Kesim -> Ara İşlemler -> Dikim -> Ütü/Paket -> Sevkiyat
+Kumaş Üretim -> Kumaş Depo -> Kesim -> Baskı/Nakış -> Dikim -> Boya/Yıkama -> Ütü/Paket -> Sevkiyat
 ```
 
 Başlangıçta bazı zone'lar kilitli olabilir:
 
 - Kumaş Üretim: Entegre tesis seviyesinde açılır.
-- Ara İşlemler: Baskı / nakış gibi capability yatırımlarıyla açılır.
+- Baskı/Nakış: Kesimden sonra dikimden önce gelen ara işlem zone'udur; capability yatırımlarıyla açılır.
+- Boya/Yıkama: Dikimden sonra ütü/paket öncesinde gelen reçete bazlı terbiye zone'udur.
 - Kalite Kontrol: Premium ve Luxury üretim için açılır.
-- Boya / Yıkama: Daha ileri katma değerli ürünlerde açılır.
 
 Önerilen veri alanları:
 

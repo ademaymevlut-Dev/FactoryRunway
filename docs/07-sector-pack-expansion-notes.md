@@ -48,7 +48,13 @@ Sektöre özel olan yapılar:
 Textile:
 
 ```text
-Kesim -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Baskı/Nakış -> Dikim -> Boya/Yıkama -> Ütü/Paket -> Sevkiyat
+```
+
+Textile ileri seviye:
+
+```text
+Kumaş Üretim -> Kumaş Depo -> Kesim -> Baskı/Nakış -> Dikim -> Boya/Yıkama -> Ütü/Paket -> Sevkiyat
 ```
 
 Chocolate:

@@ -34,7 +34,7 @@ Bu katmanların sorumlulukları ayrıdır:
 - `Player Level`: Genel oyun ilerlemesi ve yeni sistemlerin açılması.
 - `Factory Level`: Fiziksel büyüme, alan, slot, maksimum line ve tesis sınırları.
 - `Department Level`: Her departmanın kapasite, verimlilik ve risk gelişimi.
-- `Capability Unlock`: Baskı, nakış, taş yıkama, parça boya, kalite kontrol, kumaş üretimi gibi yeni kabiliyetler.
+- `Capability Unlock`: Baskı, nakış, boya, yıkama, kalite kontrol, kumaş üretimi gibi yeni kabiliyetler.
 - `Machine / Equipment Config`: Her line veya departmanın ihtiyaç duyduğu makine, personel ve kapasite etkileri.
 - `Reputation`: Güvenilirlik / bilinirlik ile daha büyük ve daha değerli siparişlere erişim.
 - `Boost System`: Geçici veya kalıcı avantajlar.
@@ -190,7 +190,7 @@ Factory Level 3 - Küçük Fabrika
 
 Factory Level 4 - Fabrika
 - 16 sewing line
-- Taş yıkama / parça boya alanı
+- Boya / Yıkama alanı
 - Gelişmiş kalite güvence
 - Premium siparişlere daha uygun yapı
 
@@ -255,8 +255,8 @@ Kabiliyet örnekleri:
 
 - Baskı.
 - Nakış.
-- Taş yıkama.
-- Parça boya.
+- Boya.
+- Yıkama.
 - Özel paketleme.
 - Kalite kontrol.
 - Kalite güvence.

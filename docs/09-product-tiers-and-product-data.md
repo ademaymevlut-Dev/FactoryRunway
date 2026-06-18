@@ -21,7 +21,7 @@ Her sektör kendi ürünlerini tanımlar, fakat ürün kalite/karlılık katmanl
 Başlangıç seviyesinde oyuncunun fabrikasında temel departmanlar bulunur:
 
 ```text
-Depo -> Kesim -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Dikim -> Ütü/Paket -> Sevkiyat
 ```
 
 Premium ve Luxury ürünler oyuncuya daha fazla kar fırsatı verir, fakat üretim rotasını uzatır, kalite kontrol ihtiyacını artırır ve fabrika gelişimi için yeni hedefler oluşturur.
@@ -102,7 +102,8 @@ Kullanım alanları:
 Ürün katmanı şu sistemleri doğrudan etkiler:
 
 - Üretim rotası: Premium ve Luxury ürünler kalite kontrol adımları ekleyebilir.
-- Ara işlemler: Baskı, nakış, taş yıkama veya parça boya gibi operasyonlar rota içine girebilir.
+- Ara işlemler: Baskı ve nakış kesimden sonra dikimden önce rota içine girebilir.
+- Terbiye işlemleri: Boya ve yıkama dikimden sonra ütü/paket öncesi rota içine girebilir.
 - Üretim süresi: Daha yüksek katmanlar daha uzun işlem süreleri kullanır.
 - Line kapasitesi: Zor ürünler aynı line ile daha az adet çıkarabilir.
 - Fiyat ve karlılık: Premium ve Luxury ürünler daha yüksek gelir sağlar.
@@ -133,15 +134,23 @@ Tekstil örneği:
 
 ```text
 Basic T-Shirt
-Rota: Depo -> Kesim -> Dikim -> Ütü -> Paket -> Sevkiyat
+Rota: Kumaş Depo -> Kesim -> Dikim -> Ütü/Paket -> Sevkiyat
 ```
 
 Baskılı Basic tekstil örneği:
 
 ```text
 Printed Basic T-Shirt
-Rota: Depo -> Kesim -> Baskı -> Dikim -> Ütü -> Paket -> Sevkiyat
+Rota: Kumaş Depo -> Kesim -> Baskı -> Dikim -> Ütü/Paket -> Sevkiyat
 Baskı: Fabrikada yoksa fason yapılabilir
+```
+
+Yıkamalı Basic tekstil örneği:
+
+```text
+Washed Basic T-Shirt
+Rota: Kumaş Depo -> Kesim -> Dikim -> Yıkama -> Ütü/Paket -> Sevkiyat
+Yıkama: Fabrikada yoksa fason yapılabilir
 ```
 
 ### Premium
@@ -159,7 +168,7 @@ Tekstil örneği:
 
 ```text
 Premium Hoodie
-Rota: Depo -> Kesim -> Kesim Kontrol -> Dikim -> Dikim Kontrol -> Ütü -> Paket -> Final Kontrol -> Sevkiyat
+Rota: Kumaş Depo -> Kesim -> Kesim Kontrol -> Nakış -> Dikim -> Dikim Kontrol -> Yıkama -> Ütü/Paket -> Final Kontrol -> Sevkiyat
 Gereksinim: ISO 9000 veya BSCI
 ```
 
@@ -179,7 +188,7 @@ Tekstil örneği:
 
 ```text
 Luxury Coat
-Rota: Depo -> Malzeme Kontrol -> Kesim -> Kesim Kontrol -> Dikim -> Ara Kontrol -> Detay İşçilik -> Final Kalite -> Özel Paket -> Sevkiyat
+Rota: Kumaş Üretim -> Kumaş Depo -> Malzeme Kontrol -> Kesim -> Kesim Kontrol -> Nakış -> Dikim -> Ara Kontrol -> Boya/Yıkama -> Detay İşçilik -> Final Kalite -> Özel Paket -> Sevkiyat
 Gereksinim: Yüksek kalite güvence seviyesi, gelişmiş tesis, ileri sertifikalar
 ```
 
@@ -209,6 +218,7 @@ MVP için öneri:
 - Luxury ürünlerde özel paketleme veya özel işçilik.
 - Ürün katmanına göre sipariş marketi filtreleri.
 - Fason operasyonları fabrika içine alma.
+- Boya / yıkama operasyonlarını reçete bazlı departman olarak açma.
 - Kumaş üretimini entegre tesise dahil etme.
 
 ## Örnekler

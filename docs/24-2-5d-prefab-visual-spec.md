@@ -253,6 +253,7 @@ Textile:
 - Sevkiyat Line
 - Baskı Line
 - Nakış Line
+- Boya / Yıkama Line
 - Boş Slot Placeholder
 - Kilitli Slot Placeholder
 ```
@@ -262,7 +263,6 @@ Opsiyonel:
 ```text
 - Kumaş Üretim Line
 - Kalite Kontrol Line
-- Boya / Yıkama Line
 - Maintenance overlay icon
 - Risk overlay icon
 ```

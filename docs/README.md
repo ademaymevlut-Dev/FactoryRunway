@@ -48,7 +48,7 @@ Bu klasör Factory Runway için temel sistem kararlarını toplar. Hedef, kod ya
 - Fabrika büyümesi iki eksenlidir: mevcut departmanlara kapasite eklemek ve yeni üretim kabiliyetlerini tesise dahil etmek.
 - Oyuncu yatay büyüme ile yeni line / slot açabilmeli, dikey büyüme ile mevcut line veya parkuru teknoloji yatırımıyla güçlendirebilmelidir.
 - Makine ve teknoloji upgrade'leri üretim süresi, fire oranı, kalite riski, personel ihtiyacı, bakım maliyeti ve Premium / Luxury uygunluğunu etkilemelidir.
-- Oyuncu başlangıçta baskı, nakış, taş yıkama veya parça boya gibi ara işlemleri fason firmalara yaptırabilir.
+- Oyuncu başlangıçta baskı/nakış gibi kesim sonrası ara işlemleri ve boya/yıkama gibi dikim sonrası reçete işlemlerini fason firmalara yaptırabilir.
 - Her ürün kodu kendi görsellerine, üretim reçetesine, fiyat metriklerine ve operasyon risk profillerine sahip olmalıdır.
 - Siparişlerde beden detayı yoktur; renk dağılımı sipariş üzerinde tutulur.
 - Sipariş pazarı müşteri, koleksiyon ve teklif mantığıyla çalışmalıdır.

@@ -38,6 +38,14 @@ Cameo - Baskılı Basic T-Shirt
 6. Sevkiyat
 ```
 
+Textile Pack'te reçete çıkarılırken ana sıra şu şekilde kabul edilir:
+
+```text
+Kumaş Üretim -> Kumaş Depo -> Kesim -> Baskı/Nakış -> Dikim -> Boya/Yıkama -> Ütü/Paket -> Sevkiyat
+```
+
+`Kumaş Üretim` ileri seviye entegre tesis adımıdır. `Baskı` ve `Nakış` kesimden sonra, `Boya` ve `Yıkama` dikimden sonra reçeteye bağlı olarak eklenir.
+
 Her reçete adımı şu bilgileri taşımalıdır:
 
 ```text
@@ -158,9 +166,12 @@ Her operasyon bir önceki adımın çıktısını bekler.
 ```text
 Kesim tamamlanır -> CUT_READY oluşur.
 Baskı gerekiyorsa -> PRINT_READY beklenir.
-Dikim -> PRINT_READY veya CUT_READY tüketir.
+Nakış gerekiyorsa -> EMBROIDERY_READY beklenir.
+Dikim -> PRINT_READY, EMBROIDERY_READY veya CUT_READY tüketir.
 Dikim tamamlanır -> SEWN_READY oluşur.
-Ütü/Paket -> SEWN_READY tüketir.
+Boya gerekiyorsa -> DYED_READY beklenir.
+Yıkama gerekiyorsa -> WASHED_READY beklenir.
+Ütü/Paket -> SEWN_READY, DYED_READY veya WASHED_READY tüketir.
 ```
 
 Bir line'ın başlayabilmesi için:
@@ -272,6 +283,8 @@ Gösterilecek sinyaller:
 - Gerekli operasyonlar.
 - Eksik capability.
 - Fason süresi.
+- Kesim sonrası baskı/nakış ara işlem etkisi.
+- Dikim sonrası boya/yıkama reçete etkisi.
 - Departman yoğunluk etkisi.
 - En kritik departman.
 - Tahmini teslim riski.
@@ -333,7 +346,7 @@ Adet: 2.000
 Teslim: Day 12
 
 Rota:
-Depo -> Kesim -> Baskı -> Dikim -> Ütü/Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Baskı -> Dikim -> Ütü/Paket -> Sevkiyat
 
 Plan:
 Kesim 01: Day 5-6

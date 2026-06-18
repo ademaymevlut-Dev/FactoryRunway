@@ -107,22 +107,38 @@ model Product {
   @@map("products")
 }
 
-model ProductImage {
-  id        String   @id @default(cuid())
-  productId String   @map("product_id")
-  type      String   @default("FRONT")
-  url       String
-  pathname  String?
-  width     Int?
-  height    Int?
-  mimeType  String?  @map("mime_type")
-  alt       String?
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+enum ProductImageView {
+  FRONT
+  BACK
+}
 
+enum ProductImageVariant {
+  DETAIL
+  CARD
+  THUMBNAIL
+}
+
+model ProductImage {
+  id            String              @id @default(cuid())
+  productId     String              @map("product_id")
+  view          ProductImageView    @default(FRONT)
+  variant       ProductImageVariant @default(CARD)
+  url           String
+  pathname      String?
+  width         Int?
+  height        Int?
+  mimeType      String?             @map("mime_type")
+  fileSizeBytes Int?                @map("file_size_bytes")
+  alt           String?
+  sortOrder     Int                 @default(0) @map("sort_order")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  updatedAt     DateTime            @updatedAt @map("updated_at")
+  product       Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, view, variant])
   @@index([productId])
-  @@index([type])
+  @@index([view])
+  @@index([variant])
   @@map("product_images")
 }
 

@@ -9,10 +9,26 @@ Bu doküman ilk beta sürümde kullanılacak Textile Pack üretim akışını ta
 Tekstil üretim akışı:
 
 ```text
-Depo -> Kesim -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Ara İşlemler -> Dikim -> Terbiye İşlemleri -> Ütü/Paket -> Sevkiyat
 ```
 
-Core sistem bu adımları sektör bağımsız bir üretim rotası olarak görmelidir. Tekstile özel isimler ve ayarlar Textile Pack içinde tanımlanmalıdır.
+Ara İşlemler kesimden sonra, dikimden önce konumlanır. Textile Pack için başlangıç ara işlem tipleri:
+
+- Baskı.
+- Nakış.
+
+Terbiye İşlemleri dikimden sonra, ütü/paket öncesinde reçeteye bağlı olarak rotaya girer. Başlangıç terbiye işlem tipleri:
+
+- Boya.
+- Yıkama.
+
+İleri seviyede Kumaş Üretim departmanı açıldığında akışın başına eklenir:
+
+```text
+Kumaş Üretim -> Kumaş Depo -> Kesim -> Ara İşlemler -> Dikim -> Terbiye İşlemleri -> Ütü/Paket -> Sevkiyat
+```
+
+Core sistem bu adımları sektör bağımsız bir üretim rotası olarak görmelidir. Tekstile özel isimler ve ayarlar Textile Pack içinde tanımlanmalıdır. Ara İşlemler ve Terbiye İşlemleri tek zorunlu adım gibi değil, ürün reçetesinin ihtiyaç duyduğu operasyonlar olarak ele alınmalıdır.
 
 Textile Pack ürünleri de core ürün katmanlarını kullanır:
 
@@ -20,13 +36,15 @@ Textile Pack ürünleri de core ürün katmanlarını kullanır:
 - `Premium`: Kalite kontrol adımları ve BSCI / ISO 9000 gibi sertifika gereksinimleri olan daha karlı ürünler.
 - `Luxury`: Daha uzun üretim süreleri, yoğun kalite güvence, özel işçilik ve gelişmiş tesis gerektiren en karlı ürünler.
 
-Tekstil rotası ürün özelliğine göre ara işlemler içerebilir. Baskı, nakış, taş yıkama ve parça boya gibi işlemler oyuncunun fabrikasında yoksa fason firmalarla tamamlanabilir.
+Tekstil rotası ürün özelliğine göre ara işlemler ve terbiye işlemleri içerebilir. Baskı, nakış, yıkama ve boya gibi işlemler oyuncunun fabrikasında yoksa fason firmalarla tamamlanabilir.
 
 Ara kuyruklar:
 
 ```text
 CUT_READY
+PRINT_READY / EMBROIDERY_READY
 SEWN_READY
+DYED_READY / WASHED_READY
 IRON_READY
 PACKED_READY / SHIP_READY
 ```
@@ -35,9 +53,11 @@ PACKED_READY / SHIP_READY
 
 - Kumaş depoya girdiği gün kesime hazır sayılır.
 - Cutting tamamlandıkça `CUT_READY` oluşur.
-- Sewing line `CUT_READY` kuyruğunu tüketir.
+- Reçetede baskı veya nakış varsa ara işlem `CUT_READY` kuyruğunu tüketir ve kendi çıktı kuyruğunu oluşturur.
+- Sewing line reçeteye göre `CUT_READY`, `PRINT_READY` veya `EMBROIDERY_READY` kuyruğunu tüketir.
 - Sewing tamamlandıkça `SEWN_READY` oluşur.
-- Ironing `SEWN_READY` kuyruğunu tüketir.
+- Reçetede boya veya yıkama varsa terbiye işlemi `SEWN_READY` kuyruğunu tüketir ve kendi çıktı kuyruğunu oluşturur.
+- Ironing reçeteye göre `SEWN_READY`, `DYED_READY` veya `WASHED_READY` kuyruğunu tüketir.
 - Packing `IRON_READY` kuyruğunu tüketir.
 - Shipping sevkiyata hazır ürünleri tamamlar.
 
@@ -140,25 +160,37 @@ Mevcut hattı upgrade etmek = aynı alanda daha hızlı, daha kaliteli ve daha a
 Basic tekstil rotası:
 
 ```text
-Depo -> Kesim -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Dikim -> Ütü/Paket -> Sevkiyat
 ```
 
 Baskılı Basic tekstil rotası:
 
 ```text
-Depo -> Kesim -> Baskı -> Dikim -> Ütü -> Paket -> Sevkiyat
+Kumaş Depo -> Kesim -> Baskı -> Dikim -> Ütü/Paket -> Sevkiyat
+```
+
+Nakışlı Basic tekstil rotası:
+
+```text
+Kumaş Depo -> Kesim -> Nakış -> Dikim -> Ütü/Paket -> Sevkiyat
+```
+
+Boyalı veya yıkamalı tekstil rotası:
+
+```text
+Kumaş Depo -> Kesim -> Dikim -> Boya/Yıkama -> Ütü/Paket -> Sevkiyat
 ```
 
 Premium tekstil rotası:
 
 ```text
-Depo -> Kesim -> Kesim Kontrol -> Dikim -> Dikim Kontrol -> Ütü -> Paket -> Final Kontrol -> Sevkiyat
+Kumaş Depo -> Kesim -> Kesim Kontrol -> Baskı/Nakış -> Dikim -> Dikim Kontrol -> Boya/Yıkama -> Ütü/Paket -> Final Kontrol -> Sevkiyat
 ```
 
 Luxury tekstil rotası:
 
 ```text
-Depo -> Malzeme Kontrol -> Kesim -> Kesim Kontrol -> Dikim -> Ara Kontrol -> Detay İşçilik -> Final Kalite -> Özel Paket -> Sevkiyat
+Kumaş Üretim -> Kumaş Depo -> Malzeme Kontrol -> Kesim -> Kesim Kontrol -> Baskı/Nakış -> Dikim -> Ara Kontrol -> Boya/Yıkama -> Detay İşçilik -> Final Kalite -> Özel Paket -> Sevkiyat
 ```
 
 ## MVP Kapsamı
@@ -172,6 +204,7 @@ Depo -> Malzeme Kontrol -> Kesim -> Kesim Kontrol -> Dikim -> Ara Kontrol -> Det
 - Basic ürün rotası.
 - Premium ve Luxury için veri ve rota tasarımının hazır düşünülmesi.
 - Baskı veya nakış gibi en az bir ara işlemin fason üzerinden modellenmesi.
+- Boya veya yıkama gibi dikim sonrası reçete işlemlerinin veri modelinde hazır bulunması.
 
 ## İleride Genişletilecek Alanlar
 
@@ -180,8 +213,9 @@ Depo -> Malzeme Kontrol -> Kesim -> Kesim Kontrol -> Dikim -> Ara Kontrol -> Det
 - Kalite kontrol.
 - BSCI / ISO 9000 gibi sertifika gereksinimleri.
 - Fire / yeniden işleme.
-- Fason baskı, nakış, taş yıkama ve parça boya.
+- Fason baskı, nakış, yıkama ve boya.
 - Baskı / nakış makinelerini fabrika içine alma.
+- Boya / yıkama operasyonlarını fabrika içine alma.
 - Kumaş üretimini entegre tesise dahil etme.
 - Sektöre özel makineler ve upgrade'ler.
 - Daha ayrıntılı balans ayarları.

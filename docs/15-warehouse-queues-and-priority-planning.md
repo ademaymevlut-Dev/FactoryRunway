@@ -12,6 +12,8 @@ Amaç, oyuncuya karmaşık stok ekranları göstermek değil; kesimden itibaren 
 - Kumaş sipariş edilir, depoya girdiği gün kesime hazır sayılır.
 - Depo, renk veya tedarikçi bazlı karmaşık takip yapmaz.
 - Kesim tamamlandıkça işler bir sonraki aşamanın kuyruğuna girer.
+- Baskı ve nakış, kesimden sonra dikimden önce ayrı ara işlem kuyrukları olarak planlanır.
+- Boya ve yıkama, dikimden sonra ütü/paket öncesinde reçeteye bağlı kuyruklar olarak planlanır.
 - Oyuncu vardiya başlamadan önce üretim ve kuyruk önceliklerini drag-drop ile sıralayabilir.
 - Vardiya başladıktan sonra ana öncelik planı kilitlenir.
 - Departman doluluk güvenliği kuyrukta bekleyen ürün miktarına göre değerlendirilir.
@@ -49,7 +51,11 @@ Tekstil üretiminde ana kuyruklar:
 
 ```text
 CUT_READY
+PRINT_READY
+EMBROIDERY_READY
 SEWN_READY
+DYED_READY
+WASHED_READY
 IRON_READY
 PACKED_READY / SHIP_READY
 ```
@@ -57,9 +63,13 @@ PACKED_READY / SHIP_READY
 Kuyruk mantığı:
 
 - Kesim tamamlandıkça `CUT_READY` oluşur.
-- Dikim `CUT_READY` kuyruğunu tüketir.
+- Baskı veya nakış gerekiyorsa ilgili ara işlem `CUT_READY` kuyruğunu tüketir.
+- Baskı tamamlandıkça `PRINT_READY`, nakış tamamlandıkça `EMBROIDERY_READY` oluşur.
+- Dikim reçeteye göre `CUT_READY`, `PRINT_READY` veya `EMBROIDERY_READY` kuyruğunu tüketir.
 - Dikim tamamlandıkça `SEWN_READY` oluşur.
-- Ütü `SEWN_READY` kuyruğunu tüketir.
+- Boya veya yıkama gerekiyorsa ilgili terbiye işlemi `SEWN_READY` kuyruğunu tüketir.
+- Boya tamamlandıkça `DYED_READY`, yıkama tamamlandıkça `WASHED_READY` oluşur.
+- Ütü reçeteye göre `SEWN_READY`, `DYED_READY` veya `WASHED_READY` kuyruğunu tüketir.
 - Ütü tamamlandıkça `IRON_READY` oluşur.
 - Paket `IRON_READY` kuyruğunu tüketir.
 - Paket tamamlandıkça `SHIP_READY` oluşur.
@@ -89,9 +99,9 @@ Bu öncelikler planlama ana ekranı ve departman detay ekranında yönetilmelidi
 Örnek dikim kuyruğu önceliği:
 
 ```text
-1. Cameo - CUT_READY: 240 adet
+1. Cameo - PRINT_READY: 240 adet
 2. Manama - CUT_READY: 120 adet
-3. MDL-FW-7512 - CUT_READY: 80 adet
+3. MDL-FW-7512 - EMBROIDERY_READY: 80 adet
 ```
 
 Vardiya başladığında sistem bu sıralamaya göre otomatik tüketim yapar. Bir iş bittiğinde aynı ürün bir sonraki aşamanın kuyruğuna girer.
@@ -177,7 +187,10 @@ CUT_READY düşük:
 Kesim kapasitesi dikimi besleyemiyor.
 
 SEWN_READY yüksek:
-Ütü kapasitesi dikimden gelen işi eritmekte zorlanıyor.
+Boya / yıkama veya ütü kapasitesi dikimden gelen işi eritmekte zorlanıyor.
+
+DYED_READY / WASHED_READY yüksek:
+Ütü/Paket öncesinde terbiye sonrası iş birikiyor.
 
 IRON_READY yüksek:
 Paketleme yavaş kaldı; sevkiyata hazır ürün oluşumu gecikiyor.
@@ -241,7 +254,7 @@ Dikim Line 1 öncelik listesine göre Cameo tüketmeye başladı.
 ## MVP Kapsamı
 
 - Depoya giren kumaşın kesime hazır sayılması.
-- CUT_READY, SEWN_READY, IRON_READY, SHIP_READY kuyrukları.
+- CUT_READY, PRINT_READY, EMBROIDERY_READY, SEWN_READY, DYED_READY, WASHED_READY, IRON_READY, SHIP_READY kuyrukları.
 - Vardiya öncesi drag-drop öncelik sıralaması.
 - Kuyruk adet takibi.
 - Kuyruk gün karşılığı hesabı.

@@ -42,9 +42,11 @@ Orta bölüm:
 
 ```text
 Fabrika Haritası
-Department Zone'lar: Depo | Kesim | Dikim | Ütü/Paket | Sevkiyat | Baskı/Nakış varsa
+Department Zone'lar: Kumaş Üretim | Kumaş Depo | Kesim | Baskı/Nakış | Dikim | Boya/Yıkama | Ütü/Paket | Sevkiyat
 Line Slot'lar: Boş | Aktif | Yoğun | Riskli | Bakımda | Kilitli
 ```
+
+Kumaş Üretim ileri seviyede açılır. Baskı/Nakış ve Boya/Yıkama zone'ları ise reçetelerde bu operasyonlar görünmeye başladıkça veya oyuncu ilgili capability yatırımlarını açtıkça planlama ekranında aktifleşir.
 
 Alt veya yan bölüm:
 
@@ -114,7 +116,11 @@ Hücreler: Yoğunluk / risk rengi
 ```text
           Day 7  Day 8  Day 9  Day 10  Day 11
 Kesim     %90    %70    %40     %30     %25
+Baskı     %80    %65    %20     %0      %0
+Nakış     %0     %45    %70     %30     %0
 Dikim     %95    %98    %88     %60     %45
+Boya      %0     %0     %60     %90     %30
+Yıkama    %0     %0     %35     %70     %45
 Ütü       %40    %120   %135    %110    %70
 Paket     %30    %60    %90     %80     %55
 Sevkiyat  %20    %40    %70     %90     %80
