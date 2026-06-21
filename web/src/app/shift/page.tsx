@@ -13,6 +13,8 @@ import {
   Factory,
   Hammer,
   Hash,
+  Droplets,
+  Layers,
   LockKeyhole,
   MessageSquare,
   PackageCheck,
@@ -20,6 +22,7 @@ import {
   Plus,
   Scissors,
   Shirt,
+  Sparkles,
   Star,
   Tag,
   TrendingUp,
@@ -37,12 +40,27 @@ type DockPanel = "orders" | "tasks" | "warnings" | "actions" | "bottom" | null;
 
 type SlotStatus = "active" | "busy" | "idle" | "risk" | "locked";
 
+type ProductionGrade = "WORKSHOP" | "INDUSTRIAL" | "PRECISION" | "SMART";
+
+type MachineKey =
+  | "fabric"
+  | "warehouse"
+  | "cutting"
+  | "embroidery"
+  | "print"
+  | "sewing"
+  | "dyeing"
+  | "washing"
+  | "iron"
+  | "shipping";
+
 type FactorySlot = {
   id: string;
   name: string;
   code: string;
   status: SlotStatus;
   level: number;
+  machineKey: MachineKey;
   staff: string;
   dailyOutput: string;
   progress: number;
@@ -54,12 +72,19 @@ type DepartmentBlock = {
   title: string;
   icon: LucideIcon;
   tone: "blue" | "cyan" | "amber" | "red" | "violet" | "green";
-  machineImage: string;
+  machineOptions: MachineKey[];
+  defaultMachineKey: MachineKey;
   slotPrefix: string;
   slotLabel: string;
   queue: string;
   capacity: string;
   slots: FactorySlot[];
+};
+
+type AddSlotDraft = {
+  departmentId: string;
+  machineKey: MachineKey;
+  level: number;
 };
 
 type FloorProp = {
@@ -111,10 +136,10 @@ type IncomingOrder = {
 
 const SLOT_ROWS = 3;
 const SLOT_WIDTH = 147;
-const SLOT_GAP = 11;
-const DEPARTMENT_PADDING_X = 18;
+const SLOT_GAP = 7;
+const DEPARTMENT_PADDING_X = 14;
 const DEPARTMENT_MIN_WIDTH = 328;
-const DEPARTMENT_GAP = 72;
+const DEPARTMENT_GAP = 56;
 const CANVAS_PADDING_X = 96;
 const MAP_HEIGHT = 1120;
 const MAP_SCALE = 0.82;
@@ -133,6 +158,60 @@ const kpis = [
 
 const statusCycle: SlotStatus[] = ["active", "busy", "active", "idle", "busy", "risk"];
 
+const productionGradeOrder: ProductionGrade[] = ["WORKSHOP", "INDUSTRIAL", "PRECISION", "SMART"];
+
+const productionGradeByLevel: Record<number, ProductionGrade> = {
+  1: "WORKSHOP",
+  2: "INDUSTRIAL",
+  3: "PRECISION",
+  4: "SMART",
+};
+
+const productionGradeMeta: Record<
+  ProductionGrade,
+  {
+    label: string;
+    shortLabel: string;
+    trLabel: string;
+    readyLabel: string;
+    description: string;
+    glyph: string;
+  }
+> = {
+  WORKSHOP: {
+    label: "Workshop Grade",
+    shortLabel: "Workshop",
+    trLabel: "Atölye",
+    readyLabel: "Basic Uygun",
+    description: "Temel üretim hattı",
+    glyph: "W",
+  },
+  INDUSTRIAL: {
+    label: "Industrial Grade",
+    shortLabel: "Industrial",
+    trLabel: "Endüstriyel",
+    readyLabel: "Premium Uygun",
+    description: "Endüstriyel üretime geçiş",
+    glyph: "I",
+  },
+  PRECISION: {
+    label: "Precision Grade",
+    shortLabel: "Precision",
+    trLabel: "Hassas",
+    readyLabel: "Luxury Uygun",
+    description: "Luxury üretime uygun",
+    glyph: "P",
+  },
+  SMART: {
+    label: "Smart Grade",
+    shortLabel: "Smart",
+    trLabel: "Akıllı",
+    readyLabel: "Verimlilik Bonusu",
+    description: "Maksimum operasyon standardı",
+    glyph: "S",
+  },
+};
+
 const slotStatusMeta: Record<SlotStatus, { label: string }> = {
   active: { label: "Aktif" },
   busy: { label: "Dolu" },
@@ -141,71 +220,209 @@ const slotStatusMeta: Record<SlotStatus, { label: string }> = {
   locked: { label: "Kilitli" },
 };
 
+const machineCatalog: Record<MachineKey, { label: string; shortLabel: string; files: Record<number, string> }> = {
+  fabric: {
+    label: "Fabric Production",
+    shortLabel: "Fabric",
+    files: {
+      1: "/factory-machines/fabric_Level1.png",
+      2: "/factory-machines/fabric_Level2.png",
+      3: "/factory-machines/fabric_Level3.png",
+      4: "/factory-machines/fabric_Level4.png",
+    },
+  },
+  warehouse: {
+    label: "Warehouse",
+    shortLabel: "Warehouse",
+    files: {
+      1: "/factory-machines/warehouse_level1.png",
+      2: "/factory-machines/warehouse_level2.png",
+      3: "/factory-machines/warehouse_level3.png",
+      4: "/factory-machines/warehouse_level4.png",
+    },
+  },
+  cutting: {
+    label: "Cutting",
+    shortLabel: "Cutting",
+    files: {
+      1: "/factory-machines/cutting_level1.png",
+      2: "/factory-machines/cutting_level2.png",
+      3: "/factory-machines/cutting_level3.png",
+      4: "/factory-machines/cutting_level4.png",
+    },
+  },
+  embroidery: {
+    label: "Embroidery",
+    shortLabel: "Embroidery",
+    files: {
+      1: "/factory-machines/Embrodery_Level1.png",
+    },
+  },
+  print: {
+    label: "Printing",
+    shortLabel: "Print",
+    files: {
+      1: "/factory-machines/Print_level1.png",
+    },
+  },
+  sewing: {
+    label: "Sewing",
+    shortLabel: "Sewing",
+    files: {
+      1: "/factory-machines/sewing_level1.png",
+      2: "/factory-machines/sewing_level2.png",
+      3: "/factory-machines/sewing_level3.png",
+      4: "/factory-machines/sewing_level4.png",
+    },
+  },
+  dyeing: {
+    label: "Dyeing",
+    shortLabel: "Dye",
+    files: {
+      1: "/factory-machines/dying_level1.png",
+    },
+  },
+  washing: {
+    label: "Washing",
+    shortLabel: "Wash",
+    files: {
+      1: "/factory-machines/Washing_level1.png",
+    },
+  },
+  iron: {
+    label: "Iron & Packing",
+    shortLabel: "Iron",
+    files: {
+      1: "/factory-machines/Iron_level1.png",
+      2: "/factory-machines/Iron_level2.png",
+      3: "/factory-machines/Iron_level3.png",
+      4: "/factory-machines/Iron_level4.png",
+    },
+  },
+  shipping: {
+    label: "Shipping",
+    shortLabel: "Shipping",
+    files: {
+      1: "/factory-machines/Shipment_level1.png",
+      2: "/factory-machines/Shipment_level2.png",
+      3: "/factory-machines/Shipment_level3.png",
+      4: "/factory-machines/Shipment_level4.png",
+    },
+  },
+};
+
 const initialDepartments: DepartmentBlock[] = [
   {
-    id: "warehouse",
+    id: "fabric",
     step: "01",
-    title: "Depo",
+    title: "Fabric Production",
+    icon: Layers,
+    tone: "cyan",
+    machineOptions: ["fabric"],
+    defaultMachineKey: "fabric",
+    slotPrefix: "FAB",
+    slotLabel: "Fabric Line",
+    queue: "24 top kumaş planlandı",
+    capacity: "2 hat kurulu",
+    slots: createSlots("FAB", "Fabric Line", 2, ["fabric"]),
+  },
+  {
+    id: "warehouse",
+    step: "02",
+    title: "Warehouse",
     icon: Warehouse,
     tone: "blue",
-    machineImage: "/factory-machines/factory-depov2.png",
-    slotPrefix: "DEP",
-    slotLabel: "Depo Hat",
+    machineOptions: ["warehouse"],
+    defaultMachineKey: "warehouse",
+    slotPrefix: "WH",
+    slotLabel: "Warehouse Line",
     queue: "32 rulo hazır",
-    capacity: "3 hat kurulu",
-    slots: createSlots("DEP", "Depo Hat", 3),
+    capacity: "2 hat kurulu",
+    slots: createSlots("WH", "Warehouse Line", 2, ["warehouse"]),
   },
   {
     id: "cutting",
-    step: "02",
-    title: "Kesim",
+    step: "03",
+    title: "Cutting",
     icon: Scissors,
     tone: "amber",
-    machineImage: "/factory-machines/factory-kesimv2.png",
-    slotPrefix: "KES",
-    slotLabel: "Kesim Masa",
+    machineOptions: ["cutting"],
+    defaultMachineKey: "cutting",
+    slotPrefix: "CUT",
+    slotLabel: "Cutting Line",
     queue: "4.2 gün kuyruk",
-    capacity: "3 masa aktif",
-    slots: createSlots("KES", "Kesim Masa", 3),
+    capacity: "2 hat kurulu",
+    slots: createSlots("CUT", "Cutting Line", 2, ["cutting"]),
+  },
+  {
+    id: "pre-sewing",
+    step: "04",
+    title: "Pre-Sewing",
+    icon: Sparkles,
+    tone: "violet",
+    machineOptions: ["embroidery", "print"],
+    defaultMachineKey: "embroidery",
+    slotPrefix: "PRS",
+    slotLabel: "Pre-Sewing Line",
+    queue: "Nakış / baskı bekleyen işler",
+    capacity: "2 hat kurulu",
+    slots: createSlots("PRS", "Pre-Sewing Line", 2, ["embroidery", "print"]),
   },
   {
     id: "sewing",
-    step: "03",
-    title: "Dikim",
+    step: "05",
+    title: "Sewing",
     icon: Shirt,
     tone: "red",
-    machineImage: "/factory-machines/factory-dikimv2.png",
-    slotPrefix: "DIK",
-    slotLabel: "Dikim Hat",
+    machineOptions: ["sewing"],
+    defaultMachineKey: "sewing",
+    slotPrefix: "SEW",
+    slotLabel: "Sewing Line",
     queue: "1.1 gün kuyruk",
-    capacity: "3 hat kurulu",
-    slots: createSlots("DIK", "Dikim Hat", 3),
+    capacity: "2 hat kurulu",
+    slots: createSlots("SEW", "Sewing Line", 2, ["sewing"]),
+  },
+  {
+    id: "post-sewing",
+    step: "06",
+    title: "Post-Sewing",
+    icon: Droplets,
+    tone: "green",
+    machineOptions: ["dyeing", "washing"],
+    defaultMachineKey: "dyeing",
+    slotPrefix: "PST",
+    slotLabel: "Post-Sewing Line",
+    queue: "Boya / yıkama reçeteleri",
+    capacity: "2 hat kurulu",
+    slots: createSlots("PST", "Post-Sewing Line", 2, ["dyeing", "washing"]),
   },
   {
     id: "packing",
-    step: "04",
-    title: "Ütü / Paket",
+    step: "07",
+    title: "Iron & Packing",
     icon: PackageCheck,
     tone: "violet",
-    machineImage: "/factory-machines/factory-utupaketv2.png",
-    slotPrefix: "UTP",
-    slotLabel: "Ütü Paket",
+    machineOptions: ["iron"],
+    defaultMachineKey: "iron",
+    slotPrefix: "IRN",
+    slotLabel: "Iron Line",
     queue: "8.0 gün kuyruk",
-    capacity: "3 istasyon",
-    slots: createSlots("UTP", "Ütü Paket", 3),
+    capacity: "2 hat kurulu",
+    slots: createSlots("IRN", "Iron Line", 2, ["iron"]),
   },
   {
     id: "shipping",
-    step: "05",
-    title: "Sevkiyat",
+    step: "08",
+    title: "Shipping",
     icon: Truck,
     tone: "green",
-    machineImage: "/factory-machines/factory-sevkiyatv2.png",
-    slotPrefix: "SEV",
-    slotLabel: "Sevkiyat Kapı",
+    machineOptions: ["shipping"],
+    defaultMachineKey: "shipping",
+    slotPrefix: "SHP",
+    slotLabel: "Shipping Line",
     queue: "12.640 hazır",
-    capacity: "3 kapı açık",
-    slots: createSlots("SEV", "Sevkiyat Kapı", 3),
+    capacity: "2 hat kurulu",
+    slots: createSlots("SHP", "Shipping Line", 2, ["shipping"]),
   },
 ];
 
@@ -233,7 +450,7 @@ const incomingOrders: IncomingOrder[] = [
     unitPrice: "₺ 192,50",
     level: "Orta",
     customer: "MOIS",
-    route: "Kesim -> Baskı -> Dikim -> Ütü/Paket",
+    route: "Fabric -> Warehouse -> Cutting -> Printing -> Sewing -> Iron/Packing",
     status: "Teklif açık",
     initial: "M",
     cardCopy: ["Soft shapes.", "Clean tones.", "Factory ready."],
@@ -259,7 +476,7 @@ const incomingOrders: IncomingOrder[] = [
     unitPrice: "₺ 510,00",
     level: "Zor",
     customer: "Arte",
-    route: "Kesim -> Nakış -> Dikim -> Yıkama -> Ütü/Paket",
+    route: "Fabric -> Cutting -> Embroidery -> Sewing -> Washing -> Iron/Packing",
     status: "Risk kontrolü",
     initial: "A",
     cardCopy: ["Playful tones.", "Bright energy.", "Everyday fun."],
@@ -285,7 +502,7 @@ const incomingOrders: IncomingOrder[] = [
     unitPrice: "₺ 206,66",
     level: "Orta",
     customer: "Filo",
-    route: "Kesim -> Dikim -> Boya -> Ütü/Paket",
+    route: "Fabric -> Cutting -> Sewing -> Dyeing -> Iron/Packing",
     status: "Plan bekliyor",
     initial: "F",
     cardCopy: ["Warm color.", "Core season.", "Fast repeat."],
@@ -311,7 +528,7 @@ const incomingOrders: IncomingOrder[] = [
     unitPrice: "₺ 90,00",
     level: "Kolay",
     customer: "Rico",
-    route: "Kesim -> Dikim -> Ütü/Paket",
+    route: "Fabric -> Cutting -> Sewing -> Iron/Packing",
     status: "Uygun",
     initial: "R",
     cardCopy: ["Quiet base.", "Clean offer.", "Easy flow."],
@@ -343,26 +560,75 @@ const bottomItems = [
   { label: "Müşteriler", icon: MessageSquare },
 ];
 
-function createSlot(prefix: string, label: string, index: number, status: SlotStatus): FactorySlot {
+function getMachineLevels(machineKey: MachineKey) {
+  return Object.keys(machineCatalog[machineKey].files)
+    .map(Number)
+    .sort((first, second) => first - second);
+}
+
+function getMachineImage(machineKey: MachineKey, level: number) {
+  const levels = getMachineLevels(machineKey);
+  const fallbackLevel = levels
+    .filter((candidate) => candidate <= level)
+    .at(-1) ?? levels[0] ?? 1;
+
+  return machineCatalog[machineKey].files[level] ?? machineCatalog[machineKey].files[fallbackLevel];
+}
+
+function getProductionGrade(level: number): ProductionGrade {
+  return productionGradeByLevel[clamp(level, 1, 4)] ?? "WORKSHOP";
+}
+
+function getProductionGradeMeta(level: number) {
+  const grade = getProductionGrade(level);
+
+  return productionGradeMeta[grade];
+}
+
+function clampMachineLevel(machineKey: MachineKey, level: number) {
+  const levels = getMachineLevels(machineKey);
+  const exactLevel = levels.find((candidate) => candidate === level);
+
+  if (exactLevel) return exactLevel;
+
+  return levels.filter((candidate) => candidate <= level).at(-1) ?? levels[0] ?? 1;
+}
+
+function getNextMachineLevel(machineKey: MachineKey, currentLevel: number) {
+  return getMachineLevels(machineKey).find((level) => level > currentLevel) ?? null;
+}
+
+function createSlot(
+  prefix: string,
+  label: string,
+  index: number,
+  status: SlotStatus,
+  machineKey: MachineKey,
+  level = 1,
+): FactorySlot {
   const padded = String(index).padStart(2, "0");
   const progress = status === "idle" ? 24 : status === "risk" ? 62 : 74 + ((index * 7) % 22);
+  const machineLevel = clampMachineLevel(machineKey, level);
 
   return {
     id: `${prefix.toLowerCase()}-${padded}`,
     name: `${label} ${padded}`,
     code: `${prefix}-${padded}`,
     status,
-    level: 1 + (index % 5),
+    level: machineLevel,
+    machineKey,
     staff: `${Math.min(14, 6 + (index % 9))} / 14`,
     dailyOutput: `${840 + index * 42} adet`,
     progress,
   };
 }
 
-function createSlots(prefix: string, label: string, count: number) {
+function createSlots(prefix: string, label: string, count: number, machineKeys: MachineKey[]) {
   return Array.from({ length: count }, (_, index) => {
     const next = index + 1;
-    return createSlot(prefix, label, next, statusCycle[index % statusCycle.length]);
+    const machineKey = machineKeys[index % machineKeys.length] ?? machineKeys[0] ?? "warehouse";
+
+    return createSlot(prefix, label, next, statusCycle[index % statusCycle.length], machineKey);
   });
 }
 
@@ -414,6 +680,7 @@ export default function ShiftPage() {
   const [offset, setOffset] = useState<CameraOffset>({ x: 0, y: 0 });
   const [selectedSlotRef, setSelectedSlotRef] = useState<SelectedSlotRef | null>(null);
   const [selectedOrderId, setSelectedOrderId] = useState(incomingOrders[0]?.id ?? "");
+  const [addSlotDraft, setAddSlotDraft] = useState<AddSlotDraft | null>(null);
   const viewportRef = useRef<HTMLElement | null>(null);
   const suppressSlotClickRef = useRef(false);
   const dragState = useRef({ active: false, moved: false, startX: 0, startY: 0, originX: 0, originY: 0 });
@@ -434,6 +701,11 @@ export default function ShiftPage() {
     () => incomingOrders.find((order) => order.id === selectedOrderId) ?? null,
     [selectedOrderId],
   );
+  const addSlotDepartment = useMemo(() => {
+    if (!addSlotDraft) return null;
+
+    return departments.find((department) => department.id === addSlotDraft.departmentId) ?? null;
+  }, [addSlotDraft, departments]);
 
   const boundOffsetToViewport = useCallback(
     (nextOffset: CameraOffset, viewportRect?: DOMRect) => {
@@ -494,10 +766,25 @@ export default function ShiftPage() {
     }
   }, []);
 
-  const addSlot = (departmentId: string) => {
+  const openAddSlotModal = (departmentId: string) => {
+    const department = departments.find((candidate) => candidate.id === departmentId);
+    if (!department) return;
+
+    setSelectedSlotRef(null);
+    setActivePanel(null);
+    setAddSlotDraft({
+      departmentId,
+      machineKey: department.defaultMachineKey,
+      level: clampMachineLevel(department.defaultMachineKey, 1),
+    });
+  };
+
+  const confirmAddSlot = () => {
+    if (!addSlotDraft) return;
+
     setDepartments((current) =>
       current.map((department) => {
-        if (department.id !== departmentId) return department;
+        if (department.id !== addSlotDraft.departmentId) return department;
 
         const nextIndex = department.slots.length + 1;
         const nextSlot = createSlot(
@@ -505,6 +792,8 @@ export default function ShiftPage() {
           department.slotLabel,
           nextIndex,
           statusCycle[(nextIndex - 1) % statusCycle.length],
+          addSlotDraft.machineKey,
+          addSlotDraft.level,
         );
 
         return {
@@ -514,6 +803,8 @@ export default function ShiftPage() {
         };
       }),
     );
+
+    setAddSlotDraft(null);
   };
 
   const upgradeSlot = (departmentId: string, slotId: string) => {
@@ -525,12 +816,36 @@ export default function ShiftPage() {
           ...department,
           slots: department.slots.map((slot) => {
             if (slot.id !== slotId) return slot;
+            const nextLevel = getNextMachineLevel(slot.machineKey, slot.level);
+
+            if (!nextLevel) return slot;
 
             return {
               ...slot,
-              level: slot.level + 1,
+              level: nextLevel,
               progress: Math.min(100, slot.progress + 7),
               status: slot.status === "locked" ? "idle" : slot.status,
+            };
+          }),
+        };
+      }),
+    );
+  };
+
+  const changeSlotMachine = (departmentId: string, slotId: string, machineKey: MachineKey) => {
+    setDepartments((current) =>
+      current.map((department) => {
+        if (department.id !== departmentId) return department;
+
+        return {
+          ...department,
+          slots: department.slots.map((slot) => {
+            if (slot.id !== slotId) return slot;
+
+            return {
+              ...slot,
+              machineKey,
+              level: clampMachineLevel(machineKey, slot.level),
             };
           }),
         };
@@ -631,7 +946,7 @@ export default function ShiftPage() {
               <div className="factory-production-stage" key={department.id}>
                 <DepartmentBlockView
                   department={department}
-                  onAddSlot={addSlot}
+                  onAddSlot={openAddSlotModal}
                   onSelectSlot={selectSlot}
                   selectedSlotId={selectedSlotRef?.departmentId === department.id ? selectedSlotRef.slotId : null}
                 />
@@ -640,6 +955,7 @@ export default function ShiftPage() {
             ))}
           </div>
         </div>
+        <ProductionGradeGuide />
       </section>
 
       <SideDock side="left" activePanel={activePanel} onOpen={openPanel} />
@@ -658,8 +974,29 @@ export default function ShiftPage() {
       />
       <SlotDetailPanel
         details={selectedSlotDetails}
+        onChangeMachine={changeSlotMachine}
         onClose={() => setSelectedSlotRef(null)}
         onUpgrade={upgradeSlot}
+      />
+      <AddSlotModal
+        department={addSlotDepartment}
+        draft={addSlotDraft}
+        onClose={() => setAddSlotDraft(null)}
+        onConfirm={confirmAddSlot}
+        onLevelChange={(level) => {
+          setAddSlotDraft((current) => current ? { ...current, level } : current);
+        }}
+        onMachineChange={(machineKey) => {
+          setAddSlotDraft((current) =>
+            current
+              ? {
+                  ...current,
+                  machineKey,
+                  level: clampMachineLevel(machineKey, current.level),
+                }
+              : current,
+          );
+        }}
       />
     </main>
   );
@@ -682,6 +1019,65 @@ function FactoryFloorDetails() {
         />
       ))}
     </div>
+  );
+}
+
+function ProductionGradeBadge({
+  className = "",
+  grade,
+  showLabel = false,
+  size = "sm",
+}: {
+  className?: string;
+  grade: ProductionGrade;
+  showLabel?: boolean;
+  size?: "xs" | "sm" | "lg" | "guide";
+}) {
+  const meta = productionGradeMeta[grade];
+
+  return (
+    <span
+      aria-label={`${meta.label}: ${meta.readyLabel}`}
+      className={`production-grade-badge ${size} ${grade.toLowerCase()} ${className}`.trim()}
+      title={`${meta.trLabel} Standardı · ${meta.readyLabel}`}
+    >
+      <svg aria-hidden="true" focusable="false" viewBox="0 0 64 64">
+        <path className="grade-badge-shadow" d="M32 5.5 55 18.8v26.4L32 58.5 9 45.2V18.8L32 5.5Z" />
+        <path className="grade-badge-outer" d="M32 7.5 53.2 19.7v24.6L32 56.5 10.8 44.3V19.7L32 7.5Z" />
+        <path className="grade-badge-inner" d="M32 13.2 47.9 22.3v19.4L32 50.8 16.1 41.7V22.3L32 13.2Z" />
+        <path className="grade-badge-glint" d="M19.3 23.8 32 16.5l12.9 7.4" />
+        <text className="grade-badge-letter" dominantBaseline="central" textAnchor="middle" x="32" y="34">
+          {meta.glyph}
+        </text>
+      </svg>
+      {showLabel ? (
+        <span className="production-grade-copy">
+          <strong>{meta.shortLabel}</strong>
+          <small>{meta.readyLabel}</small>
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function ProductionGradeGuide() {
+  return (
+    <aside className="production-grade-guide" aria-label="Üretim standardı rehberi">
+      <h3>Üretim Standardı Rehberi</h3>
+      <div>
+        {productionGradeOrder.map((grade) => {
+          const meta = productionGradeMeta[grade];
+
+          return (
+            <div className="production-grade-guide-item" key={grade}>
+              <ProductionGradeBadge grade={grade} size="guide" />
+              <strong>{meta.shortLabel}</strong>
+              <span>{meta.description}</span>
+            </div>
+          );
+        })}
+      </div>
+    </aside>
   );
 }
 
@@ -729,7 +1125,6 @@ function DepartmentBlockView({
           <FactorySlotCard
             isSelected={selectedSlotId === slot.id}
             key={slot.id}
-            machineImage={department.machineImage}
             onSelect={() => onSelectSlot(department.id, slot.id)}
             slot={slot}
           />
@@ -751,16 +1146,17 @@ function DepartmentBlockView({
 
 function FactorySlotCard({
   isSelected,
-  machineImage,
   onSelect,
   slot,
 }: {
   isSelected: boolean;
-  machineImage: string;
   onSelect: () => void;
   slot: FactorySlot;
 }) {
   const status = slotStatusMeta[slot.status];
+  const machine = machineCatalog[slot.machineKey];
+  const machineImage = getMachineImage(slot.machineKey, slot.level);
+  const grade = getProductionGrade(slot.level);
 
   return (
     <article
@@ -799,17 +1195,21 @@ function FactorySlotCard({
 
       <div className="factory-slot-code">
         <strong>{slot.code}</strong>
+        <span>{machine.shortLabel}</span>
       </div>
+      <ProductionGradeBadge className="factory-slot-grade-badge" grade={grade} size="xs" />
     </article>
   );
 }
 
 function SlotDetailPanel({
   details,
+  onChangeMachine,
   onClose,
   onUpgrade,
 }: {
   details: { department: DepartmentBlock; slot: FactorySlot } | null;
+  onChangeMachine: (departmentId: string, slotId: string, machineKey: MachineKey) => void;
   onClose: () => void;
   onUpgrade: (departmentId: string, slotId: string) => void;
 }) {
@@ -817,6 +1217,12 @@ function SlotDetailPanel({
 
   const { department, slot } = details;
   const status = slotStatusMeta[slot.status];
+  const machine = machineCatalog[slot.machineKey];
+  const machineImage = getMachineImage(slot.machineKey, slot.level);
+  const nextLevel = getNextMachineLevel(slot.machineKey, slot.level);
+  const grade = getProductionGrade(slot.level);
+  const gradeMeta = productionGradeMeta[grade];
+  const canChangeMachine = department.machineOptions.length > 1;
 
   return (
     <aside className={`slot-detail-panel ${slot.status}`} onPointerDown={(event) => event.stopPropagation()}>
@@ -842,7 +1248,7 @@ function SlotDetailPanel({
               draggable={false}
               fill
               sizes="192px"
-              src={department.machineImage}
+              src={machineImage}
             />
           )}
         </div>
@@ -852,11 +1258,26 @@ function SlotDetailPanel({
             {status.label}
           </div>
           <strong>{slot.code}</strong>
-          <span>Level {slot.level}</span>
+          <span>{machine.label}</span>
+          <div className="slot-detail-grade-summary">
+            <ProductionGradeBadge grade={grade} showLabel size="sm" />
+          </div>
         </div>
       </div>
 
       <dl className="slot-detail-grid">
+        <div>
+          <dt>Hat Tipi</dt>
+          <dd>{machine.label}</dd>
+        </div>
+        <div>
+          <dt>Üretim Standardı</dt>
+          <dd>{gradeMeta.trLabel}</dd>
+        </div>
+        <div>
+          <dt>Ürün Uygunluğu</dt>
+          <dd>{gradeMeta.readyLabel}</dd>
+        </div>
         <div>
           <dt>Çalışan</dt>
           <dd>{slot.staff}</dd>
@@ -875,6 +1296,24 @@ function SlotDetailPanel({
         </div>
       </dl>
 
+      {canChangeMachine ? (
+        <div className="slot-machine-choices">
+          <span>Hat Görseli</span>
+          <div>
+            {department.machineOptions.map((machineKey) => (
+              <button
+                className={slot.machineKey === machineKey ? "is-selected" : ""}
+                key={machineKey}
+                onClick={() => onChangeMachine(department.id, slot.id, machineKey)}
+                type="button"
+              >
+                {machineCatalog[machineKey].label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="slot-detail-meter">
         <div>
           <span>Kapasite Kullanımı</span>
@@ -886,9 +1325,14 @@ function SlotDetailPanel({
       </div>
 
       <div className="slot-detail-actions">
-        <button className="slot-detail-button primary" onClick={() => onUpgrade(department.id, slot.id)} type="button">
+        <button
+          className="slot-detail-button primary"
+          disabled={!nextLevel}
+          onClick={() => onUpgrade(department.id, slot.id)}
+          type="button"
+        >
           <Hammer size={18} />
-          Upgrade
+          {nextLevel ? `Standardı Yükselt: ${getProductionGradeMeta(nextLevel).shortLabel}` : "Maks Standard"}
         </button>
         <button className="slot-detail-button" type="button">
           <ClipboardList size={18} />
@@ -900,6 +1344,116 @@ function SlotDetailPanel({
         </button>
       </div>
     </aside>
+  );
+}
+
+function AddSlotModal({
+  department,
+  draft,
+  onClose,
+  onConfirm,
+  onLevelChange,
+  onMachineChange,
+}: {
+  department: DepartmentBlock | null;
+  draft: AddSlotDraft | null;
+  onClose: () => void;
+  onConfirm: () => void;
+  onLevelChange: (level: number) => void;
+  onMachineChange: (machineKey: MachineKey) => void;
+}) {
+  if (!department || !draft) return null;
+
+  const machine = machineCatalog[draft.machineKey];
+  const machineImage = getMachineImage(draft.machineKey, draft.level);
+  const levels = getMachineLevels(draft.machineKey);
+  const draftGrade = getProductionGrade(draft.level);
+  const draftGradeMeta = productionGradeMeta[draftGrade];
+
+  return (
+    <div className="slot-investment-backdrop" onPointerDown={onClose}>
+      <section
+        aria-modal="true"
+        className="slot-investment-modal"
+        onPointerDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <header className="slot-investment-header">
+          <div>
+            <p>Yeni Hat Yatırımı</p>
+            <h2>{department.title}</h2>
+          </div>
+          <button aria-label="Yeni hat modalını kapat" className="slot-detail-close" onClick={onClose} type="button">
+            <X size={18} />
+          </button>
+        </header>
+
+        <div className="slot-investment-preview">
+          <div className="slot-investment-visual">
+            <Image
+              alt=""
+              aria-hidden="true"
+              className="factory-machine-image"
+              draggable={false}
+              fill
+              sizes="220px"
+              src={machineImage}
+            />
+          </div>
+          <div>
+            <span>{machine.label}</span>
+            <strong>{draftGradeMeta.trLabel} Standardı</strong>
+            <small>{draftGradeMeta.readyLabel}</small>
+            <small>{department.slots.length + 1}. hat kurulacak</small>
+          </div>
+        </div>
+
+        {department.machineOptions.length > 1 ? (
+          <div className="slot-investment-group">
+            <span>Hat Tipi</span>
+            <div className="slot-investment-options">
+              {department.machineOptions.map((machineKey) => (
+                <button
+                  className={draft.machineKey === machineKey ? "is-selected" : ""}
+                  key={machineKey}
+                  onClick={() => onMachineChange(machineKey)}
+                  type="button"
+                >
+                  {machineCatalog[machineKey].label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="slot-investment-group">
+          <span>Üretim Standardı</span>
+          <div className="slot-investment-levels">
+            {levels.map((level) => (
+              <button
+                className={draft.level === level ? "is-selected" : ""}
+                key={level}
+                onClick={() => onLevelChange(level)}
+                type="button"
+              >
+                <ProductionGradeBadge grade={getProductionGrade(level)} size="xs" />
+                <span>{getProductionGradeMeta(level).shortLabel}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <footer className="slot-investment-actions">
+          <button className="slot-detail-button" onClick={onClose} type="button">
+            Vazgeç
+          </button>
+          <button className="slot-detail-button primary" onClick={onConfirm} type="button">
+            <Plus size={18} />
+            Hattı Kur
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
