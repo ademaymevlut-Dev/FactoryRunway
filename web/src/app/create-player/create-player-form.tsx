@@ -49,7 +49,7 @@ export function CreatePlayerForm() {
       />
 
       {state.message ? (
-        <p className="rounded-[8px] border border-[var(--fr-red)]/35 bg-[var(--fr-red-soft)] px-3 py-2 text-sm text-[var(--fr-soft)]">
+        <p className="rounded-lg border border-destructive bg-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
           {state.message}
         </p>
       ) : null}
@@ -76,7 +76,7 @@ function FormField({
 }) {
   return (
     <label className="block space-y-2">
-      <span className="text-sm font-medium text-[var(--fr-soft)]">{label}</span>
+      <span className="text-sm font-medium text-secondary-foreground">{label}</span>
       <div className="game-input-wrap">
         {icon}
         <input
@@ -87,7 +87,7 @@ function FormField({
           type={type}
         />
       </div>
-      {error ? <span className="block text-xs font-semibold text-[var(--fr-red)]">{error}</span> : null}
+      {error ? <span className="block text-xs font-semibold text-red-400">{error}</span> : null}
     </label>
   );
 }

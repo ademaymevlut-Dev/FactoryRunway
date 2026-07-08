@@ -6,7 +6,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { clearSession, createSession } from "@/lib/auth/session";
 import type { CreateUserField, CreateUserState } from "@/lib/auth/create-user-state";
-import { prisma } from "@/lib/db";
+import { getPrisma } from "@/lib/db";
 
 const ADMIN_ROLES = new Set<string>([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]);
 
@@ -41,6 +41,7 @@ function validateBaseUser(formData: FormData) {
 }
 
 async function isEmailTaken(email: string) {
+  const prisma = getPrisma();
   const existingUser = await prisma.user.findUnique({
     where: { email },
     select: { id: true },
@@ -77,6 +78,7 @@ export async function createPlayerAction(
   }
 
   const passwordHash = await hashPassword(data.password);
+  const prisma = getPrisma();
 
   const user = await prisma.user.create({
     data: {
@@ -129,6 +131,7 @@ export async function createAdminAction(
   }
 
   const passwordHash = await hashPassword(data.password);
+  const prisma = getPrisma();
 
   const user = await prisma.user.create({
     data: {
@@ -176,6 +179,7 @@ export async function loginAction(
     };
   }
 
+  const prisma = getPrisma();
   const user = await prisma.user.findUnique({
     where: { email },
     select: {

@@ -14,6 +14,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import { NativeSelect } from "@/components/ui/native-select";
 import { initialCreateUserState, type CreateUserState } from "@/lib/auth/create-user-state";
 import { USER_ROLES } from "@/lib/auth/roles";
 
@@ -157,12 +158,12 @@ function FormField({
 }) {
   return (
     <label className="block space-y-2">
-      <span className="text-sm font-medium text-[var(--fr-soft)]">{label}</span>
+      <span className="text-sm font-medium text-secondary-foreground">{label}</span>
       <div className="game-input-wrap">
         {icon}
         <input className="game-input" name={name} placeholder={placeholder} required type={type} />
       </div>
-      {error ? <span className="block text-xs font-semibold text-[var(--fr-red)]">{error}</span> : null}
+      {error ? <span className="block text-xs font-semibold text-red-400">{error}</span> : null}
     </label>
   );
 }
@@ -170,15 +171,15 @@ function FormField({
 function RoleSelect({ error }: { error?: string }) {
   return (
     <label className="block space-y-2">
-      <span className="text-sm font-medium text-[var(--fr-soft)]">Rol</span>
-      <div className="game-input-wrap">
-        <KeyRound size={18} />
-        <select className="game-input" defaultValue={USER_ROLES.ADMIN} name="role">
+      <span className="text-sm font-medium text-secondary-foreground">Rol</span>
+      <div className="relative">
+        <KeyRound className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-primary" size={18} />
+        <NativeSelect className="pl-10" defaultValue={USER_ROLES.ADMIN} name="role">
           <option value={USER_ROLES.ADMIN}>Admin</option>
           <option value={USER_ROLES.SUPER_ADMIN}>Super Admin</option>
-        </select>
+        </NativeSelect>
       </div>
-      {error ? <span className="block text-xs font-semibold text-[var(--fr-red)]">{error}</span> : null}
+      {error ? <span className="block text-xs font-semibold text-red-400">{error}</span> : null}
     </label>
   );
 }
@@ -189,7 +190,7 @@ function FormMessage({ state }: { state: CreateUserState }) {
   }
 
   return (
-    <p className="rounded-[8px] border border-[var(--fr-red)]/35 bg-[var(--fr-red-soft)] px-3 py-2 text-sm text-[var(--fr-soft)]">
+    <p className="rounded-lg border border-destructive bg-destructive/20 px-3 py-2 text-sm text-destructive-foreground">
       {state.message}
     </p>
   );

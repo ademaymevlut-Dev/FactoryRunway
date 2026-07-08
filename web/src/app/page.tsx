@@ -54,7 +54,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>("login");
 
   return (
-    <main className="min-h-screen overflow-hidden bg-[var(--fr-bg)] text-[var(--fr-cream)]">
+    <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="factory-backdrop" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="game-topbar">
@@ -63,10 +63,10 @@ export default function Home() {
               <Factory size={22} />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--fr-cyan)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
                 Factory Runway
               </p>
-              <h1 className="truncate text-xl font-semibold text-[var(--fr-cream)] sm:text-2xl">
+              <h1 className="truncate text-xl font-semibold text-foreground sm:text-2xl">
                 Textile Command UI Lab
               </h1>
             </div>
@@ -103,10 +103,10 @@ function LoginPanel() {
           Dark navy game interface
         </div>
         <div className="max-w-2xl space-y-4">
-          <h2 className="text-4xl font-semibold leading-tight text-[var(--fr-cream)] sm:text-6xl">
+          <h2 className="text-4xl font-semibold leading-tight text-foreground sm:text-6xl">
             Atölyeni planla, vardiyayı başlat, rapordan öğren.
           </h2>
-          <p className="max-w-xl text-base leading-7 text-[var(--fr-muted)] sm:text-lg">
+          <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
             Bu ekran artık ilk kullanıcı oluşturma akışını da test ediyor. Player ve Admin hesapları normal form ile açılır, şifreler hashlenir.
           </p>
         </div>
@@ -121,7 +121,7 @@ function LoginPanel() {
       <div className="game-card mx-auto w-full max-w-md p-5 sm:p-6">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <p className="text-sm text-[var(--fr-muted)]">Factory account</p>
+            <p className="text-sm text-muted-foreground">Factory account</p>
             <h3 className="text-2xl font-semibold">Kullanıcı Oluştur</h3>
           </div>
           <div className="game-icon-button">
@@ -131,10 +131,10 @@ function LoginPanel() {
 
         <AccountCreateTabs />
 
-        <div className="mt-5 rounded-[8px] border border-[var(--fr-border)] bg-white/[0.03] p-4">
+        <div className="mt-5 rounded-lg border border-border bg-card p-4 text-card-foreground">
           <div className="flex items-start gap-3">
-            <div className="status-dot bg-[var(--fr-green)]" />
-            <p className="text-sm leading-6 text-[var(--fr-muted)]">
+            <div className="status-dot bg-primary" />
+            <p className="text-sm leading-6 text-muted-foreground">
               Login/session bir sonraki adım. Bu aşamada kullanıcı kayıtlarının veritabanına doğru yazılmasını netleştiriyoruz.
             </p>
           </div>
@@ -151,7 +151,7 @@ function UiPreparationPanel() {
         <div className="game-card p-5">
           <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--fr-cyan)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
                 UI Hazırlık
               </p>
               <h2 className="mt-1 text-2xl font-semibold">Factory Runway Component Board</h2>
@@ -183,7 +183,7 @@ function UiPreparationPanel() {
                         {department.status}
                       </Badge>
                     </div>
-                    <p className="mt-1 text-sm text-[var(--fr-muted)]">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Kuyruk güvenliği: {department.queue}
                     </p>
                   </div>
@@ -206,8 +206,8 @@ function UiPreparationPanel() {
 
         <div className="game-card p-5">
           <SectionTitle icon={<CalendarDays size={18} />} title="Sipariş Tablosu" />
-          <div className="mt-4 overflow-hidden rounded-[8px] border border-[var(--fr-border)]">
-            <div className="grid grid-cols-[1fr_0.9fr_0.8fr_0.65fr] bg-white/[0.04] px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fr-muted)]">
+          <div className="mt-4 overflow-hidden rounded-lg border border-border bg-card text-card-foreground">
+            <div className="grid grid-cols-[1fr_0.9fr_0.8fr_0.65fr] bg-muted px-4 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               <span>Ürün</span>
               <span>Katman</span>
               <span>Kalan</span>
@@ -215,14 +215,14 @@ function UiPreparationPanel() {
             </div>
             {orders.map((order) => (
               <div
-                className="grid grid-cols-[1fr_0.9fr_0.8fr_0.65fr] items-center border-t border-[var(--fr-border)] px-4 py-3 text-sm"
+                className="grid grid-cols-[1fr_0.9fr_0.8fr_0.65fr] items-center border-t border-border px-4 py-3 text-sm"
                 key={order.code}
               >
                 <div className="min-w-0">
                   <p className="font-semibold">{order.product}</p>
-                  <p className="text-xs text-[var(--fr-muted)]">{order.code}</p>
+                  <p className="text-xs text-muted-foreground">{order.code}</p>
                 </div>
-                <span className="text-[var(--fr-soft)]">{order.tier}</span>
+                <span className="text-secondary-foreground">{order.tier}</span>
                 <span>{order.qty}</span>
                 <Badge tone={order.risk === "Riskli" ? "red" : order.risk === "Orta" ? "amber" : "green"}>
                   {order.risk}
@@ -273,9 +273,9 @@ function UiPreparationPanel() {
           <div className="mt-4 space-y-3">
             {feed.map((item) => (
               <div className="feed-row" key={`${item.time}-${item.text}`}>
-                <span className="w-12 text-xs font-semibold text-[var(--fr-muted)]">{item.time}</span>
+                <span className="w-12 text-xs font-semibold text-muted-foreground">{item.time}</span>
                 <span className={`feed-dot ${item.tone}`} />
-                <p className="text-sm text-[var(--fr-soft)]">{item.text}</p>
+                <p className="text-sm text-secondary-foreground">{item.text}</p>
               </div>
             ))}
           </div>
@@ -283,9 +283,9 @@ function UiPreparationPanel() {
 
         <div className="game-card p-5">
           <SectionTitle icon={<CheckCircle2 size={18} />} title="Tavsiye Kartı" />
-          <div className="mt-4 rounded-[8px] border border-[var(--fr-amber-border)] bg-[var(--fr-amber-soft)] p-4">
-            <p className="text-sm font-semibold text-[var(--fr-amber)]">Yatırım önerisi</p>
-            <p className="mt-2 text-sm leading-6 text-[var(--fr-soft)]">
+          <div className="mt-4 rounded-lg border border-primary/30 bg-primary/10 p-4">
+            <p className="text-sm font-semibold text-primary">Yatırım önerisi</p>
+            <p className="mt-2 text-sm leading-6 text-secondary-foreground">
               Paketleme önünde 7 günlük ürün birikti. Paketleme kapasitesini artırmak nakit akışını hızlandırabilir.
             </p>
             <button className="mt-4 game-button-amber" type="button">
@@ -301,7 +301,7 @@ function UiPreparationPanel() {
 
 function SectionTitle({ icon, title }: { icon: ReactNode; title: string }) {
   return (
-    <div className="flex items-center gap-2 text-[var(--fr-cream)]">
+    <div className="flex items-center gap-2 text-foreground">
       <div className="section-icon">{icon}</div>
       <h3 className="font-semibold">{title}</h3>
     </div>
@@ -325,7 +325,7 @@ function MetricCard({
         <span className="metric-icon">{icon}</span>
         <span className="text-right text-2xl font-semibold">{value}</span>
       </div>
-      <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fr-muted)]">{label}</p>
+      <p className="mt-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
     </div>
   );
 }
@@ -337,7 +337,7 @@ function Badge({ children, tone }: { children: ReactNode; tone: "cyan" | "green"
 function Progress({ value }: { value: number }) {
   return (
     <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
-      <div className="h-full rounded-full bg-[linear-gradient(90deg,var(--fr-cyan),var(--fr-green))]" style={{ width: `${value}%` }} />
+      <div className="h-full rounded-full bg-primary" style={{ width: `${value}%` }} />
     </div>
   );
 }
@@ -347,7 +347,7 @@ function AlertRow({ tone, title, text }: { tone: "success" | "warning" | "danger
     <div className={`alert-row ${tone}`}>
       <div className="min-w-0">
         <p className="text-sm font-semibold">{title}</p>
-        <p className="mt-1 text-sm text-[var(--fr-muted)]">{text}</p>
+        <p className="mt-1 text-sm text-muted-foreground">{text}</p>
       </div>
     </div>
   );

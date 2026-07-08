@@ -2,7 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 
 import { cookies } from "next/headers";
 
-import { prisma } from "@/lib/db";
+import { getPrisma } from "@/lib/db";
 
 export const SESSION_COOKIE_NAME = "factory_runway_session";
 
@@ -13,6 +13,7 @@ function hashSessionToken(token: string) {
 }
 
 export async function createSession(userId: string) {
+  const prisma = getPrisma();
   const token = randomBytes(32).toString("base64url");
   const tokenHash = hashSessionToken(token);
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);
@@ -36,6 +37,7 @@ export async function createSession(userId: string) {
 }
 
 export async function clearSession() {
+  const prisma = getPrisma();
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 
@@ -51,6 +53,7 @@ export async function clearSession() {
 }
 
 export async function getCurrentUser() {
+  const prisma = getPrisma();
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE_NAME)?.value;
 

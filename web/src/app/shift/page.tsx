@@ -269,10 +269,10 @@ const machineCatalog: Record<MachineKey, { label: string; shortLabel: string; fi
     label: "Sewing",
     shortLabel: "Sewing",
     files: {
-      1: "/factory-machines/sewing_level1.png",
-      2: "/factory-machines/sewing_level2.png",
-      3: "/factory-machines/sewing_level3.png",
-      4: "/factory-machines/sewing_level4.png",
+      1: "/factory-machines/Sewing_workshop.png",
+      2: "/factory-machines/Sewing_Industrial.png",
+      3: "/factory-machines/Sewing_precision.png",
+      4: "/factory-machines/Sewing_smart.png",
     },
   },
   dyeing: {

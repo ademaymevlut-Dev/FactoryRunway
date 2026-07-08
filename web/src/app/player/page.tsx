@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { USER_ROLES } from "@/lib/auth/roles";
+import { getPrisma } from "@/lib/db";
 
 import { logoutAction } from "../user-actions";
 
@@ -19,8 +20,21 @@ export default async function PlayerDashboardPage() {
     redirect("/admin");
   }
 
+  const playerProfile = await getPrisma().playerProfile.findUnique({
+    where: { userId: user.id },
+    select: {
+      _count: {
+        select: { factories: true },
+      },
+    },
+  });
+
+  if (!playerProfile || playerProfile._count.factories === 0) {
+    redirect("/onboarding");
+  }
+
   return (
-    <main className="min-h-screen overflow-hidden bg-[var(--fr-bg)] text-[var(--fr-cream)]">
+    <main className="min-h-screen overflow-hidden bg-background text-foreground">
       <div className="factory-backdrop" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="game-topbar">
@@ -29,7 +43,7 @@ export default async function PlayerDashboardPage() {
               <UserRound size={22} />
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--fr-cyan)]">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
                 Player Dashboard
               </p>
               <h1 className="text-xl font-semibold sm:text-2xl">Factory Runway</h1>
@@ -58,7 +72,7 @@ export default async function PlayerDashboardPage() {
             <h2 className="max-w-2xl text-4xl font-semibold leading-tight sm:text-6xl">
               Hoş geldin, {user.name ?? user.email}.
             </h2>
-            <p className="max-w-xl text-base leading-7 text-[var(--fr-muted)] sm:text-lg">
+            <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
               Session aktif. Bir sonraki adımda bu ekranı oyuncunun gerçek fabrika verileriyle dolduracağız.
             </p>
           </div>
@@ -86,7 +100,7 @@ function MetricPreview({
   return (
     <div className="game-card p-5">
       <div className="metric-icon">{icon}</div>
-      <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--fr-muted)]">{label}</p>
+      <p className="mt-5 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</p>
       <p className="mt-2 text-2xl font-semibold">{value}</p>
     </div>
   );
