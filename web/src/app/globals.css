@@ -781,15 +781,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.45rem;
-    min-height: 2.35rem;
+    width: 2.55rem;
+    height: 2.55rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: 999px;
     background: var(--secondary);
     color: var(--secondary-foreground);
-    padding: 0 0.8rem;
-    font-size: 0.82rem;
-    font-weight: 800;
+    padding: 0;
     transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
   }
 
@@ -847,7 +845,8 @@
     gap: 1rem;
   }
 
-  .onboarding-setup-panel h2 {
+  .onboarding-setup-panel h2,
+  .onboarding-setup-title {
     color: var(--card-foreground);
     font-size: clamp(2rem, 4.5vw, 4.25rem);
     font-weight: 850;
@@ -868,6 +867,19 @@
     color: var(--card-foreground);
     font-size: 1.15rem;
     font-weight: 800;
+  }
+
+  .onboarding-side-title {
+    color: var(--card-foreground);
+    font-size: 1.15rem;
+    font-weight: 800;
+    line-height: 1.1;
+  }
+
+  .onboarding-split-copy {
+    display: block !important;
+    color: var(--muted-foreground);
+    line-height: 1.75;
   }
 
   .onboarding-metric-row,
@@ -944,31 +956,87 @@
 
   .onboarding-currency-toggle {
     display: inline-grid;
-    grid-template-columns: repeat(2, minmax(0, 7rem));
-    gap: 0.45rem;
+    grid-template-columns: repeat(2, minmax(0, 9.5rem));
+    gap: 0.7rem;
   }
 
-  .onboarding-currency-toggle button {
-    min-height: 2.7rem;
+  .onboarding-currency-card {
+    display: grid;
+    min-height: 6.7rem;
+    align-content: center;
+    justify-items: start;
+    gap: 0.25rem;
     border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    background: var(--secondary);
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 48%),
+      var(--secondary);
     color: var(--secondary-foreground);
-    font-weight: 900;
+    padding: 0.85rem;
+    text-align: left;
+    transition: border-color 170ms ease, box-shadow 170ms ease, transform 120ms ease, background 170ms ease;
   }
 
-  .onboarding-currency-toggle button.is-active {
-    border-color: var(--primary);
-    background: color-mix(in srgb, var(--primary) 24%, var(--secondary));
+  .onboarding-currency-card:hover {
+    border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
+  }
+
+  .onboarding-currency-card:active {
+    transform: scale(0.97);
+  }
+
+  .onboarding-currency-symbol {
+    color: color-mix(in srgb, var(--primary) 78%, white);
+    font-size: 2rem;
+    font-weight: 900;
+    line-height: 1;
+    text-shadow: 0 0 18px color-mix(in srgb, var(--primary) 46%, transparent);
+  }
+
+  .onboarding-currency-card span {
+    color: var(--muted-foreground);
+    font-size: 0.82rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+  }
+
+  .onboarding-currency-card.is-active {
+    border-color: color-mix(in srgb, var(--primary) 82%, white);
+    background:
+      radial-gradient(circle at 72% 28%, color-mix(in srgb, var(--primary) 20%, transparent), transparent 42%),
+      linear-gradient(145deg, color-mix(in srgb, var(--primary) 20%, var(--card)), var(--card));
     color: var(--card-foreground);
-    box-shadow: inset 0 0 22px color-mix(in srgb, var(--primary) 18%, transparent);
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--primary) 28%, transparent),
+      inset 0 0 32px color-mix(in srgb, var(--primary) 16%, transparent),
+      0 0 26px color-mix(in srgb, var(--primary) 14%, transparent);
   }
 
   .onboarding-action-row {
     display: flex;
     flex-wrap: wrap;
+    align-items: center;
     gap: 0.65rem;
     margin-top: auto;
+  }
+
+  .onboarding-step-back-button {
+    display: inline-flex;
+    width: 2.55rem;
+    height: 2.55rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0;
+  }
+
+  .onboarding-cta-motion {
+    animation: onboarding-cta-nudge 2.2s ease-in-out infinite;
+  }
+
+  .onboarding-cta-motion svg {
+    animation: onboarding-cta-arrow 1.45s ease-in-out infinite;
   }
 
   .onboarding-error {
@@ -989,6 +1057,25 @@
     border-radius: var(--radius-lg);
     background: #091421;
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.035), var(--shadow-md);
+  }
+
+  .onboarding-lines-heading {
+    display: grid;
+    max-width: 42rem;
+    gap: 0.45rem;
+    margin-bottom: 1rem;
+  }
+
+  .onboarding-lines-heading h2 {
+    color: white;
+    font-size: clamp(1.55rem, 2.8vw, 2.45rem);
+    font-weight: 850;
+    line-height: 1.05;
+  }
+
+  .onboarding-lines-description {
+    color: rgba(255, 255, 255, 0.68);
+    line-height: 1.65;
   }
 
   .onboarding-floor-card {
@@ -1024,6 +1111,27 @@
     color: rgba(255, 255, 255, 0.34);
     font-size: 3rem;
     font-weight: 900;
+  }
+
+  .onboarding-floor-slot > span:only-child {
+    display: grid;
+    justify-items: center;
+    gap: 0.35rem;
+    color: rgba(255, 255, 255, 0.48);
+    font-size: 0.9rem;
+    letter-spacing: 0;
+  }
+
+  .onboarding-floor-slot > span:only-child small {
+    display: inline-flex;
+    width: 2.4rem;
+    height: 2.4rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 999px;
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 1rem;
   }
 
   .onboarding-floor-slot.is-installed {
@@ -1093,7 +1201,12 @@
     background: rgba(0, 0, 0, 0.22);
     color: rgba(255, 255, 255, 0.72);
     padding: 0.75rem 0.9rem;
-    font-size: 0.86rem;
+    font-size: 0.95rem;
+  }
+
+  .onboarding-floor-summary span {
+    color: white;
+    font-weight: 900;
   }
 
   .onboarding-floor-summary strong {
@@ -1138,17 +1251,25 @@
     padding: clamp(1rem, 2vw, 1.4rem);
   }
 
-  .onboarding-line-copy h2 {
+  .onboarding-line-copy h2,
+  .onboarding-line-copy .onboarding-setup-title {
     color: var(--card-foreground);
     font-size: 2rem;
     font-weight: 850;
     line-height: 1;
   }
 
-  .onboarding-line-copy > span {
-    color: var(--primary);
-    font-family: var(--fr-font-mono);
-    font-size: 0.78rem;
+  .onboarding-line-subtitle {
+    color: color-mix(in srgb, var(--primary) 74%, white);
+    font-size: 1rem;
+    font-weight: 850;
+    line-height: 1.4;
+  }
+
+  .onboarding-line-copy .onboarding-split-copy:not(.onboarding-line-subtitle) {
+    color: var(--muted-foreground);
+    font-size: 0.9rem;
+    line-height: 1.65;
   }
 
   .onboarding-staff-strip {
@@ -1217,6 +1338,29 @@
     to {
       opacity: 1;
       transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes onboarding-cta-nudge {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    45% {
+      transform: translateX(0.28rem);
+    }
+    70% {
+      transform: translateX(-0.12rem);
+    }
+  }
+
+  @keyframes onboarding-cta-arrow {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    50% {
+      transform: translateX(0.25rem);
     }
   }
 
@@ -1777,7 +1921,9 @@
   .onboarding-after-title.is-visible,
   .onboarding-step-dots,
   .onboarding-step-dots.is-visible,
-  .onboarding-floor-slot.is-installed {
+  .onboarding-floor-slot.is-installed,
+  .onboarding-cta-motion,
+  .onboarding-cta-motion svg {
     opacity: 1;
     transform: none;
     animation: none;
