@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransiti
 
 import BlurText from "@/components/ui/blurtext";
 import SplitText from "@/components/ui/SplitText";
+import { ProductionLineCard } from "@/components/onboarding/production-line-card";
 
 import {
   beginOnboardingSectorAction,
@@ -537,12 +538,9 @@ function FactorySetupWizard({
 
     setInstalledLineCount(nextInstalledCount);
 
-    if (nextInstalledCount >= setup.starterLines.length) {
-      setTimeout(() => setStep("costs"), 360);
-      return;
+    if (nextInstalledCount < setup.starterLines.length) {
+      setTimeout(() => setActiveLineIndex(nextInstalledCount), 260);
     }
-
-    setTimeout(() => setActiveLineIndex(nextInstalledCount), 260);
   }
 
   function completeOnboarding() {
@@ -624,6 +622,7 @@ function FactorySetupWizard({
               activeLine={activeLine}
               currencyCode={currencyCode}
               installedLineCount={installedLineCount}
+              onContinue={() => setStep("costs")}
               onInstallLine={installCurrentLine}
               setup={setup}
             />
@@ -809,81 +808,57 @@ function StarterLinesStep({
   activeLine,
   currencyCode,
   installedLineCount,
+  onContinue,
   onInstallLine,
   setup,
 }: {
   activeLine: StarterLineSetup | undefined;
   currencyCode: "EUR" | "USD";
   installedLineCount: number;
+  onContinue: () => void;
   onInstallLine: () => void;
   setup: FactorySetupPayload;
 }) {
   const installedLines = setup.starterLines.slice(0, installedLineCount);
   const activeLineCopy = activeLine ? getStarterLineCopy(activeLine.key) : null;
-  const [titleReady, setTitleReady] = useState(false);
+  const allLinesInstalled = installedLineCount >= setup.starterLines.length;
 
   return (
     <section className="onboarding-lines-stage">
       <div className="onboarding-floor-card">
-        <div className="onboarding-lines-heading">
-          <p className="onboarding-selection-kicker">Üretim hattı kurulumu</p>
-          <BlurText
-            as="h2"
-            animateBy="words"
-            delay={62}
-            direction="top"
-            onAnimationComplete={() => setTitleReady(true)}
-            stepDuration={0.28}
-            text="İlk üç hattı zemine yerleştir"
-          />
-          {titleReady ? (
-            <RevealText
-              className="onboarding-lines-description"
-              text="Kesim, Dikim ve Ütü/Paket hatları küçük atölye ölçeğinde üretime başlamak için sırayla kurulacak."
-            />
-          ) : null}
-        </div>
-        {titleReady ? (
-          <>
-            <div className="onboarding-floor-grid">
-              {setup.starterLines.map((line, index) => {
-                const installed = index < installedLineCount;
-                const lineCopy = getStarterLineCopy(line.key);
+        <div className="grid grid-cols-3  items-stretch gap-0">
+          {setup.starterLines.map((line, index) => {
+            const installed = index < installedLineCount;
 
-                return (
-                  <div
-                    className={installed ? "onboarding-floor-slot is-installed" : "onboarding-floor-slot"}
-                    key={line.id}
-                  >
-                    {installed ? (
-                      <>
-                        <span
-                          aria-hidden="true"
-                          className="onboarding-floor-slot-visual"
-                          style={imageBackgroundStyle(line.visual.mapUrl ?? line.visual.cardUrl ?? undefined)}
-                        />
-                        <strong>{lineCopy.title}</strong>
-                        <span>{line.staffTotal} personel</span>
-                      </>
-                    ) : (
-                      <span>
-                        <small>{index + 1}</small>
-                        {lineCopy.shortTitle}
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+            return (
+              <ProductionLineCard
+                installed={installed}
+                line={line}
+                key={line.id}
+                position={index + 1}
+              />
+            );
+          })}
+        </div>
+        <div className="onboarding-floor-summary">
+          <span>{installedLines.length} / {setup.starterLines.length} hat kuruldu</span>
+          <strong>{setup.costs.totalStaff} kişilik başlangıç kadrosu hazırlanıyor</strong>
+        </div>
+        {allLinesInstalled ? (
+          <div className="onboarding-lines-complete">
+            <div>
+              <strong>Üç üretim hattı zemine yerleşti.</strong>
+              <span>Kesim, Dikim ve Ütü/Paket hattı Day 1 için hazır.</span>
             </div>
-            <div className="onboarding-floor-summary">
-              <span>{installedLines.length} / {setup.starterLines.length} hat kuruldu</span>
-              <strong>{setup.costs.totalStaff} kişilik başlangıç kadrosu hazırlanıyor</strong>
-            </div>
-          </>
+            <button className="game-button-primary onboarding-cta-motion" onClick={onContinue} type="button">
+              Aylık gider brifingine geç
+              <ArrowRight size={17} />
+            </button>
+          </div>
         ) : null}
       </div>
 
-      {titleReady && activeLine && activeLineCopy ? (
+      {!allLinesInstalled && activeLine && activeLineCopy ? (
         <StarterLineModal
           key={activeLine.id}
           activeLine={activeLine}
@@ -985,7 +960,7 @@ function CostsStep({
         {titleReady ? (
           <>
             <RevealText text={`İlk ${setup.simulation.financePeriodDays} günlük finans döneminde fabrikanın tahmini sabit gideri. Bu özet, üretim başlamadan önce nakit akışı riskini gösterir.`} />
-            <div className="onboarding-cost-list">
+            <div className="grid gap-1">
               <CostRow label="Personel maaşları" value={setup.costs.monthlyPayrollCents} currencyCode={currencyCode} />
               <CostRow label="Alan / kira gideri" value={setup.costs.monthlyRentCents} currencyCode={currencyCode} />
               <CostRow label="Enerji gideri" value={setup.costs.monthlyElectricityCents} currencyCode={currencyCode} />
@@ -1059,7 +1034,7 @@ function ReviewStep({
         {titleReady ? (
           <>
             <RevealText text="Başlangıç sermayesi, üretim hatları, personel kadrosu ve ilk finans dönemi hazırlandı. Onay verdiğinde fabrika kurulumu tamamlanır ve Day 1 planlama ekranına geçersin." />
-            <div className="onboarding-review-list">
+            <div className="grid gap-1">
               <ReviewRow label="Sektör" value={setup.sector.title} />
               <ReviewRow label="Başlangıç kasası" value={formatMoney(setup.simulation.startingCapitalCents, currencyCode)} />
               <ReviewRow label="Para birimi" value={currencyCode} />
@@ -1198,8 +1173,30 @@ function SetupMetric({
     <div className="onboarding-setup-metric">
       <Icon size={17} />
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>
+        <AnimatedValue value={value} />
+      </strong>
     </div>
+  );
+}
+
+function AnimatedValue({ value }: { value: string }) {
+  return (
+    <SplitText
+      className="onboarding-animated-value"
+      delay={16}
+      duration={0.5}
+      ease="power3.out"
+      from={{ opacity: 0, y: 12 }}
+      rootMargin="0px"
+      splitType="words"
+      tag="span"
+      text={value}
+      textAlign="left"
+      threshold={0}
+      to={{ opacity: 1, y: 0 }}
+      triggerOnMount
+    />
   );
 }
 
@@ -1282,18 +1279,22 @@ function CostRow({
   value: string;
 }) {
   return (
-    <div>
-      <span>{label}</span>
-      <strong>{formatMoney(value, currencyCode)}</strong>
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-secondary px-3 py-2">
+      <span className="text-[0.8rem] font-bold text-muted-foreground">{label}</span>
+      <strong className="text-right text-[0.86rem] font-extrabold text-card-foreground">
+        <AnimatedValue value={formatMoney(value, currencyCode)} />
+      </strong>
     </div>
   );
 }
 
 function ReviewRow({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <span>{label}</span>
-      <strong>{value}</strong>
+    <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-secondary px-3 py-2">
+      <span className="text-[0.8rem] font-bold text-muted-foreground">{label}</span>
+      <strong className="text-right text-[0.86rem] font-extrabold text-card-foreground">
+        <AnimatedValue value={value} />
+      </strong>
     </div>
   );
 }

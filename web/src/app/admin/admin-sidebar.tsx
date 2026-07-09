@@ -92,7 +92,11 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
     label: "Pazar ve Simülasyon",
     items: [
       { href: "/admin/customers", label: "Müşteriler", icon: Contact },
-      { label: "Market Ayarları", icon: SlidersHorizontal, status: "next" },
+      {
+        href: "/admin/market-config",
+        label: "Market Ayarları",
+        icon: SlidersHorizontal,
+      },
       {
         href: "/admin/simulation-config",
         label: "Simülasyon Ayarları",

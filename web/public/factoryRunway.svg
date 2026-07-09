@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" role="img" aria-labelledby="title">
+  <title id="title">Factory Runway</title>
+  <g fill="#006d8f">
+    <path d="M92 82h360l-62 62H158v70h162l-58 58H158v99l-66 76V82Z" />
+    <path d="M395 166h66l50 50v89l-47 47h-41l98 98h-90L315 334l58-58h69l22-22v-25l-31-31h-66l28-32Z" />
+    <path
+      fill-rule="evenodd"
+      d="M202 300h31v86l112 112h202v-29l61 60-61 60v-29H319L202 443V300Zm31 57v73l101 101h183v-27H358L233 379v-22Z"
+      clip-rule="evenodd"
+    />
+    <path d="M257 323h24v43h-24z" />
+    <path d="M278 449h14v14h-14z" />
+    <path d="M315 486h14v14h-14z" />
+    <path d="M388 512h45v12h-45z" />
+    <path d="M467 512h46v12h-46z" />
+  </g>
+</svg>

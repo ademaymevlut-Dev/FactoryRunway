@@ -466,7 +466,7 @@ export async function completeFactoryOnboardingAction(input: {
 
   return {
     ok: true,
-    redirectTo: result.alreadyCreated ? "/player" : "/player",
+    redirectTo: result.alreadyCreated ? "/player/first-order" : "/player/first-order",
   };
 }
 

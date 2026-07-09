@@ -94,6 +94,32 @@ function optionalEnumValue<T extends string>(
   return value as T | null;
 }
 
+function currencyToCents(formData: FormData, key: string) {
+  const raw = text(formData, key).replace(",", ".");
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) {
+    throw new Error(
+      `${key} para birimi olarak 0 veya daha büyük ve en fazla iki ondalıklı olmalı.`,
+    );
+  }
+
+  const [wholePart, decimalPart = ""] = raw.split(".");
+  const cents =
+    Number(wholePart) * 100 + Number(decimalPart.padEnd(2, "0"));
+
+  if (!Number.isSafeInteger(cents) || cents > 2_147_483_647) {
+    throw new Error(`${key} desteklenen para aralığını aşıyor.`);
+  }
+
+  return cents;
+}
+
+function productUnitPriceCents(formData: FormData) {
+  return formData.has("baseUnitPrice")
+    ? currencyToCents(formData, "baseUnitPrice")
+    : integer(formData, "baseUnitPriceCents", { min: 0 });
+}
+
 async function assertProductScope(
   sectorId: string,
   categoryId: string,
@@ -204,7 +230,7 @@ export async function updateProductDefinitionsAction(
   await getPrisma().product.update({
     where: { id: productId },
     data: {
-      baseUnitPriceCents: integer(formData, "baseUnitPriceCents", { min: 0 }),
+      baseUnitPriceCents: productUnitPriceCents(formData),
       requiredPlayerLevel: integer(formData, "requiredPlayerLevel", { min: 1 }),
       translations: {
         deleteMany: {},

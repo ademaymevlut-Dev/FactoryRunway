@@ -58,17 +58,19 @@ export default function Home() {
       <div className="factory-backdrop" />
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="game-topbar">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="game-mark">
-              <Factory size={22} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
-                Factory Runway
-              </p>
-              <h1 className="truncate text-xl font-semibold text-foreground sm:text-2xl">
-                Textile Command UI Lab
+          <div className="factory-brand-lockup" aria-label="Factory Runway - Plan. Produce. Grow.">
+            <img
+              className="factory-brand-symbol"
+              src="/factoryRunway.svg"
+              alt=""
+              aria-hidden="true"
+            />
+            <div className="factory-brand-copy">
+              <h1 className="factory-brand-title">
+                <span>FACTORY</span>
+                <span>RUNWAY</span>
               </h1>
+              <p className="factory-brand-tagline">PLAN. PRODUCE. GROW.</p>
             </div>
           </div>
 

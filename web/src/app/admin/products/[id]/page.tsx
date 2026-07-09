@@ -13,16 +13,13 @@ import {
   Options,
   Panel,
   Select,
-  Textarea,
   enumOptions,
 } from "../../form-ui";
 import { ProductUploadForm } from "../product-upload-form";
-import {
-  updateProductDefinitionsAction,
-  updateProductMainAction,
-} from "../product-actions";
+import { updateProductMainAction } from "../product-actions";
 import { ProductScopeFields } from "../product-scope-fields";
 import { ProductCardDesigner } from "./product-card-designer";
+import { ProductDefinitionsForm } from "./product-definitions-form";
 import { ProductDetailTabs } from "./product-detail-tabs";
 import { ProductRouteStepForm } from "./product-route-step-form";
 
@@ -51,7 +48,22 @@ export default async function ProductDetailPage({
           routeSteps: {
             orderBy: { sequence: "asc" },
             include: {
-              department: { include: { translations: true } },
+              department: {
+                include: {
+                  translations: true,
+                  productionLineTemplates: {
+                    where: {
+                      grade: "WORKSHOP",
+                      status: "ACTIVE",
+                    },
+                    select: {
+                      key: true,
+                      dailyPointCapacity: true,
+                    },
+                    take: 1,
+                  },
+                },
+              },
             },
           },
         },
@@ -217,62 +229,37 @@ export default async function ProductDetailPage({
           </Panel>
         }
         definitions={
-          <Panel
-            description="Fiyat, oyuncu seviyesi, çok dilli açıklamalar ve ek JSON verileri."
-            title="Ürün tanımlamaları"
-          >
-            <form
-              action={updateProductDefinitionsAction.bind(null, product.id)}
-              className="grid gap-5"
-            >
-              <FormGrid>
-                <Field label="Baz birim fiyat (kuruş)">
-                  <Input
-                    defaultValue={product.baseUnitPriceCents}
-                    min="0"
-                    name="baseUnitPriceCents"
-                    type="number"
-                  />
-                </Field>
-                <Field label="Gerekli oyuncu seviyesi">
-                  <Input
-                    defaultValue={product.requiredPlayerLevel}
-                    min="1"
-                    name="requiredPlayerLevel"
-                    type="number"
-                  />
-                </Field>
-                <Field label="Türkçe açıklama">
-                  <Input
-                    defaultValue={translationDescription(
-                      product.translations,
-                      "tr",
-                    )}
-                    name="descriptionTr"
-                  />
-                </Field>
-                <Field label="İngilizce açıklama">
-                  <Input
-                    defaultValue={translationDescription(
-                      product.translations,
-                      "en",
-                    )}
-                    name="descriptionEn"
-                  />
-                </Field>
-              </FormGrid>
-              <Field label="Metadata JSON">
-                <Textarea
-                  defaultValue={jsonText(product.metadata)}
-                  name="metadata"
-                  placeholder='{"collection":"summer"}'
-                />
-              </Field>
-              <button className="game-button-primary w-fit" type="submit">
-                Tanımlamaları Kaydet
-              </button>
-            </form>
-          </Panel>
+          <ProductDefinitionsForm
+            product={{
+              id: product.id,
+              baseUnitPriceCents: product.baseUnitPriceCents,
+              requiredPlayerLevel: product.requiredPlayerLevel,
+              descriptionTr: translationDescription(
+                product.translations,
+                "tr",
+              ),
+              descriptionEn: translationDescription(
+                product.translations,
+                "en",
+              ),
+              metadata: jsonText(product.metadata),
+            }}
+            routeCapacities={product.routeSteps.map((step) => {
+              const workshopLine = step.department.productionLineTemplates[0];
+
+              return {
+                id: step.id,
+                departmentName: displayName(
+                  step.department.translations,
+                  step.department.key,
+                ),
+                lineKey: workshopLine?.key ?? null,
+                workloadPointsPerUnit: step.workloadPointsPerUnit,
+                dailyPointCapacity:
+                  workshopLine?.dailyPointCapacity ?? null,
+              };
+            })}
+          />
         }
         route={
           <Panel
