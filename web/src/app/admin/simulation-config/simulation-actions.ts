@@ -51,11 +51,6 @@ export async function saveSimulationConfigAction(
       "simulationDurationSeconds",
       { min: 1 },
     ),
-    maxAllocationsPerLineShift: integer(
-      formData,
-      "maxAllocationsPerLineShift",
-      { min: 1 },
-    ),
     metadata: json(formData),
   };
 

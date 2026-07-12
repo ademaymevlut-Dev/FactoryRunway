@@ -8,9 +8,14 @@
     "start": "next start",
     "lint": "eslint",
     "seed:customers": "tsx prisma/seed-customers.ts",
+    "seed:market-rules": "tsx prisma/seed-market-offer-rules.ts",
+    "seed:leasing-offers": "node --import tsx --env-file=.env.local prisma/seed-production-line-leasing-offers.ts",
     "seed:starting-staff": "tsx prisma/seed-staff-roles.ts && tsx prisma/seed-starting-staff.ts"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@vercel/blob": "^2.4.1",

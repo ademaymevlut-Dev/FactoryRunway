@@ -7,6 +7,7 @@ import {
   Layers3,
   Palette,
   Route,
+  SwatchBook,
 } from "lucide-react";
 
 import {
@@ -18,12 +19,14 @@ import {
 
 export function ProductDetailTabs({
   card,
+  colors,
   definitions,
   images,
   main,
   route,
 }: {
   card: ReactNode;
+  colors: ReactNode;
   definitions: ReactNode;
   images: ReactNode;
   main: ReactNode;
@@ -55,6 +58,13 @@ export function ProductDetailTabs({
         </TabsTrigger>
         <TabsTrigger
           className="flex-none rounded-lg px-4 py-2.5 data-active:bg-primary/10 data-active:text-primary"
+          value="colors"
+        >
+          <SwatchBook />
+          Renkler
+        </TabsTrigger>
+        <TabsTrigger
+          className="flex-none rounded-lg px-4 py-2.5 data-active:bg-primary/10 data-active:text-primary"
           value="images"
         >
           <ImageIcon />
@@ -76,6 +86,9 @@ export function ProductDetailTabs({
       </TabsContent>
       <TabsContent className="mt-3" value="route">
         {route}
+      </TabsContent>
+      <TabsContent className="mt-3" value="colors">
+        {colors}
       </TabsContent>
       <TabsContent className="mt-3" value="images">
         {images}

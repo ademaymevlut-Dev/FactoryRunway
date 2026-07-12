@@ -19,6 +19,7 @@ import { ProductUploadForm } from "../product-upload-form";
 import { updateProductMainAction } from "../product-actions";
 import { ProductScopeFields } from "../product-scope-fields";
 import { ProductCardDesigner } from "./product-card-designer";
+import { ProductColorsForm } from "./product-colors-form";
 import { ProductDefinitionsForm } from "./product-definitions-form";
 import { ProductDetailTabs } from "./product-detail-tabs";
 import { ProductRouteStepForm } from "./product-route-step-form";
@@ -45,6 +46,9 @@ export default async function ProductDetailPage({
           },
           translations: true,
           images: { orderBy: [{ view: "asc" }, { sortOrder: "asc" }] },
+          allowedColors: {
+            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          },
           routeSteps: {
             orderBy: { sequence: "asc" },
             include: {
@@ -89,6 +93,23 @@ export default async function ProductDetailPage({
 
   if (!product) notFound();
 
+  const colorVariants = await prisma.productColorVariant.findMany({
+    where: {
+      sectorId: product.sectorId,
+      OR: [
+        { status: "ACTIVE" },
+        { allowedProducts: { some: { productId: product.id } } },
+      ],
+    },
+    orderBy: [{ sortOrder: "asc" }, { key: "asc" }],
+    include: { translations: true },
+  });
+  const allowedColorByVariantId = new Map(
+    product.allowedColors.map((allowedColor) => [
+      allowedColor.colorVariantId,
+      allowedColor,
+    ]),
+  );
   const sectorOptions = sectors.map((sector) => ({
     id: sector.id,
     key: sector.key,
@@ -292,6 +313,34 @@ export default async function ProductDetailPage({
               />
             </div>
           </Panel>
+        }
+        colors={
+          <ProductColorsForm
+            colors={colorVariants.map((colorVariant) => {
+              const allowedColor = allowedColorByVariantId.get(
+                colorVariant.id,
+              );
+
+              return {
+                id: colorVariant.id,
+                key: colorVariant.key,
+                name: displayName(colorVariant.translations, colorVariant.key),
+                hexCode: colorVariant.hexCode,
+                status: colorVariant.status,
+                isSelected: Boolean(allowedColor),
+                isActive: allowedColor?.isActive ?? true,
+                isDefault: allowedColor?.isDefault ?? false,
+                selectionWeightBps:
+                  allowedColor?.selectionWeightBps ?? 10000,
+                sortOrder: allowedColor?.sortOrder ?? colorVariant.sortOrder,
+              };
+            })}
+            product={{
+              id: product.id,
+              offerColorCountMin: product.offerColorCountMin,
+              offerColorCountMax: product.offerColorCountMax,
+            }}
+          />
         }
         images={
           <Panel

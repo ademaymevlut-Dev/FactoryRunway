@@ -200,14 +200,17 @@ export async function updateProductMainAction(
     where: { id: productId },
     select: {
       sectorId: true,
-      _count: { select: { routeSteps: true } },
+      _count: { select: { allowedColors: true, routeSteps: true } },
     },
   });
 
   if (!existing) throw new Error("Ürün bulunamadı.");
-  if (existing.sectorId !== input.sectorId && existing._count.routeSteps > 0) {
+  if (
+    existing.sectorId !== input.sectorId &&
+    (existing._count.routeSteps > 0 || existing._count.allowedColors > 0)
+  ) {
     throw new Error(
-      "Üretim rotası bulunan ürünün sektörü değiştirilemez. Önce rota adımlarını kaldırmalısın.",
+      "Üretim rotası veya renk tanımı bulunan ürünün sektörü değiştirilemez. Önce bağlı tanımları kaldırmalısın.",
     );
   }
 
@@ -249,6 +252,141 @@ export async function updateProductDefinitionsAction(
   refreshProduct(productId);
 }
 
+export async function saveProductColorsAction(
+  productId: string,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdminUser();
+  void _previousState;
+
+  try {
+    const prisma = getPrisma();
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { sectorId: true },
+    });
+    if (!product) return error("Ürün bulunamadı.");
+
+    const selectedColorIds = uniqueStrings(
+      formData.getAll("colorVariantId"),
+    );
+    if (!selectedColorIds.length) {
+      return error("Sipariş teklifleri için en az bir renk seçmelisin.");
+    }
+
+    const offerColorCountMin = integer(formData, "offerColorCountMin", {
+      min: 1,
+    });
+    const offerColorCountMax = integer(formData, "offerColorCountMax", {
+      min: 1,
+    });
+    if (offerColorCountMin > offerColorCountMax) {
+      return error("Minimum renk sayısı maksimum değerden büyük olamaz.");
+    }
+
+    const colors = await prisma.productColorVariant.findMany({
+      where: {
+        id: { in: selectedColorIds },
+        sectorId: product.sectorId,
+      },
+      select: { id: true },
+    });
+    if (colors.length !== selectedColorIds.length) {
+      return error("Seçilen renklerden biri ürün sektörüyle uyumlu değil.");
+    }
+
+    const activeColorIds = selectedColorIds.filter((colorId) =>
+      bool(formData, `isActive:${colorId}`),
+    );
+    if (!activeColorIds.length) {
+      return error("Sipariş havuzu için en az bir aktif ürün rengi gerekli.");
+    }
+    if (offerColorCountMax > activeColorIds.length) {
+      return error(
+        "Maksimum renk sayısı aktif seçili renk sayısından büyük olamaz.",
+      );
+    }
+
+    const defaultColorId = optionalText(formData, "defaultColorVariantId");
+    if (defaultColorId && !activeColorIds.includes(defaultColorId)) {
+      return error("Varsayılan renk seçili ve aktif bir renk olmalı.");
+    }
+
+    const colorInputs = selectedColorIds.map((colorVariantId) => ({
+      colorVariantId,
+      isActive: activeColorIds.includes(colorVariantId),
+      isDefault: defaultColorId === colorVariantId,
+      selectionWeightBps: percentToBps(
+        formData,
+        `selectionWeightPercent:${colorVariantId}`,
+      ),
+      sortOrder: integer(formData, `sortOrder:${colorVariantId}`, {
+        min: 0,
+      }),
+    }));
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.product.update({
+        where: { id: productId },
+        data: {
+          offerColorCountMin,
+          offerColorCountMax,
+        },
+      });
+
+      await transaction.productAllowedColor.deleteMany({
+        where: {
+          productId,
+          colorVariantId: { notIn: selectedColorIds },
+        },
+      });
+
+      await Promise.all(
+        colorInputs.map((colorInput) =>
+          transaction.productAllowedColor.upsert({
+            where: {
+              productId_colorVariantId: {
+                productId,
+                colorVariantId: colorInput.colorVariantId,
+              },
+            },
+            update: {
+              isActive: colorInput.isActive,
+              isDefault: colorInput.isDefault,
+              selectionWeightBps: colorInput.selectionWeightBps,
+              sortOrder: colorInput.sortOrder,
+            },
+            create: {
+              productId,
+              colorVariantId: colorInput.colorVariantId,
+              isActive: colorInput.isActive,
+              isDefault: colorInput.isDefault,
+              selectionWeightBps: colorInput.selectionWeightBps,
+              sortOrder: colorInput.sortOrder,
+            },
+          }),
+        ),
+      );
+    });
+
+    refreshProduct(productId);
+    return success(
+      `${activeColorIds.length} aktif renk ile ürün renkleri kaydedildi.`,
+      productId,
+    );
+  } catch (cause) {
+    if (
+      cause instanceof Prisma.PrismaClientKnownRequestError &&
+      cause.code === "P2002"
+    ) {
+      return error("Aynı renk bu ürüne birden fazla eklenemez.");
+    }
+
+    return actionError(cause);
+  }
+}
+
 export async function updateProductCardAction(
   productId: string,
   formData: FormData,
@@ -269,6 +407,25 @@ export async function updateProductCardAction(
     },
   });
   refreshProduct(productId);
+}
+
+function uniqueStrings(values: FormDataEntryValue[]) {
+  return [...new Set(values.filter((value): value is string => Boolean(value)))];
+}
+
+function percentToBps(formData: FormData, key: string) {
+  const raw = text(formData, key).replace(",", ".");
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) {
+    throw new Error(`${key} yüzde olarak 0.01 ile 100 arasında olmalı.`);
+  }
+
+  const percent = Number(raw);
+  if (!Number.isFinite(percent) || percent < 0.01 || percent > 100) {
+    throw new Error(`${key} yüzde olarak 0.01 ile 100 arasında olmalı.`);
+  }
+
+  return Math.round(percent * 100);
 }
 
 export async function saveProductRouteStepAction(

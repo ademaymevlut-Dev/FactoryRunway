@@ -1,19 +1,10 @@
 "use client";
 
 import Image from "next/image";
-import {
-  Droplets,
-  Factory,
-  Layers,
-  PackageCheck,
-  Palette,
-  Plus,
-  Scissors,
-  Shirt,
-  Sparkles,
-  Truck,
-} from "lucide-react";
+import { Factory, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
+
+import { cn } from "@/lib/utils";
 
 import { useGameUiStore } from "../store/game-ui-store";
 import type { FactoryMapItem, FactoryMapSection, GameSnapshot } from "../types";
@@ -24,7 +15,7 @@ const SLOT_GAP = 7;
 const DEPARTMENT_PADDING_X = 14;
 const DEPARTMENT_MIN_WIDTH = 328;
 const DEPARTMENT_GAP = 56;
-const CANVAS_PADDING_X = 96;
+const CANVAS_PADDING_X = 184;
 const CANVAS_HEIGHT = 1120;
 const MAP_SCALE = 0.82;
 const DRAG_THRESHOLD = 6;
@@ -100,11 +91,14 @@ const floorProps: FloorProp[] = [
 
 export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   const {
+    hoveredDepartmentId,
     mapPan,
     mapZoom,
     openPanel,
     selectLine,
+    selectedDockDepartmentIds,
     selectedLineId,
+    setSelectedDockDepartmentIds,
     setHoveredDepartmentId,
     setMapPan,
   } = useGameUiStore();
@@ -122,6 +116,10 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   const canvasWidth = useMemo(
     () => getCanvasWidth(snapshot.map.sections),
     [snapshot.map.sections],
+  );
+  const highlightedDepartmentIds = useMemo(
+    () => new Set([...(hoveredDepartmentId ? [hoveredDepartmentId] : []), ...selectedDockDepartmentIds]),
+    [hoveredDepartmentId, selectedDockDepartmentIds],
   );
 
   const boundOffsetToViewport = useCallback(
@@ -171,6 +169,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   const openLineDetail = (lineId: string) => {
     if (suppressClickRef.current) return;
 
+    setSelectedDockDepartmentIds([]);
     selectLine(lineId);
     openPanel("lineDetail", { lineId });
   };
@@ -241,7 +240,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
       >
         <div className="factory-map-landscape" />
         <FactoryFloorDetails />
-        <div className="factory-production-layout">
+        <div className="factory-production-layout" style={{ left: CANVAS_PADDING_X }}>
           {snapshot.map.sections.map((section, index) => (
             <div className="factory-production-stage" key={section.id}>
               <FactoryMapSectionView
@@ -252,10 +251,20 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
                   }
 
                   if (item.kind === "investmentAction") {
+                    setSelectedDockDepartmentIds([]);
                     selectLine(null);
-                    openPanel("investment", { sectionId: item.sectionId });
+                    openPanel("investment", {
+                      departmentId:
+                        item.departmentIds.length === 1
+                          ? item.departmentIds[0]
+                          : null,
+                      sectionId: item.sectionId,
+                    });
                   }
                 }}
+                isHighlighted={section.departments.some((department) =>
+                  highlightedDepartmentIds.has(department.id),
+                )}
                 onHoverDepartment={setHoveredDepartmentId}
                 section={section}
                 selectedLineId={selectedLineId}
@@ -294,43 +303,47 @@ function FactoryFloorDetails() {
 function FactoryMapSectionView({
   onAction,
   onHoverDepartment,
+  isHighlighted,
   section,
   selectedLineId,
 }: {
   onAction: (item: FactoryMapItem) => void;
   onHoverDepartment: (departmentId: string | null) => void;
+  isHighlighted: boolean;
   section: FactoryMapSection;
   selectedLineId: string | null;
 }) {
-  const columns = getSlotColumns(section.items.length);
-  const metaLabel = section.departments
-    .map((department) => department.name)
-    .slice(0, 2)
-    .join(" / ");
+  const headerDepartment = section.departments[0];
+  const headerTitle = formatDepartmentHeaderTitle(headerDepartment?.name ?? section.title);
+  const headerIconKey = headerDepartment?.iconKey ?? "warehouse";
 
   return (
     <section
-      className={`factory-department-block ${section.tone}`}
+      className={cn(
+        "factory-department-block",
+        section.tone,
+        isHighlighted &&
+          "!border-[#006d8f]/55 ring-1 ring-primary/20 !shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_0_18px_rgba(0,109,143,0.10)]",
+      )}
       style={{ width: getDepartmentWidth(section.items.length) }}
     >
-      <div className="factory-department-header">
-        <div className="factory-department-title">
-          <span>{section.step}</span>
-          <SectionIconView section={section} size={22} />
-          <div>
-            <h2>{section.title}</h2>
-            <p>{columns} kolon / {SLOT_ROWS} sıra</p>
-          </div>
+      <div className="relative flex min-h-12 items-start justify-center px-3 pb-1.5 pt-3">
+        <div
+          className={cn(
+            "relative inline-flex max-w-[calc(100%-1.25rem)] items-center gap-2 rounded-full border border-white/10 bg-[#232429]/40 px-3 py-1.5 text-white/85 shadow-[0_8px_24px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-[border-color,box-shadow] duration-200",
+            isHighlighted && "border-[#006d8f]/35 shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_1px_0_rgba(255,255,255,0.10)]",
+          )}
+        >
+          <span className="flex size-4 shrink-0 items-center justify-center text-sky-300/80 drop-shadow-[0_0_5px_rgba(125,211,252,0.22)]">
+            <DepartmentHeaderIcon iconKey={headerIconKey} />
+          </span>
+          <h2 className="min-w-0 truncate text-[12px] font-semibold uppercase leading-none tracking-[0.16em] text-white/85">
+            {headerTitle}
+          </h2>
+          <span className="shrink-0 rounded-full border border-[#006d8f]/25 bg-[#006d8f]/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-sky-200/90">
+            {section.productionLineCount} hat
+          </span>
         </div>
-        <div className="factory-department-metrics">
-          <strong>{section.productionLineCount}</strong>
-          <span>hat</span>
-        </div>
-      </div>
-
-      <div className="factory-department-meta">
-        <span>{metaLabel}</span>
-        <span>Kurulu üretim hattı</span>
       </div>
 
       <div className="factory-slot-grid">
@@ -534,61 +547,29 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function SectionIconView({
-  section,
-  size,
-}: {
-  section: FactoryMapSection;
-  size: number;
-}) {
-  switch (section.key) {
-    case "cutting":
-      return <Scissors size={size} />;
-    case "fabric":
-      return <Layers size={size} />;
-    case "ironing_packing":
-    case "packing":
-      return <PackageCheck size={size} />;
-    case "post_sewing":
-      return <Droplets size={size} />;
-    case "pre_sewing":
-      return <Sparkles size={size} />;
-    case "sewing":
-      return <Shirt size={size} />;
-    case "shipping":
-      return <Truck size={size} />;
-    default:
-      return <DepartmentIconView departmentKey={section.departments[0]?.key ?? ""} size={size} />;
-  }
+function DepartmentHeaderIcon({ iconKey }: { iconKey: string }) {
+  const iconUrl = `/game-icons/dock/${iconKey}.svg`;
+
+  return (
+    <span
+      aria-hidden="true"
+      className="block size-4 bg-current"
+      style={{
+        WebkitMaskImage: `url("${iconUrl}")`,
+        WebkitMaskPosition: "center",
+        WebkitMaskRepeat: "no-repeat",
+        WebkitMaskSize: "contain",
+        maskImage: `url("${iconUrl}")`,
+        maskPosition: "center",
+        maskRepeat: "no-repeat",
+        maskSize: "contain",
+      }}
+    />
+  );
 }
 
-function DepartmentIconView({
-  departmentKey,
-  size,
-}: {
-  departmentKey: string;
-  size: number;
-}) {
-  switch (departmentKey) {
-    case "cutting":
-      return <Scissors size={size} />;
-    case "dyeing":
-      return <Palette size={size} />;
-    case "embroidery":
-      return <Sparkles size={size} />;
-    case "ironing_packing":
-      return <PackageCheck size={size} />;
-    case "printing":
-      return <Palette size={size} />;
-    case "sewing":
-      return <Shirt size={size} />;
-    case "shipping":
-      return <Truck size={size} />;
-    case "washing":
-      return <Droplets size={size} />;
-    default:
-      return <Factory size={size} />;
-  }
+function formatDepartmentHeaderTitle(title: string) {
+  return title.trim().replace(/\s*[&/]\s*/g, "-");
 }
 
 function getVisualSlotStatus(

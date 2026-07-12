@@ -1,9 +1,8 @@
 import {
   Banknote,
   Boxes,
-  ClipboardList,
   Factory,
-  Hammer,
+  ListChecks,
   PackageCheck,
   Users,
   X,
@@ -12,6 +11,11 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { OrdersPanel } from "@/features/orders/components/orders-panel";
+import { DepartmentQueuePanel } from "@/features/production-queue/components/department-queue-panel";
+import { WarehousePanel } from "@/features/warehouse/components/warehouse-panel";
+import { ProductionLineInvestmentPanel } from "@/features/investment/components/production-line-investment-panel";
+import { cn } from "@/lib/utils";
 
 import type { FactoryMapItem, GamePanelKey, GameSnapshot } from "../types";
 
@@ -22,21 +26,17 @@ type PanelContext = {
 };
 
 type PanelDefinition = {
+  layout?: "center" | "side";
+  size?: "adaptive" | "compact" | "wide";
   title: string;
   render: (context: PanelContext) => ReactNode;
 };
 
 export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   orders: {
+    layout: "center",
     title: "Siparişler",
-    render: ({ snapshot }) => (
-      <PanelScaffold
-        icon={<ClipboardList size={18} />}
-        title="Siparişler"
-        value={snapshot.metrics.find((metric) => metric.id === "orders")?.value ?? "0"}
-        body={`${snapshot.factory.name} için açık sipariş yükü takipte.`}
-      />
-    ),
+    render: ({ snapshot }) => <OrdersPanel orderMarket={snapshot.orders} />,
   },
   production: {
     title: "Üretim",
@@ -46,6 +46,17 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
         title="Üretim"
         value={`${snapshot.map.totals.productionLineCount} hat`}
         body="Kurulu üretim alanları haritada hazır."
+      />
+    ),
+  },
+  tasks: {
+    title: "Görevler",
+    render: ({ snapshot }) => (
+      <PanelScaffold
+        icon={<ListChecks size={18} />}
+        title="Görevler"
+        value={`${snapshot.notifications.length} not`}
+        body="Öncelikli aksiyonlar görev panelinde takip edilecek."
       />
     ),
   },
@@ -79,6 +90,38 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
         title="Raporlar"
         value={`${snapshot.factory.currentDay}. gün`}
         body="Günün üretim görünümü hazır."
+      />
+    ),
+  },
+  warehouse: {
+    layout: "center",
+    size: "compact",
+    title: "Depo",
+    render: ({ snapshot }) => <WarehousePanel warehouse={snapshot.warehouse} />,
+  },
+  departmentQueue: {
+    layout: "center",
+    size: "adaptive",
+    title: "Üretim Kuyruğu",
+    render: ({ payload, snapshot }) => {
+      const dockItem = findDockItem(snapshot, String(payload?.dockItemId ?? ""));
+
+      return (
+        <DepartmentQueuePanel
+          departmentKeys={dockItem?.departmentKeys ?? []}
+          queues={snapshot.productionQueues}
+        />
+      );
+    },
+  },
+  cutting: {
+    layout: "center",
+    size: "adaptive",
+    title: "Kesim",
+    render: ({ snapshot }) => (
+      <DepartmentQueuePanel
+        departmentKeys={["cutting"]}
+        queues={snapshot.productionQueues}
       />
     ),
   },
@@ -120,30 +163,92 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     },
   },
   investment: {
-    title: "Yatırım",
-    render: () => (
-      <PanelScaffold
-        icon={<Hammer size={18} />}
-        title="Yatırım"
-        value="Hazır"
-        body="Bir sonraki hat kararı yatırım sırasında."
+    layout: "center",
+    size: "adaptive",
+    title: "Üretim Hattı Yatırımı",
+    render: ({ payload, snapshot }) => (
+      <ProductionLineInvestmentPanel
+        initialDepartmentId={String(payload?.departmentId ?? "")}
+        sectionId={String(payload?.sectionId ?? "")}
+        snapshot={snapshot}
       />
     ),
+  },
+  departmentDetail: {
+    title: "Departman",
+    render: ({ payload, snapshot }) => {
+      const dockItem = findDockItem(snapshot, String(payload?.dockItemId ?? ""));
+
+      if (!dockItem) {
+        return (
+          <PanelScaffold
+            icon={<Factory size={18} />}
+            title="Departman"
+            value="-"
+            body="Seçili departman bulunamadı."
+          />
+        );
+      }
+
+      return (
+        <div className="space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+                {dockItem.kind}
+              </p>
+              <h2 className="mt-1 text-xl font-semibold text-white">{dockItem.label}</h2>
+            </div>
+            {dockItem.badge ? (
+              <Badge variant="outline">
+                {dockItem.badge.label}: {dockItem.badge.count}
+              </Badge>
+            ) : (
+              <Badge variant="secondary">Temiz</Badge>
+            )}
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <PanelDatum label="Dock ID" value={dockItem.id.replace("dock:", "")} />
+            <PanelDatum label="Departman" value={dockItem.departmentKeys.join(", ")} />
+            <PanelDatum label="Sıra" value={dockItem.sortOrder.toString()} />
+            <PanelDatum label="İkon" value={dockItem.iconKey} />
+          </div>
+        </div>
+      );
+    },
   },
 };
 
 export function PanelChrome({
   children,
+  layout = "side",
   onClose,
+  size = "wide",
   title,
 }: {
   children: ReactNode;
+  layout?: "center" | "side";
   onClose: () => void;
+  size?: "adaptive" | "compact" | "wide";
   title: string;
 }) {
   return (
-    <aside className="pointer-events-auto w-[min(420px,calc(100vw-2rem))] rounded-lg border border-white/10 bg-card/95 p-4 text-card-foreground shadow-2xl backdrop-blur">
-      <div className="mb-4 flex items-center justify-between gap-4">
+    <aside
+      className={cn(
+        "pointer-events-auto flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-lg border border-white/10 text-card-foreground shadow-2xl backdrop-blur",
+        layout === "center" &&
+          size === "wide" &&
+          "h-[min(780px,calc(100dvh-8rem))] w-[min(1380px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(1380px,calc(100vw-7rem))]",
+        layout === "center" &&
+          size === "adaptive" &&
+          "h-[min(720px,calc(100dvh-8rem))] w-[min(1080px,calc(100vw-2rem))] bg-background p-3 sm:w-[min(1080px,calc(100vw-5rem))]",
+        layout === "center" &&
+          size === "compact" &&
+          "h-[min(760px,calc(100dvh-8rem))] w-[min(880px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(880px,calc(100vw-5rem))]",
+        layout !== "center" && "max-h-[calc(100dvh-8rem)] w-[min(420px,calc(100vw-2rem))] bg-card/95 p-4",
+      )}
+    >
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
         <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
           {title}
         </h2>
@@ -151,7 +256,13 @@ export function PanelChrome({
           <X size={16} />
         </Button>
       </div>
-      {children}
+      <div
+        className={cn(
+          "min-h-0 flex-1 overscroll-contain overflow-y-auto",
+        )}
+      >
+        {children}
+      </div>
     </aside>
   );
 }
@@ -203,4 +314,8 @@ function findLine(snapshot: GameSnapshot, lineId: string) {
   }
 
   return null;
+}
+
+function findDockItem(snapshot: GameSnapshot, dockItemId: string) {
+  return snapshot.dock.items.find((item) => item.id === dockItemId) ?? null;
 }

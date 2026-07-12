@@ -32,7 +32,6 @@ type SimulationValues = {
   financePeriodDays: number;
   defaultPaymentTermDays: number;
   simulationDurationSeconds: number;
-  maxAllocationsPerLineShift: number;
   metadata: string;
 };
 
@@ -105,7 +104,6 @@ export default async function SimulationConfigPage() {
                 financePeriodDays: 22,
                 defaultPaymentTermDays: 7,
                 simulationDurationSeconds: 45,
-                maxAllocationsPerLineShift: 3,
                 metadata: defaultMetadata,
               }}
             />
@@ -137,7 +135,6 @@ export default async function SimulationConfigPage() {
           financePeriodDays: config.financePeriodDays,
           defaultPaymentTermDays: config.defaultPaymentTermDays,
           simulationDurationSeconds: config.simulationDurationSeconds,
-          maxAllocationsPerLineShift: config.maxAllocationsPerLineShift,
           metadata: jsonText(config.metadata),
         };
 
@@ -237,13 +234,6 @@ function SimulationFields({
           label="Simülasyon süresi (saniye)"
           min={1}
           name="simulationDurationSeconds"
-        />
-        <NumberField
-          defaultValue={values.maxAllocationsPerLineShift}
-          hint="Bir vardiyada aynı hatta atanabilecek maksimum iş."
-          label="Hat başına allocation sınırı"
-          min={1}
-          name="maxAllocationsPerLineShift"
         />
       </FormGrid>
       <Field label="Metadata JSON">

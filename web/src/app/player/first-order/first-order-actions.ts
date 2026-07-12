@@ -158,6 +158,7 @@ async function createFirstOrder(optionId: string) {
         Math.round(totalPriceCents / quantity),
       );
       const acceptedDay = factory.currentDay;
+      const materialReadyDay = acceptedDay + 1;
       const targetDeliveryDay = acceptedDay + option.targetDeliveryDays;
       const nextNumber = (await tx.customerOrder.count({
         where: { factoryId: factory.id },
@@ -177,9 +178,12 @@ async function createFirstOrder(optionId: string) {
           totalQuantity: quantity,
           totalRevenueCents: BigInt(totalPriceCents),
           metadata: {
+            accessoryReadyDay: materialReadyDay,
             source: "first-order",
             firstOrderOptionId: option.id,
             currencyCode: factory.currencyCode,
+            fabricReadyDay: materialReadyDay,
+            materialReadyDay,
           },
         },
         select: { id: true },
@@ -230,8 +234,11 @@ async function createFirstOrder(optionId: string) {
           targetDeliveryDay,
           status: ProductionOrderStatus.PLANNED,
           metadata: {
+            accessoryReadyDay: materialReadyDay,
             source: "first-order",
             firstOrderOptionId: option.id,
+            fabricReadyDay: materialReadyDay,
+            materialReadyDay,
           },
         },
         select: { id: true },

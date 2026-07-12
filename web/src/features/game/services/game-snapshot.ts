@@ -5,17 +5,31 @@ import {
   FactoryProductionLineStatus,
   ProductionLineAssetVariant,
   ProductionOrderStatus,
+  RouteProgressStatus,
   StaffAssignmentStatus,
   type DepartmentKind as DepartmentKindType,
   type FactoryProductionLineStatus as FactoryProductionLineStatusType,
   type ProductionGrade,
+  type RouteProgressStatus as RouteProgressStatusType,
 } from "@/generated/prisma/enums";
+import { getOrderMarketView } from "@/features/orders/services/order-market-view";
+import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
+import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
 import { getPrisma } from "@/lib/db";
+import type {
+  ProductionLineInvestmentDepartment,
+  ProductionLineInvestmentView,
+} from "@/features/investment/types";
+import { calculateProductionLineInvestmentPreview } from "@/features/investment/services/production-line-investment";
+
+import { getLatestReviewableShiftPlayback } from "./shift-playback-view";
 
 import type {
   FactoryMapDepartment,
   FactoryMapItem,
   FactoryMapSection,
+  GameDockBadge,
+  GameDockItem,
   GameMetric,
   GameNotification,
   GameSnapshot,
@@ -34,7 +48,20 @@ type DepartmentRecord = {
   key: string;
   kind: DepartmentKindType;
   routeOrder: number;
+  dockIconKey: string | null;
   supportsOutsource: boolean;
+  translations: TranslationRecord[];
+};
+
+type DockDepartmentRecord = {
+  id: string;
+  key: string;
+  kind: DepartmentKindType;
+  routeOrder: number;
+  dockIconKey: string | null;
+  dockGroupKey: string | null;
+  dockSortOrder: number | null;
+  dockBadgeKey: string | null;
   translations: TranslationRecord[];
 };
 
@@ -44,6 +71,14 @@ type DepartmentGroupRecord = {
   sortOrder: number;
   translations: TranslationRecord[];
   departments: DepartmentRecord[];
+};
+
+type RouteProgressCountRecord = {
+  departmentId: string;
+  status: RouteProgressStatusType;
+  _count: {
+    _all: number;
+  };
 };
 
 type ProductionLineRecord = {
@@ -60,6 +95,7 @@ type ProductionLineRecord = {
     kind: DepartmentKindType;
     departmentGroupId: string | null;
     routeOrder: number;
+    dockIconKey: string | null;
     supportsOutsource: boolean;
     translations: TranslationRecord[];
   };
@@ -102,6 +138,20 @@ export async function getGameSnapshot(input: {
           currentFinancePeriod: true,
           currentLevel: true,
           currentXp: true,
+          operatingStageState: {
+            select: {
+              currentStage: {
+                select: {
+                  id: true,
+                  key: true,
+                  translations: {
+                    where: { locale },
+                    select: { locale: true, name: true, description: true },
+                  },
+                },
+              },
+            },
+          },
           sector: {
             select: {
               key: true,
@@ -136,6 +186,7 @@ export async function getGameSnapshot(input: {
                   kind: true,
                   departmentGroupId: true,
                   routeOrder: true,
+                  dockIconKey: true,
                   supportsOutsource: true,
                   translations: {
                     where: { locale },
@@ -179,9 +230,20 @@ export async function getGameSnapshot(input: {
 
   const [
     departmentGroups,
+    dockDepartments,
+    routeProgressCounts,
+    readyToShipOrderCount,
     activeOrderCount,
     lateOrderCount,
     activeProductionOrderCount,
+    orderMarket,
+    warehouse,
+    productionQueues,
+    activeShiftPlayback,
+    investmentTemplates,
+    investmentCostConfig,
+    investmentStages,
+    factorySupportStaff,
   ] = await Promise.all([
     prisma.departmentGroup.findMany({
       where: {
@@ -214,6 +276,7 @@ export async function getGameSnapshot(input: {
             key: true,
             kind: true,
             routeOrder: true,
+            dockIconKey: true,
             supportsOutsource: true,
             translations: {
               where: { locale },
@@ -221,6 +284,56 @@ export async function getGameSnapshot(input: {
             },
           },
         },
+      },
+    }),
+    prisma.department.findMany({
+      where: {
+        sectorId: factory.sectorId,
+        showInDock: true,
+        status: ContentStatus.ACTIVE,
+      },
+      orderBy: [
+        { dockSortOrder: "asc" },
+        { routeOrder: "asc" },
+        { key: "asc" },
+      ],
+      select: {
+        id: true,
+        key: true,
+        kind: true,
+        routeOrder: true,
+        dockIconKey: true,
+        dockGroupKey: true,
+        dockSortOrder: true,
+        dockBadgeKey: true,
+        translations: {
+          where: { locale },
+          select: { locale: true, name: true, description: true },
+        },
+      },
+    }),
+    prisma.productionOrderRouteProgress.groupBy({
+      by: ["departmentId", "status"],
+      where: {
+        factoryId: factory.id,
+        status: {
+          in: [
+            RouteProgressStatus.WAITING_INPUT,
+            RouteProgressStatus.READY,
+            RouteProgressStatus.IN_PROGRESS,
+            RouteProgressStatus.WAITING_OUTSOURCE,
+            RouteProgressStatus.BLOCKED,
+          ],
+        },
+      },
+      _count: {
+        _all: true,
+      },
+    }),
+    prisma.productionOrder.count({
+      where: {
+        factoryId: factory.id,
+        status: ProductionOrderStatus.READY_TO_SHIP,
       },
     }),
     prisma.customerOrder.count({
@@ -257,6 +370,155 @@ export async function getGameSnapshot(input: {
         },
       },
     }),
+    getOrderMarketView({
+      currentDay: factory.currentDay,
+      currencyCode: factory.currencyCode,
+      factoryId: factory.id,
+    }),
+    getWarehouseView({
+      currentDay: factory.currentDay,
+      factoryId: factory.id,
+      sectorId: factory.sectorId,
+    }),
+    getProductionQueuesView({
+      currentDay: factory.currentDay,
+      factoryId: factory.id,
+      sectorId: factory.sectorId,
+    }),
+    getLatestReviewableShiftPlayback({
+      currentDay: factory.currentDay,
+      factoryId: factory.id,
+      prisma,
+    }),
+    prisma.productionLineTemplate.findMany({
+      where: {
+        sectorId: factory.sectorId,
+        status: ContentStatus.ACTIVE,
+        department: {
+          kind: DepartmentKind.PRODUCTION,
+          status: ContentStatus.ACTIVE,
+        },
+      },
+      orderBy: [
+        { department: { routeOrder: "asc" } },
+        { sortOrder: "asc" },
+        { grade: "asc" },
+      ],
+      select: {
+        id: true,
+        departmentId: true,
+        key: true,
+        grade: true,
+        machineCount: true,
+        idealStaff: true,
+        dailyPointCapacity: true,
+        areaM2: true,
+        monthlyElectricityBaseCents: true,
+        purchaseCostCents: true,
+        imageUrl: true,
+        imagePathname: true,
+        department: {
+          select: {
+            id: true,
+            key: true,
+            departmentGroupId: true,
+            monthlyOverheadPerLineCents: true,
+            translations: {
+              where: { locale },
+              select: { locale: true, name: true, description: true },
+            },
+          },
+        },
+        visualAssets: {
+          where: { variant: ProductionLineAssetVariant.CARD },
+          take: 1,
+          select: { url: true },
+        },
+        leasingOffers: {
+          where: { status: ContentStatus.ACTIVE },
+          orderBy: [{ sortOrder: "asc" }, { termYears: "asc" }],
+          select: {
+            id: true,
+            termYears: true,
+            installmentCount: true,
+            downPaymentCents: true,
+            installmentAmountCents: true,
+            totalCostCents: true,
+          },
+        },
+        staffRequirements: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            requiredQuantity: true,
+            staffRole: {
+              select: {
+                id: true,
+                key: true,
+                monthlySalaryCents: true,
+                translations: {
+                  where: { locale },
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.sectorOperatingCostConfig.findUniqueOrThrow({
+      where: { sectorId: factory.sectorId },
+      select: {
+        dailyMealPerDirectStaffCents: true,
+        directStaffOverheadPerStaffCents: true,
+        monthlyWorkDays: true,
+        rentPerM2Cents: true,
+      },
+    }),
+    prisma.sectorFactoryOperatingStage.findMany({
+      where: {
+        sectorId: factory.sectorId,
+        status: ContentStatus.ACTIVE,
+      },
+      orderBy: { sortOrder: "asc" },
+      select: {
+        id: true,
+        key: true,
+        sortOrder: true,
+        minProductionLines: true,
+        maxProductionLines: true,
+        dailySupportMealPerStaffCents: true,
+        supportOverheadPerStaffCents: true,
+        translations: {
+          where: { locale },
+          select: { name: true },
+        },
+        staffRequirements: {
+          orderBy: { sortOrder: "asc" },
+          select: {
+            requiredQuantity: true,
+            staffRole: {
+              select: {
+                id: true,
+                key: true,
+                monthlySalaryCents: true,
+                translations: {
+                  where: { locale },
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    }),
+    prisma.factoryStaffAssignment.findMany({
+      where: {
+        factoryId: factory.id,
+        factoryProductionLineId: null,
+        status: StaffAssignmentStatus.ACTIVE,
+      },
+      select: { quantity: true, staffRoleId: true },
+    }),
   ]);
 
   const sections = buildFactoryMapSections({
@@ -264,6 +526,16 @@ export async function getGameSnapshot(input: {
     productionLines: factory.productionLines,
   });
   const totals = getMapTotals(sections);
+  const operatingStageName = pickTranslation(
+    factory.operatingStageState?.currentStage.translations ?? [],
+    factory.operatingStageState?.currentStage.key ?? "stage",
+  );
+  const dockItems = buildDockItems({
+    departments: dockDepartments,
+    readyToShipOrderCount,
+    routeProgressCounts,
+    warehouseInboundCount: warehouse.summary.inboundTotal,
+  });
 
   return {
     player: {
@@ -280,11 +552,12 @@ export async function getGameSnapshot(input: {
       currentFinancePeriod: factory.currentFinancePeriod,
       currentLevel: factory.currentLevel,
       currentXp: factory.currentXp,
+      operatingStageName,
     },
     metrics: buildMetrics({
       activeOrderCount,
       activeProductionOrderCount,
-      factory,
+      factory: { ...factory, operatingStageName },
       lateOrderCount,
       totals,
     }),
@@ -292,11 +565,317 @@ export async function getGameSnapshot(input: {
       activeProductionOrderCount,
       lateOrderCount,
     }),
+    activeShiftPlayback,
+    dock: {
+      items: dockItems,
+    },
+    orders: orderMarket,
+    warehouse,
+    productionQueues,
+    investment: buildProductionLineInvestmentView({
+      activeProductionLineCount: factory.productionLines.filter(
+        (line) => line.status !== FactoryProductionLineStatus.DISABLED,
+      ).length,
+      costConfig: investmentCostConfig,
+      currentStageId: factory.operatingStageState?.currentStage.id ?? null,
+      currencyCode: factory.currencyCode,
+      stages: investmentStages,
+      supportStaffByRoleId: new Map(
+        factorySupportStaff.map((assignment) => [
+          assignment.staffRoleId,
+          assignment.quantity,
+        ]),
+      ),
+      templates: investmentTemplates,
+    }),
     map: {
       sections,
       totals,
     },
   };
+}
+
+function buildProductionLineInvestmentView(input: {
+  activeProductionLineCount: number;
+  costConfig: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["costConfig"];
+  currentStageId: string | null;
+  currencyCode: GameSnapshot["factory"]["currencyCode"];
+  stages: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["stages"];
+  supportStaffByRoleId: ReadonlyMap<string, number>;
+  templates: Array<{
+    id: string;
+    departmentId: string;
+    key: string;
+    grade: ProductionGrade;
+    machineCount: number;
+    idealStaff: number;
+    dailyPointCapacity: number;
+    areaM2: number;
+    monthlyElectricityBaseCents: number;
+    purchaseCostCents: number;
+    imageUrl: string | null;
+    imagePathname: string | null;
+    visualAssets: Array<{ url: string }>;
+    leasingOffers: Array<{
+      id: string;
+      termYears: number;
+      installmentCount: number;
+      downPaymentCents: number;
+      installmentAmountCents: number;
+      totalCostCents: number;
+    }>;
+    staffRequirements: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["template"]["staffRequirements"];
+    department: {
+      id: string;
+      key: string;
+      departmentGroupId: string | null;
+      monthlyOverheadPerLineCents: number;
+      translations: TranslationRecord[];
+    };
+  }>;
+}): ProductionLineInvestmentView {
+  const departments = new Map<string, ProductionLineInvestmentDepartment>();
+
+  for (const template of input.templates) {
+    const department = departments.get(template.departmentId) ?? {
+      departmentGroupId: template.department.departmentGroupId,
+      id: template.department.id,
+      key: template.department.key,
+      name: pickTranslation(
+        template.department.translations,
+        template.department.key,
+      ),
+      templates: [],
+    };
+
+    department.templates.push({
+      areaM2: template.areaM2,
+      dailyPointCapacity: template.dailyPointCapacity,
+      departmentId: template.departmentId,
+      grade: template.grade,
+      id: template.id,
+      idealStaff: template.idealStaff,
+      imageUrl:
+        template.visualAssets[0]?.url ??
+        template.imageUrl ??
+        template.imagePathname,
+      key: template.key,
+      leasingOffers: template.leasingOffers.map((offer) => ({
+        id: offer.id,
+        termYears: offer.termYears,
+        installmentCount: offer.installmentCount,
+        downPaymentCents: String(offer.downPaymentCents),
+        installmentAmountCents: String(offer.installmentAmountCents),
+        totalCostCents: String(offer.totalCostCents),
+      })),
+      machineCount: template.machineCount,
+      monthlyElectricityBaseCents: template.monthlyElectricityBaseCents,
+      purchaseCostCents: String(template.purchaseCostCents),
+      preview: calculateProductionLineInvestmentPreview({
+        activeProductionLineCount: input.activeProductionLineCount,
+        costConfig: input.costConfig,
+        currentStageId: input.currentStageId,
+        stages: input.stages,
+        supportStaffByRoleId: input.supportStaffByRoleId,
+        template,
+      }),
+    });
+    departments.set(template.departmentId, department);
+  }
+
+  return {
+    currencyCode: input.currencyCode,
+    departments: Array.from(departments.values()),
+  };
+}
+
+function buildDockItems({
+  departments,
+  readyToShipOrderCount,
+  routeProgressCounts,
+  warehouseInboundCount,
+}: {
+  departments: DockDepartmentRecord[];
+  readyToShipOrderCount: number;
+  routeProgressCounts: RouteProgressCountRecord[];
+  warehouseInboundCount: number;
+}): GameDockItem[] {
+  const routeCountsByDepartmentId = buildRouteCountsByDepartmentId(routeProgressCounts);
+  const groupedDepartments = new Map<string, DockDepartmentRecord[]>();
+
+  for (const department of departments) {
+    const groupKey = department.dockGroupKey ?? department.key;
+    const current = groupedDepartments.get(groupKey) ?? [];
+
+    current.push(department);
+    groupedDepartments.set(groupKey, current);
+  }
+
+  return Array.from(groupedDepartments.entries())
+    .map(([groupKey, groupDepartments]) => {
+      const sortedDepartments = groupDepartments.sort(
+        (first, second) => first.routeOrder - second.routeOrder || first.key.localeCompare(second.key),
+      );
+      const firstDepartment = sortedDepartments[0];
+
+      if (!firstDepartment) return null;
+
+      const badgeKey = firstDepartment.dockBadgeKey ?? getDefaultDockBadgeKey(groupKey, firstDepartment);
+      const iconKey = normalizeDockIconKey(
+        firstDepartment.dockIconKey ?? getDefaultDockIconKey(groupKey, firstDepartment.key),
+      );
+
+      return {
+        id: `dock:${groupKey}`,
+        label: getDockLabel(groupKey, sortedDepartments),
+        iconKey,
+        departmentIds: sortedDepartments.map((department) => department.id),
+        departmentKeys: sortedDepartments.map((department) => department.key),
+        kind: firstDepartment.kind,
+        sortOrder: firstDepartment.dockSortOrder ?? firstDepartment.routeOrder,
+        badge: buildDockBadge({
+          badgeKey,
+          departments: sortedDepartments,
+          groupKey,
+          readyToShipOrderCount,
+          routeCountsByDepartmentId,
+          warehouseInboundCount,
+        }),
+      } satisfies GameDockItem;
+    })
+    .filter((item): item is GameDockItem => item !== null)
+    .sort((first, second) => first.sortOrder - second.sortOrder || first.label.localeCompare(second.label));
+}
+
+function buildRouteCountsByDepartmentId(routeProgressCounts: RouteProgressCountRecord[]) {
+  const counts = new Map<string, Partial<Record<RouteProgressStatusType, number>>>();
+
+  for (const count of routeProgressCounts) {
+    const current = counts.get(count.departmentId) ?? {};
+
+    current[count.status] = count._count._all;
+    counts.set(count.departmentId, current);
+  }
+
+  return counts;
+}
+
+function buildDockBadge({
+  badgeKey,
+  departments,
+  groupKey,
+  readyToShipOrderCount,
+  routeCountsByDepartmentId,
+  warehouseInboundCount,
+}: {
+  badgeKey: string;
+  departments: DockDepartmentRecord[];
+  groupKey: string;
+  readyToShipOrderCount: number;
+  routeCountsByDepartmentId: Map<string, Partial<Record<RouteProgressStatusType, number>>>;
+  warehouseInboundCount: number;
+}): GameDockBadge | null {
+  if (badgeKey === "READY_TO_SHIP") {
+    return readyToShipOrderCount > 0
+      ? {
+          count: readyToShipOrderCount,
+          label: "Sevke hazır",
+          tone: "success",
+        }
+      : null;
+  }
+
+  const count = departments.reduce(
+    (total, department) => total + getRouteQueueCount(routeCountsByDepartmentId.get(department.id)),
+    0,
+  );
+
+  if (badgeKey === "MATERIAL_MISSING" && groupKey === "warehouse") {
+    return warehouseInboundCount > 0
+      ? {
+          count: warehouseInboundCount,
+          label: "Yolda",
+          tone: "warning",
+        }
+      : null;
+  }
+
+  if (count <= 0) return null;
+
+  if (badgeKey === "BOTTLENECK") {
+    return {
+      count,
+      label: "Kuyruk / darboğaz",
+      tone: "warning",
+    };
+  }
+
+  if (badgeKey === "MATERIAL_MISSING") {
+    return {
+      count,
+      label: "Malzeme uyarısı",
+      tone: "danger",
+    };
+  }
+
+  return {
+    count,
+    label: "Bekleyen iş",
+    tone: "info",
+  };
+}
+
+function getRouteQueueCount(counts: Partial<Record<RouteProgressStatusType, number>> | undefined) {
+  if (!counts) return 0;
+
+  return (
+    (counts.WAITING_INPUT ?? 0) +
+    (counts.READY ?? 0) +
+    (counts.IN_PROGRESS ?? 0) +
+    (counts.WAITING_OUTSOURCE ?? 0) +
+    (counts.BLOCKED ?? 0)
+  );
+}
+
+function getDockLabel(groupKey: string, departments: DockDepartmentRecord[]) {
+  const labels: Record<string, string> = {
+    warehouse: "Depo",
+    shipping: "Sevkiyat",
+  };
+
+  return labels[groupKey] ?? pickTranslation(departments[0]?.translations ?? [], departments[0]?.key ?? groupKey);
+}
+
+function normalizeDockIconKey(iconKey: string) {
+  return iconKey.trim().toLocaleLowerCase("en-US").replace(/-/g, "_");
+}
+
+function getDefaultDockIconKey(groupKey: string, departmentKey: string) {
+  const iconKeys: Record<string, string> = {
+    accessory_warehouse: "warehouse",
+    cutting: "scissors",
+    dyeing: "paint_bucket",
+    embroidery: "needle",
+    fabric_warehouse: "warehouse",
+    ironing_packing: "package_check",
+    printing: "printer",
+    product_warehouse: "warehouse",
+    sewing: "shirt",
+    shipping: "truck",
+    warehouse: "warehouse",
+    washing: "waves",
+  };
+
+  return iconKeys[groupKey] ?? iconKeys[departmentKey] ?? "warehouse";
+}
+
+function getDefaultDockBadgeKey(groupKey: string, department: DockDepartmentRecord) {
+  if (groupKey === "shipping") return "READY_TO_SHIP";
+  if (groupKey === "warehouse" || department.kind === DepartmentKind.WAREHOUSE) return "MATERIAL_MISSING";
+  if (department.key === "sewing") return "BOTTLENECK";
+  if (department.key === "ironing_packing") return "PACKING_WAITING";
+
+  return "QUEUE_WAITING";
 }
 
 function buildFactoryMapSections({
@@ -349,6 +928,7 @@ function buildFactoryMapSections({
 
     const departments = visibleDepartments.map(toMapDepartment);
     const items = buildSectionItems({
+      departmentIds: departments.map((department) => department.id),
       groupId: group.id,
       groupTitle: pickTranslation(group.translations, group.key),
       lines,
@@ -384,12 +964,14 @@ function buildFactoryMapSections({
           key: firstLine.department.key,
           kind: firstLine.department.kind,
           routeOrder: firstLine.department.routeOrder,
+          dockIconKey: firstLine.department.dockIconKey,
           supportsOutsource: firstLine.department.supportsOutsource,
           translations: firstLine.department.translations,
         },
       ],
     };
     const items = buildSectionItems({
+      departmentIds: [firstLine.department.id],
       groupId: syntheticGroup.id,
       groupTitle: departmentName,
       lines,
@@ -432,6 +1014,7 @@ function getOwnedLineDepartments(
       key: line.department.key,
       kind: line.department.kind,
       routeOrder: line.department.routeOrder,
+      dockIconKey: line.department.dockIconKey,
       supportsOutsource: line.department.supportsOutsource,
       translations: line.department.translations,
     });
@@ -443,10 +1026,12 @@ function getOwnedLineDepartments(
 }
 
 function buildSectionItems({
+  departmentIds,
   groupId,
   groupTitle,
   lines,
 }: {
+  departmentIds: string[];
   groupId: string;
   groupTitle: string;
   lines: ProductionLineRecord[];
@@ -461,6 +1046,7 @@ function buildSectionItems({
       kind: "investmentAction",
       id: `investment:${groupId}`,
       sectionId: groupId,
+      departmentIds,
       title: "Yatırım Yap",
       subtitle: `${groupTitle} yatırımları`,
     });
@@ -473,6 +1059,7 @@ function toMapDepartment(department: DepartmentRecord): FactoryMapDepartment {
   return {
     id: department.id,
     key: department.key,
+    iconKey: normalizeDockIconKey(department.dockIconKey ?? getDefaultDockIconKey(department.key, department.key)),
     name: pickTranslation(department.translations, department.key),
     kind: department.kind,
     routeOrder: department.routeOrder,
@@ -537,6 +1124,7 @@ function buildMetrics({
     currentDay: number;
     currentFinancePeriod: number;
     currentLevel: number;
+    operatingStageName: string;
   };
   lateOrderCount: number;
   totals: GameSnapshot["map"]["totals"];
@@ -553,7 +1141,7 @@ function buildMetrics({
       id: "day",
       label: "Gün",
       value: `${factory.currentDay}. Gün`,
-      subLabel: `Seviye ${factory.currentLevel}`,
+      subLabel: `${factory.operatingStageName} · Seviye ${factory.currentLevel}`,
       tone: "amber",
     },
     {
