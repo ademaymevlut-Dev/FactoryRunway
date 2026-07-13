@@ -3,12 +3,14 @@ import {
   CustomerOrderStatus,
   DepartmentKind,
   FactoryProductionLineStatus,
+  LeasingContractStatus,
   ProductionLineAssetVariant,
   ProductionOrderStatus,
   RouteProgressStatus,
   StaffAssignmentStatus,
   type DepartmentKind as DepartmentKindType,
   type FactoryProductionLineStatus as FactoryProductionLineStatusType,
+  type LineAcquisitionType as LineAcquisitionTypeType,
   type ProductionGrade,
   type RouteProgressStatus as RouteProgressStatusType,
 } from "@/generated/prisma/enums";
@@ -86,6 +88,7 @@ type ProductionLineRecord = {
   departmentId: string;
   lineNumber: number;
   customName: string | null;
+  acquisitionType: LineAcquisitionTypeType;
   conditionBps: number;
   status: FactoryProductionLineStatusType;
   sortOrder: number;
@@ -100,10 +103,15 @@ type ProductionLineRecord = {
     translations: TranslationRecord[];
   };
   productionLineTemplate: {
+    id: string;
     key: string;
     grade: ProductionGrade;
+    machineCount: number;
     idealStaff: number;
     dailyPointCapacity: number;
+    areaM2: number;
+    monthlyElectricityBaseCents: number;
+    purchaseCostCents: number;
     imageUrl: string | null;
     imagePathname: string | null;
     visualAssets: Array<{
@@ -113,6 +121,9 @@ type ProductionLineRecord = {
   };
   staffAssignments: Array<{
     quantity: number;
+  }>;
+  leasingContracts: Array<{
+    id: string;
   }>;
 };
 
@@ -176,6 +187,7 @@ export async function getGameSnapshot(input: {
               departmentId: true,
               lineNumber: true,
               customName: true,
+              acquisitionType: true,
               conditionBps: true,
               status: true,
               sortOrder: true,
@@ -196,10 +208,15 @@ export async function getGameSnapshot(input: {
               },
               productionLineTemplate: {
                 select: {
+                  id: true,
                   key: true,
                   grade: true,
+                  machineCount: true,
                   idealStaff: true,
                   dailyPointCapacity: true,
+                  areaM2: true,
+                  monthlyElectricityBaseCents: true,
+                  purchaseCostCents: true,
                   imageUrl: true,
                   imagePathname: true,
                   visualAssets: {
@@ -214,6 +231,11 @@ export async function getGameSnapshot(input: {
               staffAssignments: {
                 where: { status: StaffAssignmentStatus.ACTIVE },
                 select: { quantity: true },
+              },
+              leasingContracts: {
+                where: { status: LeasingContractStatus.ACTIVE },
+                take: 1,
+                select: { id: true },
               },
             },
           },
@@ -1081,14 +1103,21 @@ function toProductionLineItem(line: ProductionLineRecord): FactoryMapItem {
     code: `${getDepartmentCode(line.department.key)}-${String(line.lineNumber).padStart(2, "0")}`,
     title: line.customName ?? `${departmentName} Hattı ${line.lineNumber}`,
     subtitle: formatGrade(template.grade),
+    acquisitionType: line.acquisitionType,
     status: line.status,
     grade: template.grade,
+    productionLineTemplateId: template.id,
     lineNumber: line.lineNumber,
     sortOrder: line.sortOrder,
     conditionBps: line.conditionBps,
     dailyPointCapacity: template.dailyPointCapacity,
     idealStaff: template.idealStaff,
     assignedStaff: line.staffAssignments.reduce((total, assignment) => total + assignment.quantity, 0),
+    machineCount: template.machineCount,
+    areaM2: template.areaM2,
+    monthlyElectricityBaseCents: template.monthlyElectricityBaseCents,
+    purchaseCostCents: String(template.purchaseCostCents),
+    hasActiveLeasingContract: line.leasingContracts.length > 0,
     imageUrl: getLineImageUrl(line),
   };
 }

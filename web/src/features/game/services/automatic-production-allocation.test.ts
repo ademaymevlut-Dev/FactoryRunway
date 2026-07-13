@@ -8,6 +8,7 @@ import {
   type AutomaticAllocationLine,
   type AutomaticAllocationQueueItem,
 } from "./automatic-production-allocation";
+import { buildDepartmentPlannedQuantities } from "./production-allocation-math";
 
 function line(
   id: string,
@@ -147,6 +148,77 @@ test("farklı departmanlar aynı global priority sırasını kendi WIP'lerine uy
     new Set(result.map((item) => item.departmentId)),
     new Set(["cutting", "sewing"]),
   );
+});
+
+test("departman önizlemesi drag sırasına göre bütün planlanan adetleri yeniler", () => {
+  const lines = [line("line-1", 100)];
+  const firstOrder = [
+    {
+      availableQuantity: 10,
+      departmentId: "cutting",
+      id: "a",
+      remainingQuantity: 10,
+      setupPoints: 0,
+      workloadPointsPerUnit: 10,
+    },
+    {
+      availableQuantity: 10,
+      departmentId: "cutting",
+      id: "b",
+      remainingQuantity: 10,
+      setupPoints: 0,
+      workloadPointsPerUnit: 10,
+    },
+  ];
+  const firstPlan = buildDepartmentPlannedQuantities({
+    lines,
+    queue: firstOrder,
+  });
+  const reorderedPlan = buildDepartmentPlannedQuantities({
+    lines,
+    queue: [...firstOrder].reverse(),
+  });
+
+  assert.equal(firstPlan.get("a"), 10);
+  assert.equal(firstPlan.get("b") ?? 0, 0);
+  assert.equal(reorderedPlan.get("a") ?? 0, 0);
+  assert.equal(reorderedPlan.get("b"), 10);
+});
+
+test("departman önizlemesi setup ve ürün workload puanından sonra kalan kapasiteyi devreder", () => {
+  const result = buildDepartmentPlannedQuantities({
+    lines: [line("line-1", 100)],
+    queue: [
+      {
+        availableQuantity: 4,
+        departmentId: "cutting",
+        id: "a",
+        remainingQuantity: 4,
+        setupPoints: 10,
+        workloadPointsPerUnit: 10,
+      },
+      {
+        availableQuantity: 10,
+        departmentId: "cutting",
+        id: "b",
+        remainingQuantity: 10,
+        setupPoints: 0,
+        workloadPointsPerUnit: 20,
+      },
+      {
+        availableQuantity: 10,
+        departmentId: "cutting",
+        id: "c",
+        remainingQuantity: 10,
+        setupPoints: 0,
+        workloadPointsPerUnit: 10,
+      },
+    ],
+  });
+
+  assert.equal(result.get("a"), 4);
+  assert.equal(result.get("b"), 2);
+  assert.equal(result.get("c"), 1);
 });
 
 test("aynı plan yeniden oluşturulursa allocation satırlarını çoğaltmaz", async () => {

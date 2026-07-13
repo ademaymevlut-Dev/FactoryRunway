@@ -1304,6 +1304,23 @@
     }
   }
 
+  @keyframes order-route-marquee {
+    0%,
+    14% {
+      transform: translateX(0);
+    }
+
+    86%,
+    100% {
+      transform: translateX(calc(var(--order-route-marquee-distance, 0px) * -1));
+    }
+  }
+
+  .order-route-marquee {
+    animation: order-route-marquee 7s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+
   .factory-backdrop {
     pointer-events: none;
     position: fixed;

@@ -1,5 +1,4 @@
 import {
-  Banknote,
   Boxes,
   Factory,
   ListChecks,
@@ -11,10 +10,13 @@ import type { ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FinancePanel } from "@/features/finance/components/finance-panel";
 import { OrdersPanel } from "@/features/orders/components/orders-panel";
 import { DepartmentQueuePanel } from "@/features/production-queue/components/department-queue-panel";
 import { WarehousePanel } from "@/features/warehouse/components/warehouse-panel";
 import { ProductionLineInvestmentPanel } from "@/features/investment/components/production-line-investment-panel";
+import { UpgradeProductionLinePanel } from "@/features/investment/components/upgrade-production-line-panel";
+import type { ProductionLineInvestmentTemplate } from "@/features/investment/types";
 import { cn } from "@/lib/utils";
 
 import type { FactoryMapItem, GamePanelKey, GameSnapshot } from "../types";
@@ -26,6 +28,7 @@ type PanelContext = {
 };
 
 type PanelDefinition = {
+  backdrop?: boolean;
   layout?: "center" | "side";
   size?: "adaptive" | "compact" | "wide";
   title: string;
@@ -72,13 +75,16 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     ),
   },
   finance: {
+    backdrop: true,
+    layout: "center",
+    size: "compact",
     title: "Finans",
     render: ({ snapshot }) => (
-      <PanelScaffold
-        icon={<Banknote size={18} />}
-        title="Finans"
-        value={snapshot.metrics.find((metric) => metric.id === "cash")?.value ?? "-"}
-        body={`${snapshot.factory.currentFinancePeriod}. finans dönemi açık.`}
+      <FinancePanel
+        cashBalanceCents={snapshot.factory.cashBalanceCents}
+        currencyCode={snapshot.factory.currencyCode}
+        currentDay={snapshot.factory.currentDay}
+        factoryId={snapshot.factory.id}
       />
     ),
   },
@@ -126,7 +132,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     ),
   },
   lineDetail: {
-    title: "Hat Detayı",
+    title: "Production Line Upgrade",
     render: ({ payload, snapshot }) => {
       const line = findLine(snapshot, String(payload?.lineId ?? ""));
 
@@ -142,23 +148,12 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
       }
 
       return (
-        <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-                {line.departmentName}
-              </p>
-              <h2 className="mt-1 text-xl font-semibold text-white">{line.title}</h2>
-            </div>
-            <Badge variant="outline">{line.code}</Badge>
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-sm">
-            <PanelDatum label="Durum" value={line.status} />
-            <PanelDatum label="Standart" value={line.grade} />
-            <PanelDatum label="Hat Kodu" value={line.code} />
-            <PanelDatum label="Departman" value={line.departmentName} />
-          </div>
-        </div>
+        <UpgradeProductionLinePanel
+          currencyCode={snapshot.factory.currencyCode}
+          factoryId={snapshot.factory.id}
+          line={line}
+          nextTemplate={findNextUpgradeTemplate(snapshot, line)}
+        />
       );
     },
   },
@@ -314,6 +309,33 @@ function findLine(snapshot: GameSnapshot, lineId: string) {
   }
 
   return null;
+}
+
+function findNextUpgradeTemplate(
+  snapshot: GameSnapshot,
+  line: Extract<FactoryMapItem, { kind: "productionLine" }>,
+): ProductionLineInvestmentTemplate | null {
+  const nextGrade = getNextGrade(line.grade);
+
+  if (!nextGrade) return null;
+
+  const department = snapshot.investment.departments.find(
+    (item) => item.id === line.departmentId,
+  );
+
+  return (
+    department?.templates.find((template) => template.grade === nextGrade) ??
+    null
+  );
+}
+
+function getNextGrade(
+  grade: Extract<FactoryMapItem, { kind: "productionLine" }>["grade"],
+) {
+  const gradeOrder = ["WORKSHOP", "INDUSTRIAL", "PRECISION", "SMART"] as const;
+  const index = gradeOrder.indexOf(grade);
+
+  return index >= 0 ? (gradeOrder[index + 1] ?? null) : null;
 }
 
 function findDockItem(snapshot: GameSnapshot, dockItemId: string) {

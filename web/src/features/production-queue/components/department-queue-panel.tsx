@@ -36,6 +36,7 @@ import {
   SortableItemHandle,
 } from "@/components/ui/sortable"
 import { useGameUiStore } from "@/features/game/store/game-ui-store"
+import { buildDepartmentPlannedQuantities } from "@/features/game/services/production-allocation-math"
 import { cn } from "@/lib/utils"
 
 import { startOutsourceJobAction } from "../actions/start-outsource-job-action"
@@ -135,6 +136,24 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
   const [items, setItems] = useState<ProductionQueueItem[]>(queue.items)
   const [message, setMessage] = useState<string | null>(null)
   const [isPriorityPending, startPriorityTransition] = useTransition()
+  const plannedQuantityByItemId = useMemo(
+    () =>
+      buildDepartmentPlannedQuantities({
+        lines: queue.planningLines,
+        queue: items.map((item) => ({
+          availableQuantity: item.queueRemainingQuantity,
+          departmentId: item.departmentId,
+          id: item.routeProgressId,
+          remainingQuantity: item.remainingQuantity,
+          setupPoints: item.setupPoints,
+          workloadPointsPerUnit: item.workloadPointsPerUnit,
+        })),
+      }),
+    [items, queue.planningLines],
+  )
+  const plannedTotalQuantity = Array.from(
+    plannedQuantityByItemId.values(),
+  ).reduce((total, quantity) => total + quantity, 0)
 
   function handleValueChange(nextItems: ProductionQueueItem[]) {
     if (isShiftPlaybackActive) return
@@ -164,6 +183,7 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
       <DepartmentQueueHeader
         isPending={isPriorityPending}
         message={message}
+        plannedTotalQuantity={plannedTotalQuantity}
         queue={queue}
       />
 
@@ -197,6 +217,9 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
                           completedColumnLabel={queue.completedColumnLabel}
                           index={index}
                           item={item}
+                          plannedQuantity={
+                            plannedQuantityByItemId.get(item.routeProgressId) ?? 0
+                          }
                         />
                       </SortableItem>
                     ))}
@@ -225,10 +248,12 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
 function DepartmentQueueHeader({
   isPending,
   message,
+  plannedTotalQuantity,
   queue,
 }: {
   isPending: boolean
   message: string | null
+  plannedTotalQuantity: number
   queue: GameDepartmentQueueView
 }) {
   return (
@@ -255,7 +280,12 @@ function DepartmentQueueHeader({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4 xl:min-w-[520px]">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 xl:min-w-[520px]">
+        <SummaryPill
+          highlight
+          label="Bugün Planlanan"
+          value={`${formatNumber(plannedTotalQuantity)} adet`}
+        />
         <SummaryPill label="Kuyruğa Giren" value={queue.summary.totalInputReadyQuantityLabel} />
         <SummaryPill label={queue.completedColumnLabel} value={queue.summary.totalCompletedQuantityLabel} />
         <SummaryPill label="Kalan" value={queue.summary.totalRemainingQuantityLabel} />
@@ -276,11 +306,33 @@ function DepartmentQueueHeader({
   )
 }
 
-function SummaryPill({ label, value }: { label: string; value: string }) {
+function SummaryPill({
+  highlight = false,
+  label,
+  value,
+}: {
+  highlight?: boolean
+  label: string
+  value: string
+}) {
   return (
     <div className="min-w-0 rounded-md border border-border bg-card/40 px-2 py-1">
-      <span className="block truncate text-[10px] text-muted-foreground">{label}</span>
-      <strong className="block truncate text-[11px] text-foreground">{value}</strong>
+      <span
+        className={cn(
+          "block truncate text-[10px] text-muted-foreground",
+          highlight && "text-primary",
+        )}
+      >
+        {label}
+      </span>
+      <strong
+        className={cn(
+          "block truncate text-[11px] text-foreground",
+          highlight && "text-primary",
+        )}
+      >
+        {value}
+      </strong>
     </div>
   )
 }
@@ -465,12 +517,12 @@ function QueueHeader({
   return (
     <div
       className={cn(
-        "hidden grid-cols-[30px_42px_minmax(150px,1fr)_94px_84px_84px_112px_98px] items-center gap-2 px-2.5 pb-1 text-[10px] font-semibold uppercase text-muted-foreground lg:grid",
+        "hidden grid-cols-[30px_42px_minmax(150px,1fr)_78px_94px_84px_84px_112px_98px] items-center gap-2 px-2.5 pb-1 text-[10px] font-semibold uppercase text-muted-foreground lg:grid",
       )}
     >
       <span>Sıra</span>
-      <span>Ürün</span>
-      <span>Sipariş No</span>
+      <span className="col-span-2">Ürün / Sipariş</span>
+      <span className="text-primary">Planlanan</span>
       <span>Kuyruğa Giren</span>
       <span>{completedColumnLabel}</span>
       <span>Kalan</span>
@@ -484,10 +536,12 @@ function DepartmentQueueCard({
   completedColumnLabel,
   index,
   item,
+  plannedQuantity,
 }: {
   completedColumnLabel: string
   index: number
   item: ProductionQueueItem
+  plannedQuantity: number
 }) {
   return (
     <Card
@@ -501,7 +555,7 @@ function DepartmentQueueCard({
       <CardContent
         className={cn(
           "grid min-h-[66px] gap-2 px-2.5 py-2",
-          "lg:grid-cols-[30px_42px_minmax(150px,1fr)_94px_84px_84px_112px_98px] lg:items-center",
+          "lg:grid-cols-[30px_42px_minmax(150px,1fr)_78px_94px_84px_84px_112px_98px] lg:items-center",
         )}
       >
         <div className="flex items-center gap-1 lg:block">
@@ -535,6 +589,11 @@ function DepartmentQueueCard({
           </p>
         </div>
 
+        <CompactMetric
+          highlight
+          label="Planlanan"
+          value={`${formatNumber(plannedQuantity)} adet`}
+        />
         <CompactMetric label="Kuyruğa Giren" value={item.inputReadyQuantityLabel} />
         <CompactMetric label={`${completedColumnLabel} adet`} value={item.completedQuantityLabel} />
         <CompactMetric
@@ -559,10 +618,12 @@ function getQueueItemId(item: ProductionQueueItem) {
 }
 
 function CompactMetric({
+  highlight = false,
   label,
   tone,
   value,
 }: {
+  highlight?: boolean
   label: string
   tone?: ProductionQueueItem["deliveryTone"]
   value: string
@@ -575,6 +636,7 @@ function CompactMetric({
       <strong
         className={cn(
           "block truncate text-xs font-semibold tabular-nums text-foreground",
+          highlight && "text-primary",
           tone === "danger" && "text-red-200",
           tone === "warning" && "text-amber-100",
         )}
@@ -670,10 +732,24 @@ function renderDepartmentIcon(departmentKey: string, size: number) {
 function getQueueRevision(queue: GameDepartmentQueueView) {
   return [
     queue.departmentKey,
-    queue.items.map((item) => `${item.id}:${item.queuePriority}`).join(","),
+    queue.items
+      .map(
+        (item) =>
+          `${item.id}:${item.queuePriority}:${item.inputReadyQuantity}:${item.completedQuantity}:${item.queueRemainingQuantity}`,
+      )
+      .join(","),
+    queue.planningLines
+      .map((line) => `${line.id}:${line.effectivePointCapacity}`)
+      .join(","),
     queue.outsourceCandidates
       .map((item) => `${item.id}:${item.availableQuantity}`)
       .join(","),
     queue.outsourceJobs.map((job) => `${job.id}:${job.status}`).join(","),
   ].join("|")
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 0,
+  }).format(value)
 }

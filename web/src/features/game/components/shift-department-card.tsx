@@ -101,53 +101,24 @@ function DepartmentPerformance({
   performance: ShiftDepartmentPlayback["performance"];
 }) {
   const efficiency = Math.round(performance.efficiencyBps / 100);
-  const isQueueLimited =
-    performance.queueLoadPoints > 0 &&
-    performance.queueLoadPoints < performance.effectiveCapacityPoints;
-  const hasCapacityLoss = performance.capacityLossBps > 0;
-  const reason = hasCapacityLoss
-    ? "Personel / kondisyon etkisi"
-    : isQueueLimited
-      ? "Kuyruk yükü sınırladı"
-      : "Kapasite kullanımı";
+  const colorClass =
+    efficiency >= 90
+      ? "text-emerald-300"
+      : efficiency >= 75
+        ? "text-yellow-300"
+        : efficiency > 50
+          ? "text-orange-400"
+          : "text-red-400";
 
   return (
-    <div className="min-w-[128px] rounded-md border border-white/8 bg-background/45 px-2.5 py-2">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Efficiency
-        </p>
-        <span className="font-mono text-sm font-semibold tabular-nums text-emerald-300">
-          %{efficiency}
-        </span>
-      </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-        <div
-          className="h-full rounded-full bg-emerald-400"
-          style={{ width: `${Math.min(100, Math.max(0, efficiency))}%` }}
-        />
-      </div>
-      <div className="mt-2 space-y-1 text-[10px]">
-        <MetricLine
-          label="Kapasite"
-          value={performance.effectiveCapacityPoints}
-        />
-        <MetricLine label="Kuyruk yükü" value={performance.queueLoadPoints} />
-        <MetricLine label="Kullanılan" value={performance.usedPoints} />
-      </div>
-      <p className="mt-1.5 truncate text-[10px] text-muted-foreground">
-        {reason}
-      </p>
-    </div>
-  );
-}
-
-function MetricLine({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-mono tabular-nums text-white">
-        {formatQuantity(value)}
+    <div
+      aria-label={`Departman efficiency yüzde ${efficiency}`}
+      className="flex min-w-[56px] items-center justify-end"
+    >
+      <span
+        className={`font-mono text-lg font-semibold tabular-nums ${colorClass}`}
+      >
+        %{efficiency}
       </span>
     </div>
   );
@@ -168,7 +139,7 @@ function Metric({
         {label}
       </p>
       <CountUp
-        className="block truncate font-mono text-2xl font-semibold tabular-nums text-emerald-300"
+        className="block truncate font-mono text-xl font-semibold tabular-nums text-emerald-300"
         immediate={isFinal}
         locale="tr-TR"
         separator="."

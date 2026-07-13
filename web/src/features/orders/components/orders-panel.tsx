@@ -1,11 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useFormStatus } from "react-dom";
 import {
   CalendarDays,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Factory,
   Hash,
@@ -14,12 +22,12 @@ import {
   Route,
 } from "lucide-react";
 
+import { ArtCard } from "@/components/ui/art-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { acceptMarketOrderAction } from "@/features/orders/actions/accept-market-order-action";
-import { OrderPriorityList } from "./order-priority-list";
 
 import type { OrderMarketView, OrderOfferItemView, OrderOfferView } from "../types";
 
@@ -73,9 +81,6 @@ type OrdersPanelProps = {
 };
 
 export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
-  const [panelMode, setPanelMode] = useState<"MARKET" | "PRIORITY">(
-    orderMarket.activeOrders.length > 0 ? "PRIORITY" : "MARKET",
-  );
   const [selectedId, setSelectedId] = useState(
     orderMarket.offers[0]?.id ?? "",
   );
@@ -106,55 +111,45 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      <nav aria-label="Sipariş paneli görünümü" className="flex gap-2">
-        <Button
-          onClick={() => setPanelMode("PRIORITY")}
-          size="sm"
-          type="button"
-          variant={panelMode === "PRIORITY" ? "default" : "outline"}
-        >
-          Üretim Önceliği ({orderMarket.activeOrders.length})
-        </Button>
-        <Button
-          onClick={() => setPanelMode("MARKET")}
-          size="sm"
-          type="button"
-          variant={panelMode === "MARKET" ? "default" : "outline"}
-        >
-          Sipariş Pazarı ({orderMarket.offers.length})
-        </Button>
-      </nav>
-
-      {panelMode === "PRIORITY" ? (
-        <OrderPriorityList
-          activeOrders={orderMarket.activeOrders}
-          key={orderMarket.activeOrders.map((order) => order.id).join(":")}
-        />
-      ) : orderMarket.offers.length === 0 ? (
+      {orderMarket.offers.length === 0 ? (
         <OrdersEmptyState />
       ) : (
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
-      <OrderListPanel
-        offerFilter={offerFilter}
-        offers={filteredOffers}
-        onSelect={setSelectedId}
-        onOfferFilterChange={setOfferFilter}
-        onTierFilterChange={setTierFilter}
-        selectedId={selectedOffer?.id ?? ""}
-        sourceOffers={orderMarket.offers}
-        tierFilter={tierFilter}
-      />
-      {selectedOffer ? (
-        <>
-          <SelectedOrderDetail offer={selectedOffer} />
-          <OrderCostPanel offer={selectedOffer} />
-        </>
-      ) : (
-        <OrdersFilterEmptyState />
-      )}
-      </div>
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
+          <OrderListPanel
+            offerFilter={offerFilter}
+            offers={filteredOffers}
+            onSelect={setSelectedId}
+            onOfferFilterChange={setOfferFilter}
+            onTierFilterChange={setTierFilter}
+            selectedId={selectedOffer?.id ?? ""}
+            sourceOffers={orderMarket.offers}
+            tierFilter={tierFilter}
+          />
+          {selectedOffer ? (
+            <SelectedOrderPanels key={selectedOffer.id} offer={selectedOffer} />
+          ) : (
+            <OrdersFilterEmptyState />
+          )}
+        </div>
       )}
     </div>
+  );
+}
+
+function SelectedOrderPanels({ offer }: { offer: OrderOfferView }) {
+  const [activeItemIndex, setActiveItemIndex] = useState(0);
+  const activeItem = offer.items[activeItemIndex] ?? offer.items[0];
+
+  return (
+    <>
+      <SelectedOrderDetail
+        activeItem={activeItem}
+        activeItemIndex={activeItemIndex}
+        offer={offer}
+        onActiveItemChange={setActiveItemIndex}
+      />
+      <OrderCostPanel activeItem={activeItem} offer={offer} />
+    </>
   );
 }
 
@@ -327,9 +322,17 @@ function OrderListCard({
   );
 }
 
-function SelectedOrderDetail({ offer }: { offer: OrderOfferView }) {
-  const primaryItem = offer.items[0];
-
+function SelectedOrderDetail({
+  activeItem,
+  activeItemIndex,
+  offer,
+  onActiveItemChange,
+}: {
+  activeItem: OrderOfferItemView | undefined;
+  activeItemIndex: number;
+  offer: OrderOfferView;
+  onActiveItemChange: (index: number) => void;
+}) {
   return (
     <section className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border border-border border-t-2 bg-card/70", offerAccentClasses[offer.offerType].border.replace("border-l", "border-t"))}>
       <div className="border-b border-border p-3">
@@ -355,12 +358,29 @@ function SelectedOrderDetail({ offer }: { offer: OrderOfferView }) {
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {primaryItem ? (
+        {activeItem ? (
           <>
-            <ProductHero item={primaryItem} />
-            <OrderMetaGrid offer={offer} item={primaryItem} />
-            <ColorDetails item={primaryItem} />
-            {offer.isCollection ? <CollectionItems items={offer.items} /> : null}
+            {offer.items.length > 1 ? (
+              <CollectionCarouselControls
+                activeIndex={activeItemIndex}
+                items={offer.items}
+                onSelect={onActiveItemChange}
+              />
+            ) : null}
+            <div
+              className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-2 motion-safe:duration-300"
+              key={activeItem.id}
+            >
+              <ProductShowcase offer={offer} item={activeItem} />
+              <ColorDetails item={activeItem} />
+            </div>
+            {offer.isCollection ? (
+              <CollectionItems
+                activeItemId={activeItem.id}
+                items={offer.items}
+                onSelect={onActiveItemChange}
+              />
+            ) : null}
           </>
         ) : (
           <p className="rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
@@ -372,46 +392,76 @@ function SelectedOrderDetail({ offer }: { offer: OrderOfferView }) {
   );
 }
 
-function ProductHero({ item }: { item: OrderOfferItemView }) {
-  const primaryColor = item.colors[0]?.hexCode ?? "#006D8F";
-  const secondaryColor = item.colors[1]?.hexCode ?? "#D29D00";
+function CollectionCarouselControls({
+  activeIndex,
+  items,
+  onSelect,
+}: {
+  activeIndex: number;
+  items: OrderOfferItemView[];
+  onSelect: (index: number) => void;
+}) {
+  const itemCount = items.length;
+  const activeItem = items[activeIndex] ?? items[0];
+  const selectPrevious = () =>
+    onSelect((activeIndex - 1 + itemCount) % itemCount);
+  const selectNext = () => onSelect((activeIndex + 1) % itemCount);
 
   return (
     <div
-      className="relative min-h-[210px] overflow-hidden rounded-lg border border-border bg-background"
-      style={heroStyle(primaryColor, secondaryColor)}
+      aria-label="Koleksiyon ürün gezgini"
+      className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-border bg-background/60 px-2.5 py-2"
+      role="group"
     >
-      <div className="absolute bottom-5 left-5 z-10 max-w-[54%]">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-          {item.productCode}
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Koleksiyon Ürünü
         </p>
-        <h3 className="text-2xl font-semibold leading-tight text-white">
-          {item.productName}
-        </h3>
-        <p className="mt-3 text-sm text-white/70">
-          {item.quantityLabel} · {item.productTierLabel}
+        <p className="mt-0.5 truncate text-xs font-medium text-foreground">
+          {activeIndex + 1} / {itemCount} · {activeItem?.productName}
         </p>
       </div>
-      {item.imageUrl ? (
-        <span className="absolute bottom-[-16px] right-2 h-[230px] w-[48%]">
-          <Image
-            alt={item.productName}
-            className="object-contain object-bottom drop-shadow-[0_20px_34px_rgba(0,0,0,0.45)]"
-            fill
-            sizes="(min-width: 1280px) 360px, 50vw"
-            src={item.imageUrl}
-          />
-        </span>
-      ) : (
-        <span className="absolute right-8 top-12 grid size-32 place-items-center rounded-lg border border-white/15 bg-white/10 text-white/50">
-          <PackageCheck size={48} />
-        </span>
-      )}
+      <div className="flex shrink-0 items-center gap-1.5">
+        <Button
+          aria-label="Önceki koleksiyon ürünü"
+          onClick={selectPrevious}
+          size="icon-sm"
+          type="button"
+          variant="outline"
+        >
+          <ChevronLeft />
+        </Button>
+        <div className="flex items-center gap-1" role="tablist">
+          {items.map((item, index) => (
+            <button
+              aria-label={`${index + 1}. ürün: ${item.productName}`}
+              aria-selected={index === activeIndex}
+              className={cn(
+                "size-1.5 rounded-full bg-muted-foreground/35 transition-all hover:bg-primary/70",
+                index === activeIndex && "w-4 bg-primary",
+              )}
+              key={item.id}
+              onClick={() => onSelect(index)}
+              role="tab"
+              type="button"
+            />
+          ))}
+        </div>
+        <Button
+          aria-label="Sonraki koleksiyon ürünü"
+          onClick={selectNext}
+          size="icon-sm"
+          type="button"
+          variant="outline"
+        >
+          <ChevronRight />
+        </Button>
+      </div>
     </div>
   );
 }
 
-function OrderMetaGrid({
+function ProductShowcase({
   offer,
   item,
 }: {
@@ -419,32 +469,103 @@ function OrderMetaGrid({
   item: OrderOfferItemView;
 }) {
   return (
-    <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-      <MetaTile icon={Hash} label="Kod" value={item.productCode} />
-      <MetaTile icon={CalendarDays} label="Teslim" value={offer.deliveryLabel} />
-      <MetaTile icon={Route} label="Rota" value={item.routeLabel || "-"} />
-      <MetaTile icon={Palette} label="Renk" value={`${item.colors.length} varyant`} />
-      <MetaTile icon={PackageCheck} label="Adet" value={item.quantityLabel} />
-      <MetaTile icon={Factory} label="Segment" value={offer.segmentLabel} />
-      <MetaTile icon={Hash} label="Hacim" value={offer.volumeLabel} />
+    <div className="grid min-h-[330px] grid-cols-1 gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="flex min-w-0 flex-col justify-between gap-2 rounded-lg border border-border bg-background/60 p-2.5">
+        <div>
+          <h3 className="text-2xl font-semibold leading-tight text-foreground">
+            {item.productName}
+          </h3>
+        </div>
+
+        <div className="grid gap-1.5">
+          <MetaTile icon={Hash} label="Kod" value={item.productCode} />
+          <MetaTile icon={CalendarDays} label="Teslim" value={offer.deliveryLabel} />
+          <MetaTile
+            icon={Route}
+            label="Rota"
+            marquee
+            value={item.routeLabel || "-"}
+          />
+          <MetaTile icon={Palette} label="Renk" value={`${item.colors.length} varyant`} />
+          <MetaTile icon={PackageCheck} label="Adet" value={item.quantityLabel} />
+          <MetaTile icon={Factory} label="Segment" value={offer.segmentLabel} />
+          <MetaTile icon={Hash} label="Hacim" value={offer.volumeLabel} />
+        </div>
+      </div>
+
+      <div className="relative isolate min-h-[300px] overflow-hidden rounded-lg lg:min-h-0">
+        <div
+          className="absolute inset-0 z-0 overflow-hidden rounded-lg border border-white/10 bg-[#15141d]"
+          data-product-art-layer="true"
+        >
+          <ArtCard
+            gradientFrom={item.cardGradientFrom}
+            gradientTo={item.cardGradientTo}
+            primaryColor={item.cardPrimaryColor}
+            secondaryColor={item.cardSecondaryColor}
+            svgIconAccentColor={item.cardSvgIconAccentColor}
+          />
+          <span className="absolute left-5 top-3 z-10 text-8xl font-extralight text-white/20">
+            {item.productName.charAt(0).toUpperCase()}
+          </span>
+        </div>
+        {item.imageUrl ? (
+          <div
+            className="pointer-events-none absolute inset-0 z-30"
+            data-product-image-layer="true"
+          >
+            <Image
+              alt={item.productName}
+              className="object-contain object-bottom"
+              fill
+              sizes="(min-width: 1280px) 420px, (min-width: 1024px) 40vw, 90vw"
+              src={item.imageUrl}
+            />
+          </div>
+        ) : (
+          <span
+            className="absolute inset-8 z-30 grid place-items-center rounded-lg border border-white/15 bg-white/10 text-white/50"
+          >
+            <PackageCheck size={72} />
+          </span>
+        )}
+      </div>
     </div>
   );
 }
 
-function CollectionItems({ items }: { items: OrderOfferItemView[] }) {
+function CollectionItems({
+  activeItemId,
+  items,
+  onSelect,
+}: {
+  activeItemId: string;
+  items: OrderOfferItemView[];
+  onSelect: (index: number) => void;
+}) {
   return (
     <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         Koleksiyon Kalemleri
       </p>
       <div className="mt-2 space-y-1.5">
-        {items.map((item) => (
-          <div className="flex items-center justify-between gap-2 text-xs" key={item.id}>
-            <span className="min-w-0 truncate text-foreground">{item.productName}</span>
+        {items.map((item, index) => (
+          <button
+            aria-pressed={item.id === activeItemId}
+            className={cn(
+              "flex w-full items-center justify-between gap-2 rounded-md border border-transparent px-2 py-1.5 text-left text-xs transition-colors hover:border-border hover:bg-card/70",
+              item.id === activeItemId &&
+                "border-primary/35 bg-primary/10 text-primary",
+            )}
+            key={item.id}
+            onClick={() => onSelect(index)}
+            type="button"
+          >
+            <span className="min-w-0 truncate">{item.productName}</span>
             <span className="shrink-0 text-muted-foreground">
               {item.productTierLabel} · {item.quantityLabel}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -479,9 +600,17 @@ function ColorDetails({ item }: { item: OrderOfferItemView }) {
   );
 }
 
-function OrderCostPanel({ offer }: { offer: OrderOfferView }) {
-  const isProfitPositive = Number(offer.plannedProfitCents) >= 0;
-  const primaryItem = offer.items[0];
+function OrderCostPanel({
+  activeItem,
+  offer,
+}: {
+  activeItem: OrderOfferItemView | undefined;
+  offer: OrderOfferView;
+}) {
+  const hasMultipleItems = offer.items.length > 1;
+  const isProfitPositive = Number(
+    activeItem?.plannedProfitCents ?? offer.plannedProfitCents,
+  ) >= 0;
 
   return (
     <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card/70">
@@ -489,6 +618,11 @@ function OrderCostPanel({ offer }: { offer: OrderOfferView }) {
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
           Maliyet Planı
         </p>
+        {hasMultipleItems && activeItem ? (
+          <p className="mt-1 truncate text-xs font-medium text-foreground">
+            {activeItem.productName}
+          </p>
+        ) : null}
         <p className="mt-2 text-xs text-muted-foreground">Planlanan Marj</p>
         <h2
           className={cn(
@@ -496,28 +630,28 @@ function OrderCostPanel({ offer }: { offer: OrderOfferView }) {
             isProfitPositive ? "text-emerald-300" : "text-red-300",
           )}
         >
-          {offer.plannedMarginLabel}
+          {activeItem?.plannedMarginLabel ?? offer.plannedMarginLabel}
         </h2>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         <div className="grid gap-2">
           <CostPairMetric
             firstLabel="Birim Fiyat"
-            firstValue={primaryItem?.unitPriceLabel ?? "-"}
-            secondLabel="Toplam Tutar"
-            secondValue={offer.totalRevenueLabel}
+            firstValue={activeItem?.unitPriceLabel ?? "-"}
+            secondLabel={hasMultipleItems ? "Kalem Tutarı" : "Toplam Tutar"}
+            secondValue={activeItem?.totalPriceLabel ?? offer.totalRevenueLabel}
           />
           <CostPairMetric
             firstLabel="Birim Maliyet"
-            firstValue={primaryItem?.plannedUnitCostLabel ?? "-"}
-            secondLabel="Toplam Maliyet"
-            secondValue={offer.plannedCostLabel}
+            firstValue={activeItem?.plannedUnitCostLabel ?? "-"}
+            secondLabel={hasMultipleItems ? "Kalem Maliyeti" : "Toplam Maliyet"}
+            secondValue={activeItem?.plannedTotalCostLabel ?? offer.plannedCostLabel}
           />
           <CostPairMetric
             firstLabel="Birim Kar"
-            firstValue={primaryItem?.plannedUnitProfitLabel ?? "-"}
-            secondLabel="Toplam Kar"
-            secondValue={offer.plannedProfitLabel}
+            firstValue={activeItem?.plannedUnitProfitLabel ?? "-"}
+            secondLabel={hasMultipleItems ? "Kalem Karı" : "Toplam Kar"}
+            secondValue={activeItem?.plannedProfitLabel ?? offer.plannedProfitLabel}
             tone={isProfitPositive ? "profit" : "loss"}
           />
         </div>
@@ -594,24 +728,84 @@ function InfoPill({
 function MetaTile({
   icon: Icon,
   label,
+  marquee = false,
   value,
 }: {
   icon: typeof Hash;
   label: string;
+  marquee?: boolean;
   value: string;
 }) {
   return (
-    <div className="flex min-h-[54px] items-center gap-2 rounded-lg border border-border bg-background/60 p-2">
-      <span className="grid size-7 shrink-0 place-items-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-        <Icon size={14} />
+    <div className="flex min-h-[44px] items-center gap-2 rounded-lg border border-border bg-background/60 px-2 py-1.5">
+      <span className="grid size-6 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
+        <Icon size={13} />
       </span>
       <span className="min-w-0">
-        <span className="block text-xs text-muted-foreground">{label}</span>
-        <strong className="mt-1 block truncate text-sm text-foreground">
-          {value}
+        <span className="block text-[11px] text-muted-foreground">{label}</span>
+        <strong className="mt-0.5 block min-w-0 text-sm text-foreground">
+          {marquee ? (
+            <OverflowMarquee value={value} />
+          ) : (
+            <span className="block truncate">{value}</span>
+          )}
         </strong>
       </span>
     </div>
+  );
+}
+
+function OverflowMarquee({ value }: { value: string }) {
+  const textRef = useRef<HTMLSpanElement>(null);
+  const viewportRef = useRef<HTMLSpanElement>(null);
+  const [distance, setDistance] = useState(0);
+
+  useEffect(() => {
+    const text = textRef.current;
+    const viewport = viewportRef.current;
+
+    if (!text || !viewport) return;
+
+    const measure = () => {
+      setDistance(Math.max(0, text.scrollWidth - viewport.clientWidth));
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", measure);
+
+      return () => window.removeEventListener("resize", measure);
+    }
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(text);
+    observer.observe(viewport);
+
+    return () => observer.disconnect();
+  }, [value]);
+
+  return (
+    <span
+      className="block max-w-full overflow-hidden"
+      ref={viewportRef}
+      title={value}
+    >
+      <span
+        className={cn(
+          "inline-block whitespace-nowrap pr-3",
+          distance > 0 && "order-route-marquee",
+        )}
+        ref={textRef}
+        style={
+          {
+            "--order-route-marquee-distance": `${distance}px`,
+          } as CSSProperties
+        }
+      >
+        {value}
+      </span>
+    </span>
   );
 }
 
@@ -692,16 +886,6 @@ function badgeStyle(color: string, selected: boolean): CSSProperties {
     backgroundColor: selected ? rgbaFromHex(color, 0.16) : "rgba(255,255,255,0.04)",
     borderColor: rgbaFromHex(color, selected ? 0.65 : 0.32),
     color: selected ? color : "rgba(255,255,255,0.78)",
-  };
-}
-
-function heroStyle(primaryColor: string, secondaryColor: string): CSSProperties {
-  return {
-    background: [
-      `radial-gradient(circle at 88% 90%, ${rgbaFromHex(secondaryColor, 0.48)}, transparent 42%)`,
-      `radial-gradient(circle at 14% 10%, ${rgbaFromHex(primaryColor, 0.28)}, transparent 36%)`,
-      "linear-gradient(135deg, rgba(35,36,41,0.96), rgba(8,10,12,0.94))",
-    ].join(", "),
   };
 }
 

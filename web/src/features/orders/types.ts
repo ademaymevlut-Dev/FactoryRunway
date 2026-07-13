@@ -56,6 +56,12 @@ export type OrderOfferView = {
 
 export type OrderOfferItemView = {
   id: string;
+  cardGradientFrom: string;
+  cardGradientTo: string;
+  cardPrimaryColor: string;
+  cardSecondaryColor: string;
+  cardSvgIconAccentColor: string;
+  cardTextColor: string;
   productName: string;
   productCode: string;
   productTier: ProductTier;

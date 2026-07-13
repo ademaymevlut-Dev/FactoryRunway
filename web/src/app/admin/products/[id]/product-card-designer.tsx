@@ -11,6 +11,8 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
+import { ArtCard } from "@/components/ui/art-card";
+
 import { updateProductCardAction } from "../product-actions";
 import { Field, FormGrid, Input, Options, Select } from "../../form-ui";
 
@@ -180,26 +182,15 @@ export function ProductCardDesigner({ product }: { product: CardProduct }) {
             >
               <div
                 className="absolute inset-x-0 bottom-0 h-[310px] overflow-hidden rounded-[28px] border border-white/10"
-                style={{
-                  background: `linear-gradient(135deg,${colors.cardGradientFrom} 0%,${colors.cardGradientTo} 100%)`,
-                }}
               >
-                <div
-                  aria-hidden="true"
-                  className="absolute -bottom-14 -right-6 size-48 rounded-full opacity-85"
-                  style={{ background: colors.cardPrimaryColor }}
+                <ArtCard
+                  gradientFrom={colors.cardGradientFrom}
+                  gradientTo={colors.cardGradientTo}
+                  primaryColor={colors.cardPrimaryColor}
+                  secondaryColor={colors.cardSecondaryColor}
+                  svgIconAccentColor={colors.cardSvgIconAccentColor}
                 />
-                <div
-                  aria-hidden="true"
-                  className="absolute -left-10 top-12 size-40 rotate-12 rounded-[38px] opacity-60"
-                  style={{ background: colors.cardSecondaryColor }}
-                />
-                <div
-                  aria-hidden="true"
-                  className="absolute right-24 top-12 size-24 rotate-45 rounded-[28px] border-[18px] opacity-35"
-                  style={{ borderColor: colors.cardSecondaryColor }}
-                />
-                <span className="absolute left-6 top-5 text-8xl font-extralight text-white/20">
+                <span className="absolute left-6 top-5 z-10 text-8xl font-extralight text-white/20">
                   {product.name.charAt(0).toUpperCase()}
                 </span>
                 <div className="absolute bottom-6 left-6 z-20 max-w-[180px]">

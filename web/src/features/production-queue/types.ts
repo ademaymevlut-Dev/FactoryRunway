@@ -5,6 +5,7 @@ import type {
   RouteProcessingMode,
   RouteProgressStatus,
 } from "@/generated/prisma/enums"
+import type { AutomaticAllocationLine } from "@/features/game/services/production-allocation-math"
 
 export type ProductionQueueTone = "danger" | "info" | "success" | "warning"
 
@@ -93,6 +94,8 @@ export type ProductionQueueItem = {
   remainingWorkPoints: number
   workloadLabel: string
   manualPriorityOverride: boolean
+  setupPoints: number
+  workloadPointsPerUnit: number
 }
 
 export type GameDepartmentQueueView = {
@@ -105,6 +108,7 @@ export type GameDepartmentQueueView = {
   dailyPointCapacity: number
   effectiveDailyPointCapacity: number
   activeLineCount: number
+  planningLines: AutomaticAllocationLine[]
   items: ProductionQueueItem[]
   outsourceCandidates: ProductionQueueItem[]
   outsourceJobs: ProductionOutsourceJobView[]

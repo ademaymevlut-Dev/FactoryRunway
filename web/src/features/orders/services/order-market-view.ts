@@ -333,6 +333,12 @@ function toOrderOfferItemView({
   );
 
   return {
+    cardGradientFrom: item.product.cardGradientFrom,
+    cardGradientTo: item.product.cardGradientTo,
+    cardPrimaryColor: item.product.cardPrimaryColor,
+    cardSecondaryColor: item.product.cardSecondaryColor,
+    cardSvgIconAccentColor: item.product.cardSvgIconAccentColor,
+    cardTextColor: item.product.cardTextColor,
     id: item.id,
     productName: item.product.name,
     productCode: item.product.code ?? item.product.key,
@@ -416,7 +422,10 @@ function buildRouteLabel(item: MarketOfferItemRecord) {
 }
 
 function getProductImageUrl(item: MarketOfferItemRecord) {
-  const image = item.product.images[0];
+  const image =
+    item.product.images.find(
+      (productImage) => productImage.variant === ProductImageVariant.CARD,
+    ) ?? item.product.images[0];
 
   return image?.url ?? image?.pathname ?? null;
 }

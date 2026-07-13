@@ -13,6 +13,7 @@ import {
 } from "@/generated/prisma/client";
 import { calculateOutsourceCompletion } from "@/features/production-queue/services/outsource-math";
 import { processDueLeasingPayments } from "@/features/investment/services/leasing-payment";
+import { runFinancePeriodClosing } from "@/features/finance/services/finance-period-closing";
 import { processShippingAndReceivables } from "@/features/warehouse/services/shipping-service";
 import {
   processOutsourceCompletionPayments,
@@ -22,6 +23,12 @@ import {
   createLockedAutomaticProductionPlan,
   markAutomaticProductionPlanExecuted,
 } from "./automatic-production-allocation";
+import {
+  calculateEffectiveLinePointCapacity,
+  getLineStaffCoverageBps,
+} from "./production-capacity";
+
+export { getLineStaffCoverageBps } from "./production-capacity";
 
 import { SHIFT_PLAYBACK_DURATION_SECONDS } from "../shift-playback";
 import type { ShiftPlayback } from "../types";
@@ -442,6 +449,11 @@ export async function simulateFactoryDay(input: {
     factoryId: factory.id,
     tx: prisma,
   });
+  const financeClosingResult = await runFinancePeriodClosing({
+    factoryDay: simulatedGameDay,
+    factoryId: factory.id,
+    tx: prisma,
+  });
 
   const factoryAdvance = await prisma.factory.updateMany({
     where: {
@@ -498,6 +510,8 @@ export async function simulateFactoryDay(input: {
         overdueLeasingDueCount: leasingPaymentResult.overdueDueIds.length,
         overduePeriodicFinanceDueCount:
           periodicFinanceResult.overdueDueIds.length,
+        financePeriodClosed: financeClosingResult.closed,
+        financePeriodIndex: financeClosingResult.periodIndex,
         shippedOrderCount: shippingResult.shippedOrderIds.length,
         source: "main-factory-day",
       },
@@ -1501,27 +1515,11 @@ async function updateOrderProgress({
 }
 
 function getEffectivePointCapacity(line: ProductionLineForSimulation) {
-  return Math.floor(
-    (line.productionLineTemplate.dailyPointCapacity *
-      Math.max(0, line.conditionBps) *
-      getLineStaffCoverageBps(line)) /
-      100_000_000,
-  );
-}
-
-export function getLineStaffCoverageBps(line: {
-  assignedStaffQuantity: number;
-  requiredStaffQuantity: number;
-}) {
-  if (line.requiredStaffQuantity <= 0) return 0;
-
-  return Math.min(
-    10_000,
-    Math.floor(
-      (Math.max(0, line.assignedStaffQuantity) * 10_000) /
-        line.requiredStaffQuantity,
-    ),
-  );
+  return calculateEffectiveLinePointCapacity({
+    conditionBps: line.conditionBps,
+    dailyPointCapacity: line.productionLineTemplate.dailyPointCapacity,
+    staffCoverageBps: getLineStaffCoverageBps(line),
+  });
 }
 
 export function buildAllocationMap(

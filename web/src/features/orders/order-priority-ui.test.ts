@@ -6,12 +6,61 @@ function read(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8");
 }
 
-test("sipariş paneli global draggable priority listesini mevcut Sortable ile gösterir", () => {
+test("sipariş paneli production priority tabını kaldırıp doğrudan pazarı gösterir", () => {
   const panel = read("./components/orders-panel.tsx");
+
+  assert.doesNotMatch(panel, /Üretim Önceliği/);
+  assert.doesNotMatch(panel, /OrderPriorityList/);
+  assert.match(panel, /Sipariş Pazarı/);
+  assert.match(panel, /OrderListPanel/);
+  assert.match(panel, /SelectedOrderDetail/);
+  assert.match(panel, /OrderCostPanel/);
+});
+
+test("sipariş paneli ürün kart arka planında ArtCard deneme bileşenini kullanır", () => {
+  const panel = read("./components/orders-panel.tsx");
+  const artCard = read("../../components/ui/art-card.tsx");
+  const marketView = read("./services/order-market-view.ts");
+
+  assert.match(panel, /import \{ ArtCard \}/);
+  assert.match(panel, /gradientFrom=\{item\.cardGradientFrom\}/);
+  assert.match(panel, /gradientTo=\{item\.cardGradientTo\}/);
+  assert.match(panel, /primaryColor=\{item\.cardPrimaryColor\}/);
+  assert.match(panel, /secondaryColor=\{item\.cardSecondaryColor\}/);
+  assert.match(panel, /svgIconAccentColor=\{item\.cardSvgIconAccentColor\}/);
+  assert.doesNotMatch(panel, /drop-shadow/);
+  assert.match(panel, /import Image from "next\/image"/);
+  assert.match(panel, /data-product-art-layer="true"/);
+  assert.match(panel, /data-product-image-layer="true"/);
+  assert.match(panel, /className="pointer-events-none absolute inset-0 z-30"/);
+  assert.match(panel, /alt=\{item\.productName\}/);
+  assert.match(panel, /className="object-contain object-bottom"/);
+  assert.match(panel, /fill/);
+  assert.match(artCard, /linear-gradient\(to top left, \$\{gradientFrom\}/);
+  assert.match(artCard, /colorToTopLeftGradient\(secondaryColor\)/);
+  assert.match(artCard, /colorToTopLeftGradient\(svgIconAccentColor\)/);
+  assert.match(artCard, /colorToTopLeftGradient\(primaryColor\)/);
+  assert.doesNotMatch(artCard, /absolute inset-0 bg-\[linear-gradient/);
+  assert.match(marketView, /productImage\.variant === ProductImageVariant\.CARD/);
+});
+
+test("koleksiyon siparişlerinde tüm ürün detayları carousel ile gezilebilir", () => {
+  const panel = read("./components/orders-panel.tsx");
+
+  assert.match(panel, /SelectedOrderPanels/);
+  assert.match(panel, /CollectionCarouselControls/);
+  assert.match(panel, /Önceki koleksiyon ürünü/);
+  assert.match(panel, /Sonraki koleksiyon ürünü/);
+  assert.match(panel, /activeItem=\{activeItem\}/);
+  assert.match(panel, /activeItemId=\{activeItem\.id\}/);
+  assert.match(panel, /Kalem Tutarı/);
+  assert.match(panel, /Kalem Maliyeti/);
+  assert.match(panel, /Kalem Karı/);
+});
+
+test("priority list bileşeni mevcut Sortable ile çalışmaya devam eder", () => {
   const priority = read("./components/order-priority-list.tsx");
 
-  assert.match(panel, /Üretim Önceliği/);
-  assert.match(panel, /OrderPriorityList/);
   assert.match(priority, /Sortable/);
   assert.match(priority, /updateOrderPriorityAction/);
   assert.match(priority, /item\.orderNo/);

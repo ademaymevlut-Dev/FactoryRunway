@@ -8,6 +8,11 @@ import {
   RouteProgressStatus,
 } from "@/generated/prisma/enums"
 import type { CurrencyCode } from "@/generated/prisma/enums"
+import {
+  calculateEffectiveLinePointCapacity,
+  getLineStaffCoverageBps,
+} from "@/features/game/services/production-capacity"
+import type { AutomaticAllocationLine } from "@/features/game/services/production-allocation-math"
 import { getPrisma } from "@/lib/db"
 
 import { calculateOutsourceUnitCostCents } from "./outsource-cost"
@@ -43,6 +48,7 @@ type CapacityRecord = {
   dailyPointCapacity: number
   effectiveDailyPointCapacity: number
   activeLineCount: number
+  planningLines: AutomaticAllocationLine[]
 }
 
 export async function getProductionQueuesView(input: {
@@ -93,13 +99,25 @@ export async function getProductionQueuesView(input: {
           ],
         },
       },
+      orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
       select: {
         conditionBps: true,
         departmentId: true,
+        id: true,
+        lineNumber: true,
+        productionLineTemplateId: true,
+        sortOrder: true,
         productionLineTemplate: {
           select: {
             dailyPointCapacity: true,
+            staffRequirements: {
+              select: { requiredQuantity: true },
+            },
           },
+        },
+        staffAssignments: {
+          where: { status: "ACTIVE" },
+          select: { quantity: true },
         },
       },
     }),
@@ -363,7 +381,15 @@ function buildCapacityByDepartment(
   productionLines: Array<{
     conditionBps: number
     departmentId: string
-    productionLineTemplate: { dailyPointCapacity: number }
+    id: string
+    lineNumber: number
+    productionLineTemplateId: string
+    sortOrder: number
+    productionLineTemplate: {
+      dailyPointCapacity: number
+      staffRequirements: Array<{ requiredQuantity: number }>
+    }
+    staffAssignments: Array<{ quantity: number }>
   }>,
 ) {
   const capacities = new Map<string, CapacityRecord>()
@@ -371,12 +397,36 @@ function buildCapacityByDepartment(
   for (const line of productionLines) {
     const current = capacities.get(line.departmentId) ?? emptyCapacity(line.departmentId)
     const dailyPointCapacity = Math.max(0, line.productionLineTemplate.dailyPointCapacity)
+    const staffCoverageBps = getLineStaffCoverageBps({
+      assignedStaffQuantity: line.staffAssignments.reduce(
+        (total, assignment) => total + assignment.quantity,
+        0,
+      ),
+      requiredStaffQuantity: line.productionLineTemplate.staffRequirements.reduce(
+        (total, requirement) => total + requirement.requiredQuantity,
+        0,
+      ),
+    })
+    const effectivePointCapacity = calculateEffectiveLinePointCapacity({
+      conditionBps: line.conditionBps,
+      dailyPointCapacity,
+      staffCoverageBps,
+    })
 
     current.activeLineCount += 1
     current.dailyPointCapacity += dailyPointCapacity
-    current.effectiveDailyPointCapacity += Math.floor(
-      (dailyPointCapacity * Math.max(0, line.conditionBps)) / 10_000,
-    )
+    current.effectiveDailyPointCapacity += effectivePointCapacity
+    current.planningLines.push({
+      conditionBps: line.conditionBps,
+      dailyPointCapacity,
+      departmentId: line.departmentId,
+      effectivePointCapacity,
+      id: line.id,
+      lineNumber: line.lineNumber,
+      productionLineTemplateId: line.productionLineTemplateId,
+      sortOrder: line.sortOrder,
+      staffCoverageBps,
+    })
     capacities.set(line.departmentId, current)
   }
 
@@ -389,6 +439,7 @@ function emptyCapacity(departmentId: string): CapacityRecord {
     dailyPointCapacity: 0,
     departmentId,
     effectiveDailyPointCapacity: 0,
+    planningLines: [],
   }
 }
 
@@ -513,6 +564,7 @@ function toDepartmentQueue(input: {
     label,
     outsourceCandidates,
     outsourceJobs: input.outsourceJobs,
+    planningLines: input.capacity.planningLines,
     summary: {
       dailyCapacityLabel: `${formatNumber(input.capacity.effectiveDailyPointCapacity)} puan/gün`,
       firstStartLabel:
@@ -621,10 +673,12 @@ function toQueueItem(input: {
     remainingQuantityLabel: `${formatNumber(remainingQuantity)} adet`,
     remainingWorkPoints,
     routeProgressId: input.progress.id,
+    setupPoints: input.progress.setupPoints,
     status,
     statusLabel: getStatusLabel(status),
     targetDeliveryDay: input.progress.productionOrder.targetDeliveryDay,
     workPointsBefore: input.workPointsBefore,
+    workloadPointsPerUnit: input.progress.workloadPointsPerUnit,
     workloadLabel: `${formatNumber(input.progress.workloadPointsPerUnit)} puan/adet`,
   }
 }
@@ -908,7 +962,7 @@ function getCompletedColumnLabel(departmentKey: string) {
     cutting: "Kesilen",
     dyeing: "Boyanan",
     embroidery: "Nakış",
-    ironing_packing: "Paketlenen",
+    ironing_packing: "İşlenen",
     printing: "Baskı",
     sewing: "Dikilen",
     washing: "Yıkanan",

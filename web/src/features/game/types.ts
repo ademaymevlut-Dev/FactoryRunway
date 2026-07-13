@@ -1,6 +1,7 @@
 import type {
   CurrencyCode,
   DepartmentKind,
+  LineAcquisitionType,
   FactoryProductionLineStatus,
   ProductionGrade,
 } from "@/generated/prisma/enums";
@@ -158,14 +159,21 @@ export type FactoryMapItem =
       code: string;
       title: string;
       subtitle: string;
+      acquisitionType: LineAcquisitionType;
       status: FactoryProductionLineStatus;
       grade: ProductionGrade;
+      productionLineTemplateId: string;
       lineNumber: number;
       sortOrder: number;
       conditionBps: number;
       dailyPointCapacity: number;
       idealStaff: number;
       assignedStaff: number;
+      machineCount: number;
+      areaM2: number;
+      monthlyElectricityBaseCents: number;
+      purchaseCostCents: string;
+      hasActiveLeasingContract: boolean;
       imageUrl: string | null;
     }
   | {

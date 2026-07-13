@@ -28,14 +28,20 @@ export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
 
   const panel = panelRegistry[activePanel.key];
   const layout = panel.layout ?? "side";
+  const showBackdrop = Boolean(panel.backdrop);
 
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-0 z-40 flex",
+        "absolute inset-0 z-40 flex",
         layout === "center"
-          ? "items-center justify-center px-4 py-24 sm:px-8"
-          : "items-start justify-end px-4 pb-24 pt-28 sm:px-6",
+          ? cn(
+              "items-center justify-center px-4 py-24 sm:px-8",
+              showBackdrop
+                ? "pointer-events-auto bg-background/55 backdrop-blur-[2px]"
+                : "pointer-events-none",
+            )
+          : "pointer-events-none items-start justify-end px-4 pb-24 pt-28 sm:px-6",
       )}
     >
       <PanelChrome layout={layout} onClose={closePanel} size={panel.size} title={panel.title}>

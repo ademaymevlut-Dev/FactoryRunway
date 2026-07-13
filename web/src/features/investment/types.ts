@@ -166,3 +166,54 @@ export type LeaseProductionLineResult =
         | "INVALID_REQUEST"
         | "UNKNOWN_ERROR";
     };
+
+export type UpgradeProductionLineInput = {
+  factoryId: string;
+  factoryProductionLineId: string;
+  targetProductionLineTemplateId: string;
+  requestId: string;
+};
+
+export type UpgradeProductionLineResult =
+  | {
+      ok: true;
+      factoryId: string;
+      productionLineId: string;
+      previousProductionLineTemplateId: string;
+      nextProductionLineTemplateId: string;
+      previousGrade: ProductionGrade;
+      nextGrade: ProductionGrade;
+      grossUpgradeCostCents: string;
+      tradeInRefundCents: string;
+      netUpgradeCostCents: string;
+      remainingCashBalanceCents: string;
+      xpAwarded: number;
+      currentXp: number;
+      previousDirectStaffCount: number;
+      nextDirectStaffCount: number;
+      directStaffDelta: number;
+      directPayrollDeltaCents: string;
+      capacityIncreaseBps: number;
+    }
+  | {
+      ok: false;
+      code:
+        | "UNAUTHORIZED"
+        | "FACTORY_NOT_FOUND"
+        | "FACTORY_NOT_ACTIVE"
+        | "PLAYBACK_ACTIVE"
+        | "LINE_NOT_FOUND"
+        | "LINE_NOT_UPGRADABLE"
+        | "LEASING_ACTIVE"
+        | "MAX_GRADE_REACHED"
+        | "TEMPLATE_NOT_FOUND"
+        | "TEMPLATE_NOT_ACTIVE"
+        | "SECTOR_MISMATCH"
+        | "DEPARTMENT_MISMATCH"
+        | "INVALID_UPGRADE_PATH"
+        | "PRODUCTION_PLAN_ACTIVE"
+        | "INSUFFICIENT_FUNDS"
+        | "DUPLICATE_REQUEST"
+        | "INVALID_REQUEST"
+        | "UNKNOWN_ERROR";
+    };
