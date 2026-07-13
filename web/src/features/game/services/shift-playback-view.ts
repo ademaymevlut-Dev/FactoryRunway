@@ -114,7 +114,8 @@ async function enrichShiftPlayback(input: {
   if (!input.playback) return null;
   if (
     !("shiftLineResult" in input.prisma) ||
-    !("factoryFinanceTransaction" in input.prisma)
+    !("factoryFinanceTransaction" in input.prisma) ||
+    !("factoryXpTransaction" in input.prisma)
   ) {
     return input.playback;
   }

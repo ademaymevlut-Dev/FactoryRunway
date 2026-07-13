@@ -4,6 +4,7 @@ import {
   FinanceSourceType,
   LeasingContractStatus,
   ProductImageVariant,
+  XpReason,
   type Prisma,
   type PrismaClient,
 } from "@/generated/prisma/client";
@@ -45,6 +46,14 @@ type FinanceTransactionRow = {
   sourceId: string | null;
   sourceType: FinanceSourceType | null;
   metadata: Prisma.JsonValue;
+};
+
+type XpTransactionRow = {
+  amountXp: number;
+  balanceAfterXp: number;
+  id: string;
+  sourceId: string | null;
+  sourceType: string | null;
 };
 
 export async function getShiftProductResults(input: {
@@ -219,6 +228,7 @@ export async function getShiftTimelineEvents(input: {
     shippedOrders,
     outsourceJobs,
     completedLeasingContracts,
+    xpTransactions,
   ] =
     await Promise.all([
       input.prisma.factoryFinanceTransaction.findMany({
@@ -312,6 +322,23 @@ export async function getShiftTimelineEvents(input: {
           installmentCount: true,
           productionLineId: true,
           totalCostCents: true,
+        },
+      }),
+      input.prisma.factoryXpTransaction.findMany({
+        where: {
+          factoryId: input.factoryId,
+          gameDay: input.gameDay,
+          reason: XpReason.SHIFT_COMPLETED,
+          sourceId: input.shift.shiftId,
+          sourceType: "shift",
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: {
+          amountXp: true,
+          balanceAfterXp: true,
+          id: true,
+          sourceId: true,
+          sourceType: true,
         },
       }),
     ]);
@@ -483,12 +510,17 @@ export async function getShiftTimelineEvents(input: {
     });
   }
 
+  for (const transaction of xpTransactions) {
+    add(xpTransactionToEvent(transaction));
+  }
+
   add({
     category: "PRODUCTION",
     eventKey: "shift.completed",
     minute: 540,
     payload: {
-      producedQuantity: input.shift.summary.totalProducedQuantity,
+      nextGameDay: input.shift.simulatedGameDay + 1,
+      simulatedGameDay: input.shift.simulatedGameDay,
       shiftId: input.shift.shiftId,
     },
     severity: "SUCCESS",
@@ -616,6 +648,26 @@ function financeTransactionToEvent(
   }
 
   return null;
+}
+
+function xpTransactionToEvent(
+  transaction: XpTransactionRow,
+): Omit<ShiftPlaybackTimelineEvent, "gameDay" | "id" | "sequence"> & {
+  id: string;
+} {
+  return {
+    category: "SYSTEM",
+    eventKey: "xp.shift_completed",
+    id: `xp:${transaction.id}`,
+    minute: 535,
+    payload: {
+      amountXp: transaction.amountXp,
+      balanceAfterXp: transaction.balanceAfterXp,
+    },
+    severity: "SUCCESS",
+    sourceId: transaction.sourceId ?? transaction.id,
+    sourceType: transaction.sourceType ?? "FACTORY_XP_TRANSACTION",
+  };
 }
 
 function createEmptyDepartmentPerformance(): ShiftPlayback["departmentResults"][number]["performance"] {

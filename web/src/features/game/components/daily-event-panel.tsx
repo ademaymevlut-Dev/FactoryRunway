@@ -5,8 +5,12 @@ import {
   Banknote,
   Boxes,
   CheckCircle2,
+  Flag,
   Info,
   PackageCheck,
+  PlayCircle,
+  ReceiptText,
+  Sparkles,
   Truck,
   X,
 } from "lucide-react";
@@ -35,13 +39,18 @@ export function DailyEventPanel() {
   const shiftMinute = activeShiftPlayback
     ? getShiftPlaybackMinute(activeShiftPlayback, shiftPlaybackNowMs)
     : 0;
+  const displayableEvents = useMemo(() => {
+    if (!activeShiftPlayback) return [];
+
+    return activeShiftPlayback.timelineEvents.filter(shouldShowDailyEvent);
+  }, [activeShiftPlayback]);
   const eligibleEvents = useMemo(() => {
     if (!activeShiftPlayback) return [];
 
-    return activeShiftPlayback.timelineEvents.filter(
+    return displayableEvents.filter(
       (event) => event.minute <= shiftMinute,
     );
-  }, [activeShiftPlayback, shiftMinute]);
+  }, [activeShiftPlayback, displayableEvents, shiftMinute]);
   const revealCount =
     activeShiftPlayback && revealState.shiftId === activeShiftPlayback.shiftId
       ? revealState.count
@@ -110,7 +119,7 @@ export function DailyEventPanel() {
     <aside
       aria-label="Günlük olay paneli"
       className={[
-        "pointer-events-auto absolute right-4 top-6 z-[55] flex h-[min(760px,calc(100dvh-48px))] w-[400px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-white/10 bg-background/92 shadow-2xl backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-right-12 motion-safe:duration-500",
+        "pointer-events-auto absolute right-4 top-6 z-[55] flex h-[min(760px,calc(100dvh-48px))] w-[400px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-right-12 motion-safe:duration-500",
         isClosing
           ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-right-10 motion-safe:duration-300"
           : "",
@@ -120,7 +129,7 @@ export function DailyEventPanel() {
         if (isClosing) finalizeClose(activeShiftPlayback.shiftId);
       }}
     >
-      <header className="flex items-start gap-3 border-b border-white/10 p-4">
+      <header className="flex items-start gap-3 border-b border-white/10 bg-background/45 p-4 backdrop-blur-md">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
             Günlük Olaylar
@@ -129,7 +138,7 @@ export function DailyEventPanel() {
             {activeShiftPlayback.simulatedGameDay}. Gün
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {visibleEvents.length} / {activeShiftPlayback.timelineEvents.length} olay
+            {visibleEvents.length} / {displayableEvents.length} olay
           </p>
         </div>
         <Tooltip>
@@ -137,6 +146,7 @@ export function DailyEventPanel() {
             <Button
               aria-label="Günlük olayları kapat"
               onClick={close}
+              className="border border-white/15 bg-white/10 text-white shadow-sm hover:bg-white/20 hover:text-white"
               size="icon-sm"
               type="button"
               variant="ghost"
@@ -171,6 +181,8 @@ function DailyEventRow({
   event: ShiftPlaybackTimelineEvent;
   index: number;
 }) {
+  const eventVisualClass = getEventVisualClass(event);
+
   return (
     <article
       className="grid grid-cols-[auto_1fr] gap-3 rounded-lg border border-white/10 bg-card/72 p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-4 motion-safe:duration-300"
@@ -178,7 +190,7 @@ function DailyEventRow({
       data-event-severity={event.severity}
       style={{ animationDelay: `${Math.min(index, 8) * 70}ms` }}
     >
-      <div className="mt-0.5 grid size-8 place-items-center rounded-full border border-white/10 bg-background/80 text-primary">
+      <div className={`mt-0.5 grid size-8 place-items-center rounded-full border ${eventVisualClass}`}>
         <EventIcon event={event} />
       </div>
       <div className="min-w-0">
@@ -202,8 +214,15 @@ function DailyEventRow({
 }
 
 function EventIcon({ event }: { event: ShiftPlaybackTimelineEvent }) {
+  if (event.eventKey === "shift.started") return <PlayCircle className="size-4" />;
+  if (event.eventKey === "shift.completed") return <Flag className="size-4" />;
+  if (event.eventKey === "xp.shift_completed") return <Sparkles className="size-4" />;
   if (event.category === "FINANCE" || event.category === "PAYMENT") {
-    return <Banknote className="size-4" />;
+    return event.eventKey === "operating_expense.paid" ? (
+      <ReceiptText className="size-4" />
+    ) : (
+      <Banknote className="size-4" />
+    );
   }
   if (event.category === "SHIPPING") return <Truck className="size-4" />;
   if (event.category === "OUTSOURCING") return <Boxes className="size-4" />;
@@ -213,6 +232,42 @@ function EventIcon({ event }: { event: ShiftPlaybackTimelineEvent }) {
   return <Info className="size-4" />;
 }
 
+function getEventVisualClass(event: ShiftPlaybackTimelineEvent) {
+  if (event.eventKey === "xp.shift_completed") {
+    return "border-violet-300/35 bg-violet-400/15 text-violet-100";
+  }
+  if (event.eventKey === "shift.started") {
+    return "border-sky-300/35 bg-sky-400/15 text-sky-100";
+  }
+  if (event.eventKey === "shift.completed") {
+    return "border-emerald-300/35 bg-emerald-400/15 text-emerald-100";
+  }
+  if (event.category === "PAYMENT") {
+    return "border-emerald-300/35 bg-emerald-400/15 text-emerald-100";
+  }
+  if (event.category === "FINANCE") {
+    return "border-amber-300/35 bg-amber-400/15 text-amber-100";
+  }
+  if (event.category === "OUTSOURCING") {
+    return "border-fuchsia-300/35 bg-fuchsia-400/15 text-fuchsia-100";
+  }
+  if (event.category === "SHIPPING") {
+    return "border-cyan-300/35 bg-cyan-400/15 text-cyan-100";
+  }
+  if (event.severity === "WARNING") {
+    return "border-orange-300/35 bg-orange-400/15 text-orange-100";
+  }
+  if (event.severity === "CRITICAL") {
+    return "border-red-300/35 bg-red-400/15 text-red-100";
+  }
+
+  return "border-white/10 bg-background/80 text-primary";
+}
+
+function shouldShowDailyEvent(event: ShiftPlaybackTimelineEvent) {
+  return !event.eventKey.startsWith("department.");
+}
+
 function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
   const payload = event.payload;
 
@@ -220,7 +275,9 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
     case "shift.started":
       return "Vardiya başladı";
     case "shift.completed":
-      return "Vardiya tamamlandı";
+      return "Gün tamamlandı";
+    case "xp.shift_completed":
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} XP kazanıldı`;
     case "department.production_completed":
       return `${payload.departmentName} üretimi tamamladı`;
     case "department.completed_early":
@@ -246,7 +303,7 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
     case "payroll.paid":
       return "Maaş ödemesi yapıldı";
     case "operating_expense.paid":
-      return "İşletme gideri ödendi";
+      return `${formatFinanceCategory(payload.category)} ödendi`;
     case "outsource.completed":
       return "Fason işlem tamamlandı";
     case "outsource.payment_paid":
@@ -258,6 +315,19 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
 
 function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
   const payload = event.payload;
+
+  switch (event.eventKey) {
+    case "shift.started":
+      return `${formatNumber(Number(payload.activeLineCount ?? 0))} aktif hat ile vardiya başladı.`;
+    case "shift.completed":
+      return `${formatNumber(Number(payload.simulatedGameDay ?? event.gameDay))}. gün kapanışı tamamlandı.`;
+    case "xp.shift_completed":
+      return `Günlük vardiya ödülü eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "operating_expense.paid":
+      return `${formatFinanceCategory(payload.category)} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} ödeme yapıldı.`;
+    default:
+      break;
+  }
 
   if ("producedQuantity" in payload) {
     return `${formatNumber(Number(payload.producedQuantity))} adet işlendi.`;
@@ -279,6 +349,29 @@ function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
   }
 
   return "Günlük vardiya zaman çizelgesine işlendi.";
+}
+
+function formatFinanceCategory(value: unknown) {
+  switch (value) {
+    case "RENT":
+      return "Kira";
+    case "ELECTRICITY":
+      return "Elektrik";
+    case "MEAL":
+      return "Yemek gideri";
+    case "OVERHEAD":
+      return "Genel gider";
+    case "PAYROLL":
+      return "Maaş";
+    case "LEASING_PAYMENT":
+      return "Leasing taksiti";
+    case "LEASING_DOWN_PAYMENT":
+      return "Leasing peşinatı";
+    case "OUTSOURCE_COST":
+      return "Fason gideri";
+    default:
+      return "İşletme gideri";
+  }
 }
 
 function formatNumber(value: number) {

@@ -126,6 +126,11 @@ export function ShiftPlaybackHud() {
             {activeShiftPlayback.departmentResults.map((department) => (
               <ShiftDepartmentCard
                 department={department}
+                efficiencyBps={
+                  isFinal
+                    ? department.performance.efficiencyBps
+                    : Math.round(department.performance.efficiencyBps * progress)
+                }
                 isFinal={isFinal}
                 key={department.departmentId}
                 producedQuantity={getShiftQuantityAtMinute(

@@ -25,10 +25,15 @@ test("playback HUD sabit overlay, global saat ve kullanıcı close sözleşmesin
 test("departman kartları kontrollü CountUp hedefi ve final kesinliği kullanır", () => {
   const card = readSource("./components/shift-department-card.tsx");
   const countUp = readSource("../../components/ui/CountUp.tsx");
+  const hud = readSource("./components/shift-playback-hud.tsx");
 
   assert.match(card, /<CountUp/);
   assert.match(card, /value=\{value\}/);
+  assert.match(card, /value=\{efficiency\}/);
   assert.match(card, /immediate=\{isFinal\}/);
+  assert.match(card, /efficiencyBps: number/);
+  assert.doesNotMatch(card, /%\\{efficiency\\}/);
+  assert.match(hud, /department\.performance\.efficiencyBps \* progress/);
   assert.match(countUp, /useReducedMotion/);
   assert.match(countUp, /springValue\.jump\(target\)/);
 });
@@ -52,4 +57,13 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.match(panel, /max-w-\[calc\(100vw-24px\)\]/);
   assert.match(panel, /overscroll-contain/);
   assert.match(panel, /prefers-reduced-motion/);
+  assert.match(panel, /bg-background\/50/);
+  assert.match(panel, /backdrop-blur-sm/);
+  assert.match(panel, /bg-background\/45 p-4 backdrop-blur-md/);
+  assert.match(panel, /shouldShowDailyEvent/);
+  assert.match(panel, /!event\.eventKey\.startsWith\("department\."\)/);
+  assert.match(panel, /displayableEvents\.length/);
+  assert.match(panel, /xp\.shift_completed/);
+  assert.match(panel, /formatFinanceCategory\(payload\.category\)/);
+  assert.match(panel, /getEventVisualClass/);
 });

@@ -148,6 +148,17 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
       ],
     },
     factoryLeasingContract: { findMany: async () => [] },
+    factoryXpTransaction: {
+      findMany: async () => [
+        {
+          amountXp: 120,
+          balanceAfterXp: 1_240,
+          id: "xp-1",
+          sourceId: "shift-1",
+          sourceType: "shift",
+        },
+      ],
+    },
     productionOutsourceJob: { findMany: async () => [] },
   } as never;
 
@@ -199,6 +210,22 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
   assert.equal(events[0]?.eventKey, "shift.started");
   assert.equal(events.at(-1)?.eventKey, "shift.completed");
   assert.ok(events.some((event) => event.eventKey === "payment.customer_received"));
+  assert.ok(events.some((event) => event.eventKey === "xp.shift_completed"));
+  assert.deepEqual(
+    events.find((event) => event.eventKey === "xp.shift_completed")?.payload,
+    {
+      amountXp: 120,
+      balanceAfterXp: 1_240,
+    },
+  );
+  assert.deepEqual(
+    events.find((event) => event.eventKey === "shift.completed")?.payload,
+    {
+      nextGameDay: 13,
+      shiftId: "shift-1",
+      simulatedGameDay: 12,
+    },
+  );
 });
 
 function buildLineResult(input: {

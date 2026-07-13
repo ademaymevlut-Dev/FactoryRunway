@@ -12,12 +12,14 @@ export type ShiftDepartmentProductResult = {
 
 export function ShiftDepartmentCard({
   department,
+  efficiencyBps,
   isFinal,
   producedQuantity,
   productResults,
   queueEnteredQuantity,
 }: {
   department: ShiftDepartmentPlayback;
+  efficiencyBps: number;
   isFinal: boolean;
   producedQuantity: number;
   productResults: ShiftDepartmentProductResult[];
@@ -47,7 +49,10 @@ export function ShiftDepartmentCard({
             value={producedQuantity}
           />
         </div>
-        <DepartmentPerformance performance={department.performance} />
+        <DepartmentPerformance
+          efficiencyBps={efficiencyBps}
+          isFinal={isFinal}
+        />
       </div>
 
       <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-white/8 pt-2 text-xs">
@@ -96,11 +101,13 @@ export function ShiftDepartmentCard({
 }
 
 function DepartmentPerformance({
-  performance,
+  efficiencyBps,
+  isFinal,
 }: {
-  performance: ShiftDepartmentPlayback["performance"];
+  efficiencyBps: number;
+  isFinal: boolean;
 }) {
-  const efficiency = Math.round(performance.efficiencyBps / 100);
+  const efficiency = Math.round(efficiencyBps / 100);
   const colorClass =
     efficiency >= 90
       ? "text-emerald-300"
@@ -116,9 +123,15 @@ function DepartmentPerformance({
       className="flex min-w-[56px] items-center justify-end"
     >
       <span
-        className={`font-mono text-lg font-semibold tabular-nums ${colorClass}`}
+        className={`flex items-baseline font-mono text-lg font-semibold tabular-nums ${colorClass}`}
       >
-        %{efficiency}
+        %
+        <CountUp
+          className="inline-block"
+          immediate={isFinal}
+          locale="tr-TR"
+          value={efficiency}
+        />
       </span>
     </div>
   );
