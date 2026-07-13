@@ -15,6 +15,7 @@ import {
   XpReason,
   type PrismaClient,
 } from "@/generated/prisma/client";
+import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
 import type {
   UpgradeProductionLineInput,
@@ -312,7 +313,6 @@ export async function upgradeProductionLine(input: {
           },
           data: {
             cashBalanceCents: { decrement: netUpgradeCostCents },
-            currentXp: { increment: UPGRADE_XP_REWARD },
           },
         });
 
@@ -454,35 +454,24 @@ export async function upgradeProductionLine(input: {
           },
         });
 
-        const updatedFactory = await tx.factory.findUniqueOrThrow({
-          where: { id: factory.id },
-          select: { currentXp: true },
-        });
-
-        await tx.playerProfile.update({
-          where: { id: factory.playerProfileId },
-          data: { totalXp: { increment: BigInt(UPGRADE_XP_REWARD) } },
-        });
-        await tx.factoryXpTransaction.create({
-          data: {
-            amountXp: UPGRADE_XP_REWARD,
-            balanceAfterXp: updatedFactory.currentXp,
-            factoryId: factory.id,
-            gameDay: factory.currentDay,
-            metadata: {
-              nextGrade: nextTemplate.grade,
-              nextProductionLineTemplateId: nextTemplate.id,
-              previousGrade: line.productionLineTemplate.grade,
-              previousProductionLineTemplateId:
-                line.productionLineTemplate.id,
-              productionLineId: line.id,
-              referenceKey,
-              source: "production-line-upgrade",
-            },
-            reason: XpReason.FACTORY_EXPANSION,
-            sourceId: line.id,
-            sourceType: "factory_production_line",
+        const progression = await grantFactoryXp({
+          amountXp: UPGRADE_XP_REWARD,
+          factoryId: factory.id,
+          gameDay: factory.currentDay,
+          metadata: {
+            nextGrade: nextTemplate.grade,
+            nextProductionLineTemplateId: nextTemplate.id,
+            previousGrade: line.productionLineTemplate.grade,
+            previousProductionLineTemplateId:
+              line.productionLineTemplate.id,
+            productionLineId: line.id,
+            referenceKey,
+            source: "production-line-upgrade",
           },
+          reason: XpReason.FACTORY_EXPANSION,
+          sourceId: line.id,
+          sourceType: "factory_production_line",
+          tx,
         });
 
         return {
@@ -491,7 +480,7 @@ export async function upgradeProductionLine(input: {
               line.productionLineTemplate.dailyPointCapacity,
             nextDailyPointCapacity: nextTemplate.dailyPointCapacity,
           }),
-          currentXp: updatedFactory.currentXp,
+          currentXp: progression.currentXp,
           directPayrollDeltaCents: String(
             nextDirectPayrollCents - previousDirectPayrollCents,
           ),

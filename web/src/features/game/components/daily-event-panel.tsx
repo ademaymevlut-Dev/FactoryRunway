@@ -277,6 +277,9 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
     case "shift.completed":
       return "Gün tamamlandı";
     case "xp.shift_completed":
+      if (payload.leveledUp === true) {
+        return `Seviye ${formatNumber(Number(payload.currentLevel ?? 0))} oldu`;
+      }
       return `+${formatNumber(Number(payload.amountXp ?? 0))} XP kazanıldı`;
     case "department.production_completed":
       return `${payload.departmentName} üretimi tamamladı`;
@@ -322,6 +325,9 @@ function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
     case "shift.completed":
       return `${formatNumber(Number(payload.simulatedGameDay ?? event.gameDay))}. gün kapanışı tamamlandı.`;
     case "xp.shift_completed":
+      if (payload.leveledUp === true) {
+        return `+${formatNumber(Number(payload.amountXp ?? 0))} XP ile yeni seviye açıldı. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      }
       return `Günlük vardiya ödülü eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
     case "operating_expense.paid":
       return `${formatFinanceCategory(payload.category)} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} ödeme yapıldı.`;

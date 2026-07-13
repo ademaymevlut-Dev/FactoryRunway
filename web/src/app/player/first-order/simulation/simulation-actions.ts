@@ -19,6 +19,7 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { grantFactoryXp } from "@/features/game/services/factory-progression";
 
 import {
   buildFirstSimulationSchedule,
@@ -281,38 +282,29 @@ export async function completeFirstSimulationAction() {
       },
     });
 
-    const updatedFactory = await tx.factory.update({
+    await tx.factory.update({
       where: { id: factory.id },
       data: {
         currentDay: nextFactoryDay,
-        currentXp: { increment: FIRST_SIMULATION_REWARD_XP },
         lastSimulatedAt: new Date(),
       },
-      select: { currentXp: true },
     });
 
-    await tx.playerProfile.update({
-      where: { id: playerProfile.id },
-      data: { totalXp: { increment: BigInt(FIRST_SIMULATION_REWARD_XP) } },
-    });
-
-    await tx.factoryXpTransaction.create({
-      data: {
-        factoryId: factory.id,
-        gameDay: completedDay,
-        amountXp: FIRST_SIMULATION_REWARD_XP,
-        balanceAfterXp: updatedFactory.currentXp,
-        sourceType: "tutorial",
-        sourceId: tutorial.id,
-        reason: XpReason.SHIFT_COMPLETED,
-        metadata: {
-          tutorialKey: TutorialKey.FIRST_ORDER,
-          productionOrderId: productionOrder.id,
-          customerOrderId: productionOrder.customerOrderId,
-          finishedQuantity,
-          plannedQuantity,
-        },
+    await grantFactoryXp({
+      amountXp: FIRST_SIMULATION_REWARD_XP,
+      factoryId: factory.id,
+      gameDay: completedDay,
+      metadata: {
+        customerOrderId: productionOrder.customerOrderId,
+        finishedQuantity,
+        plannedQuantity,
+        productionOrderId: productionOrder.id,
+        tutorialKey: TutorialKey.FIRST_ORDER,
       },
+      reason: XpReason.SHIFT_COMPLETED,
+      sourceId: tutorial.id,
+      sourceType: "tutorial",
+      tx,
     });
 
     await tx.tutorialProgress.update({

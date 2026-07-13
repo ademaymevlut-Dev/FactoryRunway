@@ -13,8 +13,10 @@ import {
   ShiftSimulationStatus,
   StaffAssignmentStatus,
   StaffType,
+  XpReason,
   type PrismaClient,
 } from "@/generated/prisma/client";
+import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { recalculateFactoryOperatingStage } from "@/features/game/services/factory-operating-stage";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
 
@@ -32,6 +34,8 @@ const TRANSACTION_OPTIONS = {
   timeout: 15_000,
 } as const;
 const MAX_ATTEMPTS = 3;
+const LINE_LEASING_XP_REWARD = 250;
+const OPERATING_STAGE_UP_XP_BONUS = 500;
 
 export function buildLineLeasingReferenceKey(input: {
   factoryId: string;
@@ -454,6 +458,31 @@ export async function leaseProductionLine(input: {
         });
         const stage = await recalculateFactoryOperatingStage({
           factoryId: factory.id,
+          tx,
+        });
+        await grantFactoryXp({
+          amountXp:
+            LINE_LEASING_XP_REWARD +
+            (stage.stageChanged ? OPERATING_STAGE_UP_XP_BONUS : 0),
+          factoryId: factory.id,
+          gameDay: factory.currentDay,
+          metadata: {
+            baseXp: LINE_LEASING_XP_REWARD,
+            leasingContractId,
+            leasingOfferId: offer.id,
+            operatingStageChanged: stage.stageChanged,
+            operatingStageKey: stage.currentStageKey,
+            productionLineId,
+            productionLineTemplateId: template.id,
+            requestId: input.lease.requestId,
+            source: "production-line-leasing",
+            stageUpBonusXp: stage.stageChanged ? OPERATING_STAGE_UP_XP_BONUS : 0,
+          },
+          reason: stage.stageChanged
+            ? XpReason.SCALE_UP
+            : XpReason.FACTORY_EXPANSION,
+          sourceId: productionLineId,
+          sourceType: "factory_production_line",
           tx,
         });
 

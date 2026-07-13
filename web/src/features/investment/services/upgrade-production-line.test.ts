@@ -76,8 +76,8 @@ test("upgrade service leasing kilidi, staff sync, machine purchase finance ve XP
   assert.match(service, /StaffAssignmentStatus\.PASSIVE/);
   assert.match(service, /category: FinanceCategory\.MACHINE_PURCHASE/);
   assert.match(service, /cashBalanceCents: \{ decrement: netUpgradeCostCents \}/);
-  assert.match(service, /currentXp: \{ increment: UPGRADE_XP_REWARD \}/);
-  assert.match(service, /factoryXpTransaction\.create/);
+  assert.match(service, /grantFactoryXp/);
+  assert.match(service, /amountXp: UPGRADE_XP_REWARD/);
   assert.match(service, /reason: XpReason\.FACTORY_EXPANSION/);
 });
 

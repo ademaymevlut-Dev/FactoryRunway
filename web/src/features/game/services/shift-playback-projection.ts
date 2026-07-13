@@ -52,6 +52,7 @@ type XpTransactionRow = {
   amountXp: number;
   balanceAfterXp: number;
   id: string;
+  metadata?: Prisma.JsonValue;
   sourceId: string | null;
   sourceType: string | null;
 };
@@ -337,6 +338,7 @@ export async function getShiftTimelineEvents(input: {
           amountXp: true,
           balanceAfterXp: true,
           id: true,
+          metadata: true,
           sourceId: true,
           sourceType: true,
         },
@@ -655,6 +657,11 @@ function xpTransactionToEvent(
 ): Omit<ShiftPlaybackTimelineEvent, "gameDay" | "id" | "sequence"> & {
   id: string;
 } {
+  const metadata = isJsonRecord(transaction.metadata) ? transaction.metadata : {};
+  const currentLevel =
+    typeof metadata.currentLevel === "number" ? metadata.currentLevel : null;
+  const leveledUp = metadata.leveledUp === true && currentLevel !== null;
+
   return {
     category: "SYSTEM",
     eventKey: "xp.shift_completed",
@@ -663,11 +670,16 @@ function xpTransactionToEvent(
     payload: {
       amountXp: transaction.amountXp,
       balanceAfterXp: transaction.balanceAfterXp,
+      ...(leveledUp ? { currentLevel, leveledUp } : {}),
     },
     severity: "SUCCESS",
     sourceId: transaction.sourceId ?? transaction.id,
     sourceType: transaction.sourceType ?? "FACTORY_XP_TRANSACTION",
   };
+}
+
+function isJsonRecord(value: Prisma.JsonValue | undefined): value is Prisma.JsonObject {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
 function createEmptyDepartmentPerformance(): ShiftPlayback["departmentResults"][number]["performance"] {

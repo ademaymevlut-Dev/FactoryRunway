@@ -54,6 +54,8 @@ test("leasing kurulumu tek serializable transaction içinde hat, personel, contr
   assert.match(service, /tx\.factoryFinanceDue\.create/);
   assert.match(service, /tx\.factoryFinanceTransaction\.create/);
   assert.match(service, /recalculateFactoryOperatingStage/);
+  assert.match(service, /grantFactoryXp/);
+  assert.match(service, /reason: stage\.stageChanged/);
 });
 
 test("schema offer master, contract snapshot ve duplicate due constraintini taşır", () => {

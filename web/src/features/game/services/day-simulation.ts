@@ -15,6 +15,7 @@ import { calculateOutsourceCompletion } from "@/features/production-queue/servic
 import { processDueLeasingPayments } from "@/features/investment/services/leasing-payment";
 import { runFinancePeriodClosing } from "@/features/finance/services/finance-period-closing";
 import { processShippingAndReceivables } from "@/features/warehouse/services/shipping-service";
+import { grantFactoryXp } from "./factory-progression";
 import {
   processOutsourceCompletionPayments,
   processPeriodicFinancialTriggers,
@@ -462,7 +463,6 @@ export async function simulateFactoryDay(input: {
     },
     data: {
       currentDay: nextGameDay,
-      currentXp: { increment: SHIFT_COMPLETED_XP },
       lastSimulatedAt: new Date(),
     },
   });
@@ -475,7 +475,7 @@ export async function simulateFactoryDay(input: {
 
   const updatedFactory = await prisma.factory.findUniqueOrThrow({
     where: { id: factory.id },
-    select: { currentDay: true, currentXp: true },
+    select: { currentDay: true },
   });
 
   if (updatedFactory.currentDay !== nextGameDay) {
@@ -484,41 +484,34 @@ export async function simulateFactoryDay(input: {
     );
   }
 
-  await prisma.playerProfile.update({
-    where: { id: factory.playerProfileId },
-    data: { totalXp: { increment: BigInt(SHIFT_COMPLETED_XP) } },
-  });
-
-  await prisma.factoryXpTransaction.create({
-    data: {
-      amountXp: SHIFT_COMPLETED_XP,
-      balanceAfterXp: updatedFactory.currentXp,
-      factoryId: factory.id,
-      gameDay: simulatedGameDay,
-      metadata: {
-        productionOrderIds,
-        producedQuantity: day.totalProducedQuantity,
-        settledReceivableCount: shippingResult.settledDueIds.length,
-        paidLeasingDueCount: leasingPaymentResult.paidDueIds.length,
-        paidOutsourceCompletionCount:
-          outsourceCompletionResult.paidTransactionIds.length,
-        paidPeriodicFinanceCount:
-          periodicFinanceResult.paidTransactionIds.length,
-        partialLeasingDueCount: leasingPaymentResult.partialDueIds.length,
-        partialPeriodicFinanceDueCount:
-          periodicFinanceResult.partialDueIds.length,
-        overdueLeasingDueCount: leasingPaymentResult.overdueDueIds.length,
-        overduePeriodicFinanceDueCount:
-          periodicFinanceResult.overdueDueIds.length,
-        financePeriodClosed: financeClosingResult.closed,
-        financePeriodIndex: financeClosingResult.periodIndex,
-        shippedOrderCount: shippingResult.shippedOrderIds.length,
-        source: "main-factory-day",
-      },
-      reason: XpReason.SHIFT_COMPLETED,
-      sourceId: shiftSimulation.id,
-      sourceType: "shift",
+  await grantFactoryXp({
+    amountXp: SHIFT_COMPLETED_XP,
+    factoryId: factory.id,
+    gameDay: simulatedGameDay,
+    metadata: {
+      financePeriodClosed: financeClosingResult.closed,
+      financePeriodIndex: financeClosingResult.periodIndex,
+      overdueLeasingDueCount: leasingPaymentResult.overdueDueIds.length,
+      overduePeriodicFinanceDueCount:
+        periodicFinanceResult.overdueDueIds.length,
+      paidLeasingDueCount: leasingPaymentResult.paidDueIds.length,
+      paidOutsourceCompletionCount:
+        outsourceCompletionResult.paidTransactionIds.length,
+      paidPeriodicFinanceCount:
+        periodicFinanceResult.paidTransactionIds.length,
+      partialLeasingDueCount: leasingPaymentResult.partialDueIds.length,
+      partialPeriodicFinanceDueCount:
+        periodicFinanceResult.partialDueIds.length,
+      producedQuantity: day.totalProducedQuantity,
+      productionOrderIds,
+      settledReceivableCount: shippingResult.settledDueIds.length,
+      shippedOrderCount: shippingResult.shippedOrderIds.length,
+      source: "main-factory-day",
     },
+    reason: XpReason.SHIFT_COMPLETED,
+    sourceId: shiftSimulation.id,
+    sourceType: "shift",
+    tx: prisma,
   });
 
   const playbackStartedAt = new Date();

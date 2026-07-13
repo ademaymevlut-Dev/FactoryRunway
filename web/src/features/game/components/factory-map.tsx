@@ -410,7 +410,7 @@ function ProductionLineCard({
   return (
     <button
       aria-label={`${item.title} detay`}
-      className={`factory-slot-card ${visualStatus} ${isSelected ? "is-selected" : ""}`}
+      className={`factory-slot-card ${visualStatus} workload-${item.workload.state} ${isSelected ? "is-selected" : ""}`}
       onClick={() => onAction(item)}
       onMouseEnter={() => onHoverDepartment(item.departmentId)}
       onMouseLeave={() => onHoverDepartment(null)}
@@ -437,6 +437,22 @@ function ProductionLineCard({
         {status.label}
       </div>
 
+      <div className={`factory-slot-workload workload-${item.workload.state}`}>
+        <strong>{item.workload.daysLabel}</strong>
+        <span>{item.workload.label}</span>
+      </div>
+
+      <div
+        aria-hidden="true"
+        className={`factory-slot-workload-tooltip workload-${item.workload.state}`}
+      >
+        <p>
+          <span>İş Yükü :</span>
+          <strong>{formatWorkloadTooltipDays(item.workload)}</strong>
+        </p>
+        <b>{formatWorkloadTooltipLabel(item.workload)}</b>
+      </div>
+
       <div className="factory-slot-code">
         <strong>{item.code}</strong>
         <span>{getMachineLabel(item.departmentKey)}</span>
@@ -444,6 +460,22 @@ function ProductionLineCard({
       <ProductionGradeBadge className="factory-slot-grade-badge" grade={item.grade} size="xs" />
     </button>
   );
+}
+
+function formatWorkloadTooltipDays(
+  workload: Extract<FactoryMapItem, { kind: "productionLine" }>["workload"],
+) {
+  if (workload.remainingDays === null) {
+    return "kapasite yok.";
+  }
+
+  return `${workload.remainingDays} gün.`;
+}
+
+function formatWorkloadTooltipLabel(
+  workload: Extract<FactoryMapItem, { kind: "productionLine" }>["workload"],
+) {
+  return `${workload.label.toLocaleUpperCase("tr-TR")}.`;
 }
 
 function InvestmentButtonCard({

@@ -148,6 +148,24 @@ export type FactoryMapDepartment = {
   supportsOutsource: boolean;
 };
 
+export type FactoryLineWorkloadState =
+  | "empty"
+  | "low"
+  | "thin"
+  | "balanced"
+  | "constrained"
+  | "critical";
+
+export type FactoryLineWorkload = {
+  dailyPointCapacity: number;
+  daysLabel: string;
+  effectiveDailyPointCapacity: number;
+  label: string;
+  remainingDays: number | null;
+  remainingWorkPoints: number;
+  state: FactoryLineWorkloadState;
+};
+
 export type FactoryMapItem =
   | {
       kind: "productionLine";
@@ -175,6 +193,7 @@ export type FactoryMapItem =
       purchaseCostCents: string;
       hasActiveLeasingContract: boolean;
       imageUrl: string | null;
+      workload: FactoryLineWorkload;
     }
   | {
       kind: "investmentAction";
@@ -229,6 +248,15 @@ export type GameSnapshot = {
     currentFinancePeriod: number;
     currentLevel: number;
     currentXp: number;
+    levelProgress: {
+      currentLevelRequiredXp: number;
+      nextLevel: number | null;
+      nextLevelRequiredXp: number | null;
+      progressBps: number | null;
+      xpForNextLevel: number | null;
+      xpIntoCurrentLevel: number;
+      xpRemainingForNextLevel: number | null;
+    };
     operatingStageName: string;
   };
   metrics: GameMetric[];

@@ -6,6 +6,7 @@ import {
   LeasingContractStatus,
   ProductionLineAssetVariant,
   ProductionOrderStatus,
+  RouteProcessingMode,
   RouteProgressStatus,
   StaffAssignmentStatus,
   type DepartmentKind as DepartmentKindType,
@@ -18,12 +19,23 @@ import { getOrderMarketView } from "@/features/orders/services/order-market-view
 import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
 import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
 import { getPrisma } from "@/lib/db";
+import {
+  buildFactoryLevelProgress,
+  GLOBAL_LEVEL_SCOPE_KEY,
+  pickApplicableLevelConfigs,
+  type PlayerLevelThreshold,
+} from "@/features/game/services/factory-progression";
 import type {
   ProductionLineInvestmentDepartment,
   ProductionLineInvestmentView,
 } from "@/features/investment/types";
 import { calculateProductionLineInvestmentPreview } from "@/features/investment/services/production-line-investment";
+import {
+  calculateEffectiveLinePointCapacity,
+  getLineStaffCoverageBps,
+} from "@/features/game/services/production-capacity";
 
+import { buildFactoryLineWorkload } from "./factory-line-workload";
 import { getLatestReviewableShiftPlayback } from "./shift-playback-view";
 
 import type {
@@ -83,6 +95,14 @@ type RouteProgressCountRecord = {
   };
 };
 
+type RouteProgressWorkloadRecord = {
+  completedQuantity: number;
+  departmentId: string;
+  remainingQuantity: number;
+  setupPoints: number;
+  workloadPointsPerUnit: number;
+};
+
 type ProductionLineRecord = {
   id: string;
   departmentId: string;
@@ -117,6 +137,9 @@ type ProductionLineRecord = {
     visualAssets: Array<{
       url: string;
       pathname: string | null;
+    }>;
+    staffRequirements: Array<{
+      requiredQuantity: number;
     }>;
   };
   staffAssignments: Array<{
@@ -226,6 +249,9 @@ export async function getGameSnapshot(input: {
                       pathname: true,
                     },
                   },
+                  staffRequirements: {
+                    select: { requiredQuantity: true },
+                  },
                 },
               },
               staffAssignments: {
@@ -254,6 +280,7 @@ export async function getGameSnapshot(input: {
     departmentGroups,
     dockDepartments,
     routeProgressCounts,
+    routeProgressWorkloads,
     readyToShipOrderCount,
     activeOrderCount,
     lateOrderCount,
@@ -266,6 +293,7 @@ export async function getGameSnapshot(input: {
     investmentCostConfig,
     investmentStages,
     factorySupportStaff,
+    levelConfigs,
   ] = await Promise.all([
     prisma.departmentGroup.findMany({
       where: {
@@ -350,6 +378,29 @@ export async function getGameSnapshot(input: {
       },
       _count: {
         _all: true,
+      },
+    }),
+    prisma.productionOrderRouteProgress.findMany({
+      where: {
+        factoryId: factory.id,
+        processingMode: RouteProcessingMode.INTERNAL,
+        remainingQuantity: { gt: 0 },
+        status: {
+          in: [
+            RouteProgressStatus.WAITING_INPUT,
+            RouteProgressStatus.READY,
+            RouteProgressStatus.IN_PROGRESS,
+            RouteProgressStatus.WAITING_OUTSOURCE,
+            RouteProgressStatus.BLOCKED,
+          ],
+        },
+      },
+      select: {
+        completedQuantity: true,
+        departmentId: true,
+        remainingQuantity: true,
+        setupPoints: true,
+        workloadPointsPerUnit: true,
       },
     }),
     prisma.productionOrder.count({
@@ -541,17 +592,43 @@ export async function getGameSnapshot(input: {
       },
       select: { quantity: true, staffRoleId: true },
     }),
+    prisma.playerLevelConfig.findMany({
+      where: {
+        scopeKey: { in: [factory.sectorId, GLOBAL_LEVEL_SCOPE_KEY] },
+        status: ContentStatus.ACTIVE,
+      },
+      orderBy: [{ level: "asc" }, { requiredXp: "asc" }],
+      select: {
+        level: true,
+        requiredXp: true,
+        scopeKey: true,
+        unlockKey: true,
+      },
+    }),
   ]);
 
   const sections = buildFactoryMapSections({
     departmentGroups,
     productionLines: factory.productionLines,
+    workloadByDepartmentId: buildWorkloadByDepartmentId({
+      productionLines: factory.productionLines,
+      routeProgressWorkloads,
+    }),
   });
   const totals = getMapTotals(sections);
   const operatingStageName = pickTranslation(
     factory.operatingStageState?.currentStage.translations ?? [],
     factory.operatingStageState?.currentStage.key ?? "stage",
   );
+  const applicableLevelConfigs = pickApplicableLevelConfigs(
+    levelConfigs as PlayerLevelThreshold[],
+    factory.sectorId,
+  );
+  const levelProgress = buildFactoryLevelProgress({
+    configs: applicableLevelConfigs,
+    currentLevel: factory.currentLevel,
+    currentXp: factory.currentXp,
+  });
   const dockItems = buildDockItems({
     departments: dockDepartments,
     readyToShipOrderCount,
@@ -574,12 +651,13 @@ export async function getGameSnapshot(input: {
       currentFinancePeriod: factory.currentFinancePeriod,
       currentLevel: factory.currentLevel,
       currentXp: factory.currentXp,
+      levelProgress,
       operatingStageName,
     },
     metrics: buildMetrics({
       activeOrderCount,
       activeProductionOrderCount,
-      factory: { ...factory, operatingStageName },
+      factory: { ...factory, levelProgress, operatingStageName },
       lateOrderCount,
       totals,
     }),
@@ -903,9 +981,11 @@ function getDefaultDockBadgeKey(groupKey: string, department: DockDepartmentReco
 function buildFactoryMapSections({
   departmentGroups,
   productionLines,
+  workloadByDepartmentId,
 }: {
   departmentGroups: DepartmentGroupRecord[];
   productionLines: ProductionLineRecord[];
+  workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>;
 }) {
   const linesByGroupId = new Map<string, ProductionLineRecord[]>();
   const orphanLinesByDepartmentId = new Map<string, ProductionLineRecord[]>();
@@ -954,6 +1034,7 @@ function buildFactoryMapSections({
       groupId: group.id,
       groupTitle: pickTranslation(group.translations, group.key),
       lines,
+      workloadByDepartmentId,
     });
 
     sections.push({
@@ -997,6 +1078,7 @@ function buildFactoryMapSections({
       groupId: syntheticGroup.id,
       groupTitle: departmentName,
       lines,
+      workloadByDepartmentId,
     });
 
     sections.push({
@@ -1052,16 +1134,18 @@ function buildSectionItems({
   groupId,
   groupTitle,
   lines,
+  workloadByDepartmentId,
 }: {
   departmentIds: string[];
   groupId: string;
   groupTitle: string;
   lines: ProductionLineRecord[];
+  workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>;
 }) {
   const items: FactoryMapItem[] = lines
     .slice()
     .sort((first, second) => first.sortOrder - second.sortOrder || first.lineNumber - second.lineNumber)
-    .map(toProductionLineItem);
+    .map((line) => toProductionLineItem(line, workloadByDepartmentId));
 
   if (items.length > 0) {
     items.push({
@@ -1089,9 +1173,21 @@ function toMapDepartment(department: DepartmentRecord): FactoryMapDepartment {
   };
 }
 
-function toProductionLineItem(line: ProductionLineRecord): FactoryMapItem {
+type FactoryMapItemWorkload = Extract<
+  FactoryMapItem,
+  { kind: "productionLine" }
+>["workload"];
+
+function toProductionLineItem(
+  line: ProductionLineRecord,
+  workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>,
+): FactoryMapItem {
   const departmentName = pickTranslation(line.department.translations, line.department.key);
   const template = line.productionLineTemplate;
+  const assignedStaff = line.staffAssignments.reduce(
+    (total, assignment) => total + assignment.quantity,
+    0,
+  );
 
   return {
     kind: "productionLine",
@@ -1112,14 +1208,111 @@ function toProductionLineItem(line: ProductionLineRecord): FactoryMapItem {
     conditionBps: line.conditionBps,
     dailyPointCapacity: template.dailyPointCapacity,
     idealStaff: template.idealStaff,
-    assignedStaff: line.staffAssignments.reduce((total, assignment) => total + assignment.quantity, 0),
+    assignedStaff,
     machineCount: template.machineCount,
     areaM2: template.areaM2,
     monthlyElectricityBaseCents: template.monthlyElectricityBaseCents,
     purchaseCostCents: String(template.purchaseCostCents),
     hasActiveLeasingContract: line.leasingContracts.length > 0,
     imageUrl: getLineImageUrl(line),
+    workload:
+      workloadByDepartmentId.get(line.departmentId) ??
+      buildFactoryLineWorkload({
+        dailyPointCapacity: template.dailyPointCapacity,
+        effectiveDailyPointCapacity: 0,
+        remainingWorkPoints: 0,
+      }),
   };
+}
+
+function buildWorkloadByDepartmentId({
+  productionLines,
+  routeProgressWorkloads,
+}: {
+  productionLines: ProductionLineRecord[];
+  routeProgressWorkloads: RouteProgressWorkloadRecord[];
+}) {
+  const workPointsByDepartmentId = new Map<string, number>();
+  const capacityByDepartmentId = new Map<
+    string,
+    { dailyPointCapacity: number; effectiveDailyPointCapacity: number }
+  >();
+
+  for (const progress of routeProgressWorkloads) {
+    const remainingQuantity = Math.max(0, progress.remainingQuantity);
+    const workloadPointsPerUnit = Math.max(1, progress.workloadPointsPerUnit);
+    const setupPoints =
+      progress.completedQuantity <= 0 ? Math.max(0, progress.setupPoints) : 0;
+    const remainingWorkPoints =
+      remainingQuantity * workloadPointsPerUnit + setupPoints;
+
+    workPointsByDepartmentId.set(
+      progress.departmentId,
+      (workPointsByDepartmentId.get(progress.departmentId) ?? 0) +
+        remainingWorkPoints,
+    );
+  }
+
+  for (const line of productionLines) {
+    const template = line.productionLineTemplate;
+    const current = capacityByDepartmentId.get(line.departmentId) ?? {
+      dailyPointCapacity: 0,
+      effectiveDailyPointCapacity: 0,
+    };
+
+    if (
+      line.status === FactoryProductionLineStatus.IDLE ||
+      line.status === FactoryProductionLineStatus.RUNNING
+    ) {
+      const assignedStaff = line.staffAssignments.reduce(
+        (total, assignment) => total + assignment.quantity,
+        0,
+      );
+      const requiredStaff =
+        template.staffRequirements.reduce(
+          (total, requirement) => total + requirement.requiredQuantity,
+          0,
+        ) || template.idealStaff;
+      const staffCoverageBps = getLineStaffCoverageBps({
+        assignedStaffQuantity: assignedStaff,
+        requiredStaffQuantity: requiredStaff,
+      });
+      const effectiveDailyPointCapacity = calculateEffectiveLinePointCapacity({
+        conditionBps: line.conditionBps,
+        dailyPointCapacity: template.dailyPointCapacity,
+        staffCoverageBps,
+      });
+
+      current.dailyPointCapacity += Math.max(0, template.dailyPointCapacity);
+      current.effectiveDailyPointCapacity += effectiveDailyPointCapacity;
+    }
+
+    capacityByDepartmentId.set(line.departmentId, current);
+  }
+
+  const departmentIds = new Set([
+    ...Array.from(workPointsByDepartmentId.keys()),
+    ...Array.from(capacityByDepartmentId.keys()),
+  ]);
+  const result = new Map<string, FactoryMapItemWorkload>();
+
+  for (const departmentId of departmentIds) {
+    const capacity = capacityByDepartmentId.get(departmentId) ?? {
+      dailyPointCapacity: 0,
+      effectiveDailyPointCapacity: 0,
+    };
+
+    result.set(
+      departmentId,
+      buildFactoryLineWorkload({
+        dailyPointCapacity: capacity.dailyPointCapacity,
+        effectiveDailyPointCapacity: capacity.effectiveDailyPointCapacity,
+        remainingWorkPoints: workPointsByDepartmentId.get(departmentId) ?? 0,
+      }),
+    );
+  }
+
+  return result;
 }
 
 function getMapTotals(sections: FactoryMapSection[]): GameSnapshot["map"]["totals"] {
@@ -1153,6 +1346,8 @@ function buildMetrics({
     currentDay: number;
     currentFinancePeriod: number;
     currentLevel: number;
+    currentXp: number;
+    levelProgress: GameSnapshot["factory"]["levelProgress"];
     operatingStageName: string;
   };
   lateOrderCount: number;
@@ -1167,11 +1362,31 @@ function buildMetrics({
       tone: "green",
     },
     {
+      id: "xp",
+      label: "XP",
+      value: `${formatNumber(factory.currentXp)} XP`,
+      subLabel:
+        factory.levelProgress.nextLevel === null
+          ? "Maksimum seviye"
+          : `Lv. ${factory.levelProgress.nextLevel} için ${formatNumber(factory.levelProgress.xpRemainingForNextLevel ?? 0)} XP`,
+      tone: "violet",
+    },
+    {
       id: "day",
       label: "Gün",
       value: `${factory.currentDay}. Gün`,
-      subLabel: `${factory.operatingStageName} · Seviye ${factory.currentLevel}`,
+      subLabel: factory.operatingStageName,
       tone: "amber",
+    },
+    {
+      id: "level",
+      label: "Seviye",
+      value: `Lv. ${factory.currentLevel}`,
+      subLabel:
+        factory.levelProgress.nextLevel === null
+          ? `${formatNumber(factory.currentXp)} XP`
+          : `${formatNumber(factory.levelProgress.xpRemainingForNextLevel ?? 0)} XP kaldı`,
+      tone: "violet",
     },
     {
       id: "orders",
@@ -1193,13 +1408,6 @@ function buildMetrics({
       value: totals.productionLineCount.toString(),
       subLabel: "Üretim alanı",
       tone: "violet",
-    },
-    {
-      id: "staff",
-      label: "Departman",
-      value: totals.departmentCount.toString(),
-      subLabel: "Sahip olunan hatlar",
-      tone: "blue",
     },
   ];
 }
@@ -1349,6 +1557,12 @@ function formatMoney(cents: bigint, currencyCode: GameSnapshot["factory"]["curre
     maximumFractionDigits: 0,
     style: "currency",
   }).format(Number(cents) / 100);
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 function formatGrade(grade: ProductionGrade) {

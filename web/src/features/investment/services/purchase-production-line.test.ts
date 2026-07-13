@@ -26,6 +26,8 @@ type LineRecord = {
 
 type HarnessState = {
   cashBalanceCents: bigint;
+  currentLevel: number;
+  currentXp: number;
   finance: Array<Record<string, unknown>>;
   lines: LineRecord[];
   stageId: string;
@@ -37,6 +39,8 @@ type HarnessState = {
     staffRoleId: string;
     status: string;
   }>;
+  totalXp: bigint;
+  xpTransactions: Array<Record<string, unknown>>;
 };
 
 function buildHarness(overrides?: {
@@ -55,10 +59,14 @@ function buildHarness(overrides?: {
   const initialStageId = existingLines.length >= 3 ? "small" : "micro";
   const state: HarnessState = {
     cashBalanceCents: overrides?.cashBalanceCents ?? BigInt(1_000_000),
+    currentLevel: 1,
+    currentXp: 0,
     finance: [],
     lines: existingLines,
     stageId: initialStageId,
     staff: buildInitialSupportStaff(initialStageId),
+    totalXp: BigInt(0),
+    xpTransactions: [],
   };
   let transactionQueue = Promise.resolve();
 
@@ -81,6 +89,9 @@ function buildHarness(overrides?: {
             : null,
         findUniqueOrThrow: async () => ({
           currentDay: 13,
+          currentLevel: local.currentLevel,
+          currentXp: local.currentXp,
+          playerProfileId: "profile-1",
           sectorId: "textile",
           operatingStageState: {
             currentStageId: local.stageId,
@@ -90,6 +101,24 @@ function buildHarness(overrides?: {
             },
           },
         }),
+        update: async ({
+          data,
+        }: {
+          data: {
+            currentLevel?: number;
+            currentXp?: { increment: number };
+          };
+        }) => {
+          if (data.currentXp) local.currentXp += data.currentXp.increment;
+          if (data.currentLevel !== undefined) {
+            local.currentLevel = data.currentLevel;
+          }
+
+          return {
+            currentLevel: local.currentLevel,
+            currentXp: local.currentXp,
+          };
+        },
         updateMany: async ({ data }: { data: { cashBalanceCents: { decrement: bigint } } }) => {
           if (local.cashBalanceCents < data.cashBalanceCents.decrement) {
             return { count: 0 };
@@ -113,6 +142,39 @@ function buildHarness(overrides?: {
         create: async ({ data }: { data: Record<string, unknown> }) => {
           local.finance.push(data);
           return { id: `finance-${local.finance.length}` };
+        },
+      },
+      playerLevelConfig: {
+        findMany: async () => [
+          { level: 1, requiredXp: 0, scopeKey: "textile", unlockKey: null },
+          {
+            level: 2,
+            requiredXp: 500,
+            scopeKey: "textile",
+            unlockKey: "basic_goals",
+          },
+          {
+            level: 3,
+            requiredXp: 1_200,
+            scopeKey: "textile",
+            unlockKey: "new_offers",
+          },
+        ],
+      },
+      playerProfile: {
+        update: async ({
+          data,
+        }: {
+          data: { totalXp: { increment: bigint } };
+        }) => {
+          local.totalXp += data.totalXp.increment;
+          return { id: "profile-1" };
+        },
+      },
+      factoryXpTransaction: {
+        create: async ({ data }: { data: Record<string, unknown> }) => {
+          local.xpTransactions.push(data);
+          return { id: `xp-${local.xpTransactions.length}` };
         },
       },
       productionLineTemplate: {
@@ -303,10 +365,14 @@ function buildHarness(overrides?: {
       try {
         const result = await run(buildTx(local));
         state.cashBalanceCents = local.cashBalanceCents;
+        state.currentLevel = local.currentLevel;
+        state.currentXp = local.currentXp;
         state.finance = local.finance;
         state.lines = local.lines;
         state.stageId = local.stageId;
         state.staff = local.staff;
+        state.totalXp = local.totalXp;
+        state.xpTransactions = local.xpTransactions;
         return result;
       } finally {
         release();
@@ -345,6 +411,8 @@ test("yeterli nakitle server template fiyatından peşin hat satın alır", asyn
   assert.equal(harness.state.lines.length, 1);
   assert.equal(harness.state.lines[0]?.installedDay, 13);
   assert.equal(harness.state.finance.length, 1);
+  assert.equal(harness.state.xpTransactions.length, 1);
+  assert.equal(harness.state.currentXp, 250);
   const directStaff = harness.state.staff.filter(
     (assignment) => assignment.factoryProductionLineId !== null,
   );
@@ -495,6 +563,8 @@ test("altıncı aktif hat aynı transaction içinde operating stage değiştirir
   assert.equal(result.operatingStageChanged, true);
   assert.equal(result.supportStaffCreated, 1);
   assert.equal(harness.state.stageId, "stable");
+  assert.equal(harness.state.currentXp, 750);
+  assert.equal(harness.state.currentLevel, 2);
   assert.equal(
     harness.state.staff.find(
       (assignment) => assignment.staffRoleId === "role-material-flow",

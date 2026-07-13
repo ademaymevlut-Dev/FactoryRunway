@@ -1,0 +1,341 @@
+.metricTile {
+  transform-origin: center;
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    color 220ms ease,
+    transform 220ms ease;
+}
+
+.cashPositive {
+  animation: hudCashPositive 4200ms ease-out both;
+}
+
+.cashNegative {
+  animation: hudCashNegative 4200ms ease-out both;
+}
+
+.xpPositive {
+  animation: hudXpPositive 4200ms ease-out both;
+}
+
+.levelPulse {
+  animation: hudLevelPulse 1300ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.metricFlip {
+  animation: hudMetricFlip 760ms cubic-bezier(0.18, 0.82, 0.22, 1) both;
+}
+
+.stageChanged {
+  animation: hudStageChanged 1600ms ease-out both;
+}
+
+.valuePositive {
+  color: rgb(134 239 172);
+}
+
+.valueNegative {
+  color: rgb(252 165 165);
+}
+
+.valueXp {
+  color: rgb(253 224 71);
+}
+
+.deltaBadge {
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 4px 6px;
+  white-space: nowrap;
+  animation: hudDeltaFloat 4200ms ease-out both;
+}
+
+.deltaPositive {
+  background: rgba(5, 150, 105, 0.18);
+  border-color: rgba(110, 231, 183, 0.35);
+  color: rgb(187 247 208);
+}
+
+.deltaNegative {
+  background: rgba(225, 29, 72, 0.18);
+  border-color: rgba(253, 164, 175, 0.35);
+  color: rgb(254 202 202);
+}
+
+.deltaXp {
+  background: rgba(217, 119, 6, 0.18);
+  border-color: rgba(253, 230, 138, 0.4);
+  color: rgb(254 240 138);
+}
+
+.celebrationOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  animation: hudCelebrationOverlay 4200ms ease-out both;
+}
+
+.celebrationCard {
+  position: relative;
+  width: min(330px, calc(100vw - 48px));
+  overflow: hidden;
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  border-radius: 8px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(250, 204, 21, 0.22), transparent 46%),
+    rgba(8, 13, 24, 0.94);
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.42),
+    0 0 36px rgba(250, 204, 21, 0.24);
+  padding: 28px 24px;
+  text-align: center;
+  backdrop-filter: blur(18px);
+  animation: hudCelebrationCard 4200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.celebrationCard::before {
+  position: absolute;
+  top: -112px;
+  left: 50%;
+  width: 2px;
+  height: 104px;
+  content: "";
+  background: linear-gradient(to bottom, transparent, rgba(250, 204, 21, 0.72));
+  transform: translateX(-50%);
+  animation: hudCelebrationTrail 900ms ease-out both;
+}
+
+.confettiLayer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.confettiPiece {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  width: 6px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--confetti-color);
+  opacity: 0;
+  animation: hudConfetti 1500ms ease-out var(--confetti-delay) both;
+}
+
+@keyframes hudCashPositive {
+  0% {
+    background: rgba(5, 150, 105, 0);
+    box-shadow: 0 0 0 rgba(5, 150, 105, 0);
+    transform: scale(1);
+  }
+  10% {
+    background: rgba(5, 150, 105, 0.16);
+    box-shadow: 0 0 24px rgba(16, 185, 129, 0.24);
+    transform: scale(1.045);
+  }
+  24% {
+    transform: scale(0.985);
+  }
+  45% {
+    background: rgba(5, 150, 105, 0.1);
+    transform: scale(1);
+  }
+  100% {
+    background: rgba(5, 150, 105, 0);
+    box-shadow: 0 0 0 rgba(5, 150, 105, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes hudCashNegative {
+  0% {
+    background: rgba(225, 29, 72, 0);
+    box-shadow: 0 0 0 rgba(225, 29, 72, 0);
+    transform: scale(1);
+  }
+  10% {
+    background: rgba(225, 29, 72, 0.16);
+    box-shadow: 0 0 24px rgba(244, 63, 94, 0.22);
+    transform: scale(1.045);
+  }
+  24% {
+    transform: scale(0.985);
+  }
+  45% {
+    background: rgba(225, 29, 72, 0.1);
+    transform: scale(1);
+  }
+  100% {
+    background: rgba(225, 29, 72, 0);
+    box-shadow: 0 0 0 rgba(225, 29, 72, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes hudXpPositive {
+  0% {
+    background: rgba(217, 119, 6, 0);
+    box-shadow: 0 0 0 rgba(217, 119, 6, 0);
+    transform: scale(1);
+  }
+  10% {
+    background: rgba(217, 119, 6, 0.14);
+    box-shadow: 0 0 22px rgba(250, 204, 21, 0.2);
+    transform: scale(1.04);
+  }
+  28% {
+    transform: scale(0.99);
+  }
+  100% {
+    background: rgba(217, 119, 6, 0);
+    box-shadow: 0 0 0 rgba(217, 119, 6, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes hudLevelPulse {
+  0% {
+    background: rgba(124, 58, 237, 0);
+    box-shadow: 0 0 0 rgba(124, 58, 237, 0);
+    transform: scale(1);
+  }
+  22% {
+    background: rgba(124, 58, 237, 0.18);
+    box-shadow: 0 0 28px rgba(168, 85, 247, 0.28);
+    transform: scale(1.07);
+  }
+  48% {
+    transform: scale(0.985);
+  }
+  100% {
+    background: rgba(124, 58, 237, 0);
+    box-shadow: 0 0 0 rgba(124, 58, 237, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes hudMetricFlip {
+  0% {
+    transform: perspective(500px) rotateX(0deg);
+  }
+  42% {
+    background: rgba(255, 255, 255, 0.06);
+    transform: perspective(500px) rotateX(-58deg) scale(1.02);
+  }
+  100% {
+    transform: perspective(500px) rotateX(0deg);
+  }
+}
+
+@keyframes hudStageChanged {
+  0% {
+    color: rgb(148 163 184);
+  }
+  18% {
+    color: rgb(253 224 71);
+    text-shadow: 0 0 18px rgba(250, 204, 21, 0.55);
+  }
+  100% {
+    color: rgb(148 163 184);
+  }
+}
+
+@keyframes hudDeltaFloat {
+  0% {
+    opacity: 0;
+    transform: translate3d(-6px, 4px, 0) scale(0.9);
+  }
+  12% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: translate3d(0, -7px, 0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(0, -14px, 0) scale(0.96);
+  }
+}
+
+@keyframes hudCelebrationOverlay {
+  0%,
+  88% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes hudCelebrationCard {
+  0% {
+    opacity: 0;
+    transform: translateY(-44px) scale(0.84);
+  }
+  13% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+  22% {
+    transform: translateY(0) scale(1);
+  }
+  82% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+}
+
+@keyframes hudCelebrationTrail {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -28px) scaleY(0.2);
+  }
+  100% {
+    opacity: 1;
+    transform: translate(-50%, 0) scaleY(1);
+  }
+}
+
+@keyframes hudConfetti {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.45) rotate(0deg);
+  }
+  14% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--confetti-x)), calc(-50% + var(--confetti-y))) scale(1) rotate(var(--confetti-rotate));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cashPositive,
+  .cashNegative,
+  .xpPositive,
+  .levelPulse,
+  .metricFlip,
+  .stageChanged,
+  .deltaBadge,
+  .celebrationOverlay,
+  .celebrationCard,
+  .celebrationCard::before,
+  .confettiPiece {
+    animation: none;
+  }
+}
