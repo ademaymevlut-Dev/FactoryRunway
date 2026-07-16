@@ -3,11 +3,15 @@ export function calculateOutsourceUnitCostCents(input: {
   costPer1000Points: number
   workloadPointsPerUnit: number
 }) {
+  if (input.costPer1000Points <= 0) {
+    throw new Error("Fason baz maliyeti tanımlı değil.")
+  }
+
   const baseCostPerUnitCents = Math.max(
     1,
     Math.ceil(
       (Math.max(1, input.workloadPointsPerUnit) *
-        Math.max(0, input.costPer1000Points)) /
+        input.costPer1000Points) /
         1000,
     ),
   )

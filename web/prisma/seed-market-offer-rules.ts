@@ -22,8 +22,8 @@ const prisma = new PrismaClient({
 const offerTypeRules = [
   {
     offerType: MarketOrderOfferType.NORMAL,
-    generationWeightBps: 6500,
-    minDeliveryDays: 18,
+    generationWeightBps: 7200,
+    minDeliveryDays: 20,
     maxDeliveryDays: 24,
     offerExpiryDays: 3,
     minimumIntervalDays: 0,
@@ -32,9 +32,9 @@ const offerTypeRules = [
   },
   {
     offerType: MarketOrderOfferType.OPPORTUNITY,
-    generationWeightBps: 1200,
+    generationWeightBps: 900,
     minDeliveryDays: 12,
-    maxDeliveryDays: 20,
+    maxDeliveryDays: 15,
     offerExpiryDays: 2,
     minimumIntervalDays: 5,
     priceMultiplierMinBps: 11000,
@@ -42,9 +42,9 @@ const offerTypeRules = [
   },
   {
     offerType: MarketOrderOfferType.EXPRESS,
-    generationWeightBps: 1000,
-    minDeliveryDays: 7,
-    maxDeliveryDays: 12,
+    generationWeightBps: 700,
+    minDeliveryDays: 12,
+    maxDeliveryDays: 15,
     offerExpiryDays: 1,
     minimumIntervalDays: 2,
     priceMultiplierMinBps: 11500,
@@ -52,9 +52,9 @@ const offerTypeRules = [
   },
   {
     offerType: MarketOrderOfferType.REPEAT,
-    generationWeightBps: 1300,
-    minDeliveryDays: 14,
-    maxDeliveryDays: 20,
+    generationWeightBps: 1200,
+    minDeliveryDays: 18,
+    maxDeliveryDays: 24,
     offerExpiryDays: 3,
     minimumIntervalDays: 3,
     priceMultiplierMinBps: 10000,
@@ -64,26 +64,26 @@ const offerTypeRules = [
 
 function getStageRule(sortOrder: number) {
   if (sortOrder <= 10) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 5 };
+    return { maxNewOffersPerDay: 1, targetActiveOfferCount: 3 };
   }
 
   if (sortOrder <= 20) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 6 };
+    return { maxNewOffersPerDay: 1, targetActiveOfferCount: 4 };
   }
 
   if (sortOrder <= 30) {
-    return { maxNewOffersPerDay: 3, targetActiveOfferCount: 8 };
+    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 5 };
   }
 
   if (sortOrder <= 40) {
-    return { maxNewOffersPerDay: 3, targetActiveOfferCount: 10 };
+    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 6 };
   }
 
   if (sortOrder <= 50) {
-    return { maxNewOffersPerDay: 4, targetActiveOfferCount: 12 };
+    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 7 };
   }
 
-  return { maxNewOffersPerDay: 5, targetActiveOfferCount: 14 };
+  return { maxNewOffersPerDay: 3, targetActiveOfferCount: 8 };
 }
 
 async function main() {

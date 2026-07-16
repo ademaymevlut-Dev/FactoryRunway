@@ -26,8 +26,8 @@ import {
   type FirstSimulationRouteStatus,
   type FirstSimulationStepInput,
 } from "./simulation-math";
+import { FIRST_SIMULATION_SHIFT_XP } from "./reward-config";
 
-const FIRST_SIMULATION_REWARD_XP = 1000;
 const FIRST_SIMULATION_DURATION_SECONDS = 25;
 
 export async function completeFirstSimulationAction() {
@@ -291,7 +291,7 @@ export async function completeFirstSimulationAction() {
     });
 
     await grantFactoryXp({
-      amountXp: FIRST_SIMULATION_REWARD_XP,
+      amountXp: FIRST_SIMULATION_SHIFT_XP,
       factoryId: factory.id,
       gameDay: completedDay,
       metadata: {
@@ -317,7 +317,7 @@ export async function completeFirstSimulationAction() {
         metadata: mergeMetadata(tutorial.metadata, {
           completedDay,
           nextFactoryDay,
-          rewardXp: FIRST_SIMULATION_REWARD_XP,
+          rewardXp: FIRST_SIMULATION_SHIFT_XP,
           finishedQuantity,
           plannedQuantity,
           orderIsReady,

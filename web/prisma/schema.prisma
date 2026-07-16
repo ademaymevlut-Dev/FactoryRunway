@@ -1984,20 +1984,21 @@ model TutorialProgress {
 }
 
 model OutsourceOptionConfig {
-  id                String              @id @default(cuid())
-  sectorId          String              @map("sector_id")
-  departmentId      String              @map("department_id")
-  optionType        OutsourceOptionType @map("option_type")
-  leadTimeDays      Int                 @map("lead_time_days")
-  costMultiplierBps Int                 @default(10000) @map("cost_multiplier_bps")
-  qualityRiskBps    Int                 @default(0) @map("quality_risk_bps")
-  delayRiskBps      Int                 @default(0) @map("delay_risk_bps")
-  status            ContentStatus       @default(ACTIVE)
-  metadata          Json?
-  createdAt         DateTime            @default(now()) @map("created_at")
-  updatedAt         DateTime            @updatedAt @map("updated_at")
-  sector            Sector              @relation(fields: [sectorId], references: [id], onDelete: Cascade)
-  department        Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  id                         String              @id @default(cuid())
+  sectorId                   String              @map("sector_id")
+  departmentId               String              @map("department_id")
+  optionType                 OutsourceOptionType @map("option_type")
+  leadTimeDays               Int                 @map("lead_time_days")
+  baseCostPer1000PointsCents Int                 @default(0) @map("base_cost_per_1000_points_cents")
+  costMultiplierBps          Int                 @default(10000) @map("cost_multiplier_bps")
+  qualityRiskBps             Int                 @default(0) @map("quality_risk_bps")
+  delayRiskBps               Int                 @default(0) @map("delay_risk_bps")
+  status                     ContentStatus       @default(ACTIVE)
+  metadata                   Json?
+  createdAt                  DateTime            @default(now()) @map("created_at")
+  updatedAt                  DateTime            @updatedAt @map("updated_at")
+  sector                     Sector              @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  department                 Department          @relation(fields: [departmentId], references: [id], onDelete: Restrict)
 
   @@unique([sectorId, departmentId, optionType])
   @@index([sectorId, departmentId, status])

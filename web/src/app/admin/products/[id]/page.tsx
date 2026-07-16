@@ -66,6 +66,19 @@ export default async function ProductDetailPage({
                     },
                     take: 1,
                   },
+                  outsourceOptions: {
+                    where: {
+                      baseCostPer1000PointsCents: { gt: 0 },
+                      status: "ACTIVE",
+                    },
+                    orderBy: [{ optionType: "asc" }, { leadTimeDays: "asc" }],
+                    select: {
+                      baseCostPer1000PointsCents: true,
+                      costMultiplierBps: true,
+                      leadTimeDays: true,
+                      optionType: true,
+                    },
+                  },
                 },
               },
             },
@@ -275,6 +288,16 @@ export default async function ProductDetailPage({
                   step.department.key,
                 ),
                 lineKey: workshopLine?.key ?? null,
+                canOutsource: step.canOutsource,
+                outsourceOptions: step.department.outsourceOptions.map(
+                  (option) => ({
+                    baseCostPer1000PointsCents:
+                      option.baseCostPer1000PointsCents,
+                    costMultiplierBps: option.costMultiplierBps,
+                    leadTimeDays: option.leadTimeDays,
+                    optionType: option.optionType,
+                  }),
+                ),
                 workloadPointsPerUnit: step.workloadPointsPerUnit,
                 dailyPointCapacity:
                   workshopLine?.dailyPointCapacity ?? null,

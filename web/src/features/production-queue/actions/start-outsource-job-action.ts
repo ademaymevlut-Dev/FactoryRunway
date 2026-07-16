@@ -89,7 +89,6 @@ export async function startOutsourceJobAction(
           workloadPointsPerUnit: true,
           department: {
             select: {
-              operationCostPerPointCents: true,
               supportsOutsource: true,
             },
           },
@@ -120,15 +119,17 @@ export async function startOutsourceJobAction(
         throw new Error("Fasona gönderilmeye hazır adet bulunmuyor.")
       }
 
-      const [config, activeLineCount, costTemplate] = await Promise.all([
+      const [config, activeLineCount] = await Promise.all([
         tx.outsourceOptionConfig.findFirst({
           where: {
             departmentId: progress.departmentId,
             optionType,
             sectorId: factory.sectorId,
             status: ContentStatus.ACTIVE,
+            baseCostPer1000PointsCents: { gt: 0 },
           },
           select: {
+            baseCostPer1000PointsCents: true,
             costMultiplierBps: true,
             delayRiskBps: true,
             leadTimeDays: true,
@@ -147,28 +148,15 @@ export async function startOutsourceJobAction(
             },
           },
         }),
-        tx.productionLineTemplate.findFirst({
-          where: {
-            departmentId: progress.departmentId,
-            directCostPer1000PointsCents: { gt: 0 },
-            sectorId: factory.sectorId,
-            status: ContentStatus.ACTIVE,
-          },
-          orderBy: { directCostPer1000PointsCents: "asc" },
-          select: { directCostPer1000PointsCents: true },
-        }),
       ])
 
       if (!config) {
-        throw new Error("Seçilen fason teklifi artık kullanılamıyor.")
+        throw new Error("Seçilen fason teklifi aktif veya fiyatlı değil.")
       }
 
-      const costPer1000Points =
-        costTemplate?.directCostPer1000PointsCents ??
-        progress.department.operationCostPerPointCents * 1000
       const costPerUnitCents = calculateOutsourceUnitCostCents({
         costMultiplierBps: config.costMultiplierBps,
-        costPer1000Points,
+        costPer1000Points: config.baseCostPer1000PointsCents,
         workloadPointsPerUnit: progress.workloadPointsPerUnit,
       })
       const totalCostCents =
@@ -216,8 +204,8 @@ export async function startOutsourceJobAction(
           sentDay: factory.currentDay,
           totalCostCents,
           metadata: {
+            baseCostPer1000PointsCents: config.baseCostPer1000PointsCents,
             costMultiplierBps: config.costMultiplierBps,
-            costPer1000Points,
             source: "department-queue",
             workloadPointsPerUnit: progress.workloadPointsPerUnit,
           },

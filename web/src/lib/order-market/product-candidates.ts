@@ -2,8 +2,10 @@ import {
   ContentStatus,
   FactoryProductionLineStatus,
   type Gender,
+  type OutsourceOptionType,
   type ProductTier,
 } from "@/generated/prisma/client";
+import { calculateOutsourceUnitCostCents } from "@/features/production-queue/services/outsource-cost";
 import { getPrisma } from "@/lib/db";
 
 const ACTIVE_CAPACITY_LINE_STATUSES = [
@@ -22,6 +24,14 @@ type FactoryLineCapacityInput = {
   productionLineTemplate: {
     dailyPointCapacity: number;
   };
+};
+
+type OutsourceConfigForCandidate = {
+  baseCostPer1000PointsCents: number;
+  costMultiplierBps: number;
+  departmentId: string;
+  leadTimeDays: number;
+  optionType: OutsourceOptionType;
 };
 
 export type DepartmentDailyCapacity = {
@@ -49,6 +59,8 @@ export type OrderProductCandidateRouteStep = {
   sequence: number;
   isRequired: boolean;
   canOutsource: boolean;
+  outsourceLeadTimeDays: number | null;
+  outsourceUnitCostCents: number | null;
   workloadPointsPerUnit: number;
   setupPoints: number;
   departmentDailyPointCapacity: number;
@@ -74,6 +86,7 @@ export type OrderProductCandidate = {
   bottleneckDailyQuantity: number;
   requiresOutsource: boolean;
   estimatedOutsourceLeadDays: number;
+  estimatedOutsourceUnitCostCents: number;
   colors: OrderProductCandidateColor[];
   routeSteps: OrderProductCandidateRouteStep[];
 };
@@ -146,28 +159,28 @@ export async function getOrderProductCandidatesForFactory(
     fetchProductsForFactorySector(factory.sectorId),
     prisma.outsourceOptionConfig.findMany({
       where: {
+        baseCostPer1000PointsCents: { gt: 0 },
         sectorId: factory.sectorId,
         status: ContentStatus.ACTIVE,
       },
       select: {
+        baseCostPer1000PointsCents: true,
+        costMultiplierBps: true,
         departmentId: true,
         leadTimeDays: true,
+        optionType: true,
       },
     }),
   ]);
-  const outsourceLeadTimeByDepartmentId = new Map<string, number>();
+  const outsourceConfigsByDepartmentId = new Map<
+    string,
+    OutsourceConfigForCandidate[]
+  >();
 
   for (const config of outsourceConfigs) {
-    const currentLeadTime = outsourceLeadTimeByDepartmentId.get(
-      config.departmentId,
-    );
-
-    if (currentLeadTime === undefined || config.leadTimeDays < currentLeadTime) {
-      outsourceLeadTimeByDepartmentId.set(
-        config.departmentId,
-        config.leadTimeDays,
-      );
-    }
+    const current = outsourceConfigsByDepartmentId.get(config.departmentId) ?? [];
+    current.push(config);
+    outsourceConfigsByDepartmentId.set(config.departmentId, current);
   }
   const candidates: OrderProductCandidate[] = [];
   const rejected: RejectedOrderProductCandidate[] = [];
@@ -177,7 +190,7 @@ export async function getOrderProductCandidatesForFactory(
       product,
       currentLevel: factory.currentLevel,
       departmentCapacityById,
-      outsourceLeadTimeByDepartmentId,
+      outsourceConfigsByDepartmentId,
     });
 
     if (result.kind === "accepted") {
@@ -237,7 +250,7 @@ export function evaluateOrderProductCandidate(input: {
     string,
     { dailyPointCapacity: number; lineCount: number }
   >;
-  outsourceLeadTimeByDepartmentId: Map<string, number>;
+  outsourceConfigsByDepartmentId: Map<string, OutsourceConfigForCandidate[]>;
 }):
   | { kind: "accepted"; candidate: OrderProductCandidate }
   | { kind: "rejected"; rejected: RejectedOrderProductCandidate } {
@@ -245,7 +258,7 @@ export function evaluateOrderProductCandidate(input: {
     product,
     currentLevel,
     departmentCapacityById,
-    outsourceLeadTimeByDepartmentId,
+    outsourceConfigsByDepartmentId,
   } = input;
 
   if (product.requiredPlayerLevel > currentLevel) {
@@ -282,14 +295,31 @@ export function evaluateOrderProductCandidate(input: {
 
   const routeSteps = product.routeSteps.map((step) => {
     const departmentCapacity = departmentCapacityById.get(step.departmentId);
+    const outsourceConfigs =
+      outsourceConfigsByDepartmentId.get(step.departmentId) ?? [];
+    const outsourceCostConfig = pickOutsourceCostConfig(outsourceConfigs);
     const departmentDailyPointCapacity =
       departmentCapacity?.dailyPointCapacity ?? 0;
     const estimatedDailyQuantity =
       step.workloadPointsPerUnit > 0
-        ? Math.floor(
-            departmentDailyPointCapacity / step.workloadPointsPerUnit,
-          )
-        : 0;
+          ? Math.floor(
+              departmentDailyPointCapacity / step.workloadPointsPerUnit,
+            )
+          : 0;
+    const outsourceLeadTimeDays = outsourceConfigs.length
+      ? outsourceConfigs.reduce(
+          (minimum, config) => Math.min(minimum, config.leadTimeDays),
+          outsourceConfigs[0].leadTimeDays,
+        )
+      : null;
+    const outsourceUnitCostCents = outsourceCostConfig
+      ? calculateOutsourceUnitCostCents({
+          costMultiplierBps: outsourceCostConfig.costMultiplierBps,
+          costPer1000Points:
+            outsourceCostConfig.baseCostPer1000PointsCents,
+          workloadPointsPerUnit: step.workloadPointsPerUnit,
+        })
+      : null;
 
     return {
       productRouteStepId: step.id,
@@ -302,8 +332,8 @@ export function evaluateOrderProductCandidate(input: {
       sequence: step.sequence,
       isRequired: step.isRequired,
       canOutsource: step.canOutsource,
-      outsourceLeadTimeDays:
-        outsourceLeadTimeByDepartmentId.get(step.departmentId) ?? null,
+      outsourceLeadTimeDays,
+      outsourceUnitCostCents,
       workloadPointsPerUnit: step.workloadPointsPerUnit,
       setupPoints: step.setupPoints,
       departmentDailyPointCapacity,
@@ -319,7 +349,9 @@ export function evaluateOrderProductCandidate(input: {
   const missingInternalStep = requiredRouteSteps.find(
     (step) =>
       step.departmentDailyPointCapacity <= 0 &&
-      (!step.canOutsource || step.outsourceLeadTimeDays === null),
+      (!step.canOutsource ||
+        step.outsourceLeadTimeDays === null ||
+        step.outsourceUnitCostCents === null),
   );
 
   if (missingInternalStep) {
@@ -329,7 +361,7 @@ export function evaluateOrderProductCandidate(input: {
         ? "MISSING_OUTSOURCE_OPTION"
         : "MISSING_INTERNAL_CAPACITY",
       missingInternalStep.canOutsource
-        ? `${missingInternalStep.departmentName} için aktif fason seçeneği bulunmuyor.`
+        ? `${missingInternalStep.departmentName} için aktif ve fiyatlı fason seçeneği bulunmuyor.`
         : `${missingInternalStep.departmentName} departmanı için aktif hat kapasitesi yok.`,
     );
   }
@@ -409,6 +441,14 @@ export function evaluateOrderProductCandidate(input: {
             : 0),
         0,
       ),
+      estimatedOutsourceUnitCostCents: requiredRouteSteps.reduce(
+        (total, step) =>
+          total +
+          (step.departmentDailyPointCapacity <= 0
+            ? (step.outsourceUnitCostCents ?? 0)
+            : 0),
+        0,
+      ),
       colors: product.allowedColors.map((allowedColor) => ({
         productAllowedColorId: allowedColor.id,
         colorVariantId: allowedColor.colorVariantId,
@@ -477,6 +517,19 @@ async function fetchProductsForFactorySector(sectorId: string) {
       },
     },
   });
+}
+
+function pickOutsourceCostConfig(configs: OutsourceConfigForCandidate[]) {
+  return (
+    configs.find((config) => config.optionType === "STANDARD") ??
+    configs.reduce<OutsourceConfigForCandidate | null>(
+      (lowest, config) =>
+        !lowest || config.costMultiplierBps < lowest.costMultiplierBps
+          ? config
+          : lowest,
+      null,
+    )
+  );
 }
 
 function rejectProduct(

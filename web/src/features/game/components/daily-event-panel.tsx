@@ -216,7 +216,7 @@ function DailyEventRow({
 function EventIcon({ event }: { event: ShiftPlaybackTimelineEvent }) {
   if (event.eventKey === "shift.started") return <PlayCircle className="size-4" />;
   if (event.eventKey === "shift.completed") return <Flag className="size-4" />;
-  if (event.eventKey === "xp.shift_completed") return <Sparkles className="size-4" />;
+  if (event.eventKey.startsWith("xp.")) return <Sparkles className="size-4" />;
   if (event.category === "FINANCE" || event.category === "PAYMENT") {
     return event.eventKey === "operating_expense.paid" ? (
       <ReceiptText className="size-4" />
@@ -233,8 +233,11 @@ function EventIcon({ event }: { event: ShiftPlaybackTimelineEvent }) {
 }
 
 function getEventVisualClass(event: ShiftPlaybackTimelineEvent) {
-  if (event.eventKey === "xp.shift_completed") {
+  if (event.eventKey.startsWith("xp.")) {
     return "border-violet-300/35 bg-violet-400/15 text-violet-100";
+  }
+  if (event.eventKey.startsWith("penalty.")) {
+    return "border-red-300/35 bg-red-400/15 text-red-100";
   }
   if (event.eventKey === "shift.started") {
     return "border-sky-300/35 bg-sky-400/15 text-sky-100";
@@ -271,16 +274,25 @@ function shouldShowDailyEvent(event: ShiftPlaybackTimelineEvent) {
 function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
   const payload = event.payload;
 
+  if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
+    return `Seviye ${formatNumber(Number(payload.currentLevel ?? 0))} oldu`;
+  }
+
   switch (event.eventKey) {
     case "shift.started":
       return "Vardiya başladı";
     case "shift.completed":
       return "Gün tamamlandı";
     case "xp.shift_completed":
-      if (payload.leveledUp === true) {
-        return `Seviye ${formatNumber(Number(payload.currentLevel ?? 0))} oldu`;
-      }
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} XP kazanıldı`;
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} vardiya XP`;
+    case "xp.order_completed":
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} sipariş XP`;
+    case "xp.on_time_delivery":
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} termin bonusu`;
+    case "xp.premium_order":
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} Premium bonus`;
+    case "xp.luxury_order":
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} Luxury bonus`;
     case "department.production_completed":
       return `${payload.departmentName} üretimi tamamladı`;
     case "department.completed_early":
@@ -293,6 +305,12 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
       return "Sipariş sevk edildi";
     case "payment.customer_received":
       return "Müşteri ödemesi alındı";
+    case "penalty.order_late_paid":
+      return "Gecikme cezası ödendi";
+    case "penalty.order_late_partial":
+      return "Gecikme cezası kısmi ödendi";
+    case "penalty.order_late_overdue":
+      return "Gecikme cezası bekliyor";
     case "leasing.down_payment_paid":
       return "Leasing peşinatı ödendi";
     case "leasing.payment_paid":
@@ -319,16 +337,31 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
 function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
   const payload = event.payload;
 
+  if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
+    return `+${formatNumber(Number(payload.amountXp ?? 0))} XP ile yeni seviye açıldı. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+  }
+
   switch (event.eventKey) {
     case "shift.started":
       return `${formatNumber(Number(payload.activeLineCount ?? 0))} aktif hat ile vardiya başladı.`;
     case "shift.completed":
       return `${formatNumber(Number(payload.simulatedGameDay ?? event.gameDay))}. gün kapanışı tamamlandı.`;
     case "xp.shift_completed":
-      if (payload.leveledUp === true) {
-        return `+${formatNumber(Number(payload.amountXp ?? 0))} XP ile yeni seviye açıldı. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
-      }
-      return `Günlük vardiya ödülü eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      return `Günlük vardiya XP puanı eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "xp.order_completed":
+      return `${payload.orderNo ?? "Sipariş"} sevk edildiği için workload bazlı XP eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "xp.on_time_delivery":
+      return `${payload.orderNo ?? "Sipariş"} zamanında sevk edildi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "xp.premium_order":
+      return `${payload.orderNo ?? "Sipariş"} Premium zorluk bonusu verdi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "xp.luxury_order":
+      return `${payload.orderNo ?? "Sipariş"} Luxury zorluk bonusu verdi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "penalty.order_late_paid":
+      return `${payload.orderNo ?? "Sipariş"} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} gecikme cezası kasadan çıktı.`;
+    case "penalty.order_late_partial":
+      return `${payload.orderNo ?? "Sipariş"} gecikme cezasının ${formatMoneyLike(String(payload.remainingCents ?? "0"))} kısmı bekliyor.`;
+    case "penalty.order_late_overdue":
+      return `${payload.orderNo ?? "Sipariş"} gecikme cezası ödenemedi. Bekleyen tutar: ${formatMoneyLike(String(payload.remainingCents ?? payload.amountCents ?? "0"))}.`;
     case "operating_expense.paid":
       return `${formatFinanceCategory(payload.category)} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} ödeme yapıldı.`;
     default:

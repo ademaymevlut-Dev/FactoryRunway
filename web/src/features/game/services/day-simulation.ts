@@ -20,6 +20,8 @@ import {
   processOutsourceCompletionPayments,
   processPeriodicFinancialTriggers,
 } from "./financial-triggers";
+import { processLateDeliveryPenalties } from "./order-penalties";
+import { processShippedOrderXpRewards } from "./order-xp-rewards";
 import {
   createLockedAutomaticProductionPlan,
   markAutomaticProductionPlanExecuted,
@@ -50,7 +52,7 @@ import {
 
 export { getAvailableQuantity } from "./shift-department-result";
 
-const SHIFT_COMPLETED_XP = 120;
+const SHIFT_COMPLETED_XP = 30;
 
 type TransactionClient = Prisma.TransactionClient;
 type DaySimulationClient = TransactionClient;
@@ -440,6 +442,18 @@ export async function simulateFactoryDay(input: {
     factoryId: factory.id,
     prisma,
   });
+  const orderXpRewardResult = await processShippedOrderXpRewards({
+    factoryDay: simulatedGameDay,
+    factoryId: factory.id,
+    orderIds: shippingResult.shippedOrderIds,
+    tx: prisma,
+  });
+  const latePenaltyResult = await processLateDeliveryPenalties({
+    factoryDay: simulatedGameDay,
+    factoryId: factory.id,
+    orderIds: shippingResult.shippedOrderIds,
+    tx: prisma,
+  });
   const periodicFinanceResult = await processPeriodicFinancialTriggers({
     factoryDay: simulatedGameDay,
     factoryId: factory.id,
@@ -504,6 +518,15 @@ export async function simulateFactoryDay(input: {
         periodicFinanceResult.partialDueIds.length,
       producedQuantity: day.totalProducedQuantity,
       productionOrderIds,
+      orderXpAwarded: orderXpRewardResult.totalAwardedXp,
+      orderXpRewardedOrderCount: orderXpRewardResult.awardedOrderIds.length,
+      orderXpRewardTransactionCount: orderXpRewardResult.transactionCount,
+      latePenaltyDueCount: latePenaltyResult.dueIds.length,
+      latePenaltyOrderCount: latePenaltyResult.penalizedOrderIds.length,
+      latePenaltyPaidTransactionCount:
+        latePenaltyResult.paidTransactionIds.length,
+      latePenaltyTotalCents: latePenaltyResult.totalPenaltyCents.toString(),
+      lateOrderCount: shippingResult.lateOrderIds.length,
       settledReceivableCount: shippingResult.settledDueIds.length,
       shippedOrderCount: shippingResult.shippedOrderIds.length,
       source: "main-factory-day",

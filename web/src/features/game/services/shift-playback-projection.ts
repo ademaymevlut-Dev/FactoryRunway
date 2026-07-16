@@ -53,6 +53,7 @@ type XpTransactionRow = {
   balanceAfterXp: number;
   id: string;
   metadata?: Prisma.JsonValue;
+  reason: XpReason;
   sourceId: string | null;
   sourceType: string | null;
 };
@@ -262,6 +263,7 @@ export async function getShiftTimelineEvents(input: {
           amountCents: true,
           category: true,
           id: true,
+          metadata: true,
           settledAmountCents: true,
           sourceId: true,
           sourceType: true,
@@ -329,9 +331,24 @@ export async function getShiftTimelineEvents(input: {
         where: {
           factoryId: input.factoryId,
           gameDay: input.gameDay,
-          reason: XpReason.SHIFT_COMPLETED,
-          sourceId: input.shift.shiftId,
-          sourceType: "shift",
+          OR: [
+            {
+              reason: XpReason.SHIFT_COMPLETED,
+              sourceId: input.shift.shiftId,
+              sourceType: "shift",
+            },
+            {
+              reason: {
+                in: [
+                  XpReason.ORDER_COMPLETED,
+                  XpReason.ON_TIME_DELIVERY,
+                  XpReason.PREMIUM_ORDER,
+                  XpReason.LUXURY_ORDER,
+                ],
+              },
+              sourceType: "customer_order",
+            },
+          ],
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: {
@@ -339,6 +356,7 @@ export async function getShiftTimelineEvents(input: {
           balanceAfterXp: true,
           id: true,
           metadata: true,
+          reason: true,
           sourceId: true,
           sourceType: true,
         },
@@ -452,6 +470,35 @@ export async function getShiftTimelineEvents(input: {
   }
 
   for (const due of financeDues) {
+    if (
+      due.category === FinanceCategory.PENALTY &&
+      due.sourceType === FinanceSourceType.CUSTOMER_ORDER
+    ) {
+      const metadata = isJsonRecord(due.metadata) ? due.metadata : {};
+      const orderNo =
+        typeof metadata.orderNo === "string" ? metadata.orderNo : null;
+
+      add({
+        category: "FINANCE",
+        eventKey:
+          due.status === FinanceDueStatus.PARTIAL
+            ? "penalty.order_late_partial"
+            : "penalty.order_late_overdue",
+        id: `finance-due:${due.id}:${due.status}`,
+        minute: 507,
+        payload: {
+          amountCents: due.amountCents.toString(),
+          ...(orderNo ? { orderNo } : {}),
+          remainingCents: (due.amountCents - due.settledAmountCents).toString(),
+        },
+        severity:
+          due.status === FinanceDueStatus.PARTIAL ? "WARNING" : "CRITICAL",
+        sourceId: due.sourceId ?? due.id,
+        sourceType: due.sourceType,
+      });
+      continue;
+    }
+
     if (
       due.category !== FinanceCategory.LEASING_PAYMENT ||
       due.sourceType !== FinanceSourceType.LEASING_CONTRACT
@@ -571,11 +618,14 @@ function financeTransactionToEvent(
 ): Omit<ShiftPlaybackTimelineEvent, "gameDay" | "id" | "sequence"> & {
   id: string;
 } | null {
+  const metadata = isJsonRecord(transaction.metadata) ? transaction.metadata : {};
+  const orderNo = typeof metadata.orderNo === "string" ? metadata.orderNo : null;
   const base = {
     id: `finance:${transaction.id}`,
     minute: 510,
     payload: {
       amountCents: transaction.amountCents.toString(),
+      ...(orderNo ? { orderNo } : {}),
       referenceKey: transaction.referenceKey ?? null,
     },
     sourceId: transaction.sourceId ?? transaction.id,
@@ -649,6 +699,16 @@ function financeTransactionToEvent(
     };
   }
 
+  if (transaction.category === FinanceCategory.PENALTY) {
+    return {
+      ...base,
+      category: "FINANCE",
+      eventKey: "penalty.order_late_paid",
+      minute: 506,
+      severity: "WARNING",
+    };
+  }
+
   return null;
 }
 
@@ -661,21 +721,57 @@ function xpTransactionToEvent(
   const currentLevel =
     typeof metadata.currentLevel === "number" ? metadata.currentLevel : null;
   const leveledUp = metadata.leveledUp === true && currentLevel !== null;
+  const orderNo = typeof metadata.orderNo === "string" ? metadata.orderNo : null;
+  const rewardPart =
+    typeof metadata.rewardPart === "string" ? metadata.rewardPart : null;
 
   return {
     category: "SYSTEM",
-    eventKey: "xp.shift_completed",
+    eventKey: xpReasonToEventKey(transaction.reason),
     id: `xp:${transaction.id}`,
-    minute: 535,
+    minute: xpReasonToMinute(transaction.reason),
     payload: {
       amountXp: transaction.amountXp,
       balanceAfterXp: transaction.balanceAfterXp,
+      ...(orderNo ? { orderNo } : {}),
+      ...(rewardPart ? { rewardPart } : {}),
       ...(leveledUp ? { currentLevel, leveledUp } : {}),
     },
     severity: "SUCCESS",
     sourceId: transaction.sourceId ?? transaction.id,
     sourceType: transaction.sourceType ?? "FACTORY_XP_TRANSACTION",
   };
+}
+
+function xpReasonToEventKey(reason: XpReason) {
+  switch (reason) {
+    case XpReason.ORDER_COMPLETED:
+      return "xp.order_completed";
+    case XpReason.ON_TIME_DELIVERY:
+      return "xp.on_time_delivery";
+    case XpReason.PREMIUM_ORDER:
+      return "xp.premium_order";
+    case XpReason.LUXURY_ORDER:
+      return "xp.luxury_order";
+    case XpReason.SHIFT_COMPLETED:
+    default:
+      return "xp.shift_completed";
+  }
+}
+
+function xpReasonToMinute(reason: XpReason) {
+  switch (reason) {
+    case XpReason.ORDER_COMPLETED:
+      return 505;
+    case XpReason.ON_TIME_DELIVERY:
+      return 508;
+    case XpReason.PREMIUM_ORDER:
+    case XpReason.LUXURY_ORDER:
+      return 511;
+    case XpReason.SHIFT_COMPLETED:
+    default:
+      return 535;
+  }
 }
 
 function isJsonRecord(value: Prisma.JsonValue | undefined): value is Prisma.JsonObject {

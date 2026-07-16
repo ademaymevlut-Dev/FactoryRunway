@@ -51,7 +51,41 @@ export type OrderOfferView = {
   plannedMarginLabel: string;
   capacityRiskLabel: string;
   deliveryRiskLabel: string;
+  capacityPlan: OrderOfferCapacityPlanView;
   items: OrderOfferItemView[];
+};
+
+export type OrderOfferCapacityState =
+  | "SAFE"
+  | "BALANCED"
+  | "STRETCH"
+  | "RISKY"
+  | "CRITICAL"
+  | "NO_CAPACITY";
+
+export type OrderOfferCapacityPlanView = {
+  state: OrderOfferCapacityState;
+  stateLabel: string;
+  bottleneckDepartmentLabel: string;
+  currentLoadDaysLabel: string;
+  offerLoadDaysLabel: string;
+  afterAcceptLoadDaysLabel: string;
+  plannedCompletionLabel: string;
+  targetDeliveryLabel: string;
+  rows: OrderOfferCapacityDepartmentView[];
+};
+
+export type OrderOfferCapacityDepartmentView = {
+  departmentId: string;
+  departmentName: string;
+  state: OrderOfferCapacityState;
+  stateLabel: string;
+  lineCountLabel: string;
+  dailyCapacityLabel: string;
+  currentLoadDaysLabel: string;
+  offerLoadDaysLabel: string;
+  afterAcceptLoadDaysLabel: string;
+  afterAcceptLoadPercent: number;
 };
 
 export type OrderOfferItemView = {

@@ -37,7 +37,6 @@ type TranslationRecord = {
 type DepartmentRecord = {
   id: string
   key: string
-  operationCostPerPointCents: number
   routeOrder: number
   supportsOutsource: boolean
   translations: TranslationRecord[]
@@ -64,7 +63,6 @@ export async function getProductionQueuesView(input: {
     routeProgress,
     outsourceConfigs,
     outsourceJobs,
-    productionLineTemplates,
   ] = await Promise.all([
     prisma.factory.findUniqueOrThrow({
       where: { id: input.factoryId },
@@ -80,7 +78,6 @@ export async function getProductionQueuesView(input: {
       select: {
         id: true,
         key: true,
-        operationCostPerPointCents: true,
         routeOrder: true,
         supportsOutsource: true,
         translations: {
@@ -167,7 +164,6 @@ export async function getProductionQueuesView(input: {
           select: {
             id: true,
             key: true,
-            operationCostPerPointCents: true,
             routeOrder: true,
             supportsOutsource: true,
             translations: {
@@ -234,11 +230,13 @@ export async function getProductionQueuesView(input: {
     }),
     prisma.outsourceOptionConfig.findMany({
       where: {
+        baseCostPer1000PointsCents: { gt: 0 },
         sectorId: input.sectorId,
         status: ContentStatus.ACTIVE,
       },
       orderBy: [{ departmentId: "asc" }, { leadTimeDays: "asc" }],
       select: {
+        baseCostPer1000PointsCents: true,
         costMultiplierBps: true,
         delayRiskBps: true,
         departmentId: true,
@@ -305,33 +303,11 @@ export async function getProductionQueuesView(input: {
         },
       },
     }),
-    prisma.productionLineTemplate.findMany({
-      where: {
-        directCostPer1000PointsCents: { gt: 0 },
-        sectorId: input.sectorId,
-        status: ContentStatus.ACTIVE,
-      },
-      orderBy: { directCostPer1000PointsCents: "asc" },
-      select: {
-        departmentId: true,
-        directCostPer1000PointsCents: true,
-      },
-    }),
   ])
   const capacities = buildCapacityByDepartment(productionLines)
-  const costPer1000PointsByDepartmentId = new Map<string, number>()
   const configsByDepartmentId = new Map<string, typeof outsourceConfigs>()
   const jobsByDepartmentId = new Map<string, ProductionOutsourceJobView[]>()
   const progressByDepartmentId = new Map<string, typeof routeProgress>()
-
-  for (const template of productionLineTemplates) {
-    if (!costPer1000PointsByDepartmentId.has(template.departmentId)) {
-      costPer1000PointsByDepartmentId.set(
-        template.departmentId,
-        template.directCostPer1000PointsCents,
-      )
-    }
-  }
 
   for (const config of outsourceConfigs) {
     const current = configsByDepartmentId.get(config.departmentId) ?? []
@@ -364,9 +340,6 @@ export async function getProductionQueuesView(input: {
       toDepartmentQueue({
         capacity: capacities.get(department.id) ?? emptyCapacity(department.id),
         configs: configsByDepartmentId.get(department.id) ?? [],
-        costPer1000Points:
-          costPer1000PointsByDepartmentId.get(department.id) ??
-          department.operationCostPerPointCents * 1000,
         currencyCode: factory.currencyCode,
         currentDay: input.currentDay,
         department,
@@ -446,6 +419,7 @@ function emptyCapacity(departmentId: string): CapacityRecord {
 function toDepartmentQueue(input: {
   capacity: CapacityRecord
   configs: Array<{
+    baseCostPer1000PointsCents: number
     costMultiplierBps: number
     delayRiskBps: number
     departmentId: string
@@ -454,7 +428,6 @@ function toDepartmentQueue(input: {
     optionType: ProductionOutsourceOptionView["optionType"]
     qualityRiskBps: number
   }>
-  costPer1000Points: number
   currencyCode: CurrencyCode
   currentDay: number
   department: DepartmentRecord
@@ -513,7 +486,6 @@ function toDepartmentQueue(input: {
     const item = toQueueItem({
       completedColumnLabel,
       configs: input.configs,
-      costPer1000Points: input.costPer1000Points,
       currencyCode: input.currencyCode,
       currentDay: input.currentDay,
       effectiveDailyPointCapacity: input.capacity.effectiveDailyPointCapacity,
@@ -585,7 +557,6 @@ function toDepartmentQueue(input: {
 function toQueueItem(input: {
   completedColumnLabel: string
   configs: Parameters<typeof toDepartmentQueue>[0]["configs"]
-  costPer1000Points: number
   currencyCode: CurrencyCode
   currentDay: number
   effectiveDailyPointCapacity: number
@@ -624,7 +595,6 @@ function toQueueItem(input: {
         toOutsourceOptionView({
           availableQuantity,
           config,
-          costPer1000Points: input.costPer1000Points,
           currencyCode: input.currencyCode,
           currentDay: input.currentDay,
           workloadPointsPerUnit: input.progress.workloadPointsPerUnit,
@@ -686,14 +656,13 @@ function toQueueItem(input: {
 function toOutsourceOptionView(input: {
   availableQuantity: number
   config: Parameters<typeof toDepartmentQueue>[0]["configs"][number]
-  costPer1000Points: number
   currencyCode: CurrencyCode
   currentDay: number
   workloadPointsPerUnit: number
 }): ProductionOutsourceOptionView {
   const costPerUnitCents = calculateOutsourceUnitCostCents({
     costMultiplierBps: input.config.costMultiplierBps,
-    costPer1000Points: input.costPer1000Points,
+    costPer1000Points: input.config.baseCostPer1000PointsCents,
     workloadPointsPerUnit: input.workloadPointsPerUnit,
   })
   const totalCostCents = BigInt(costPerUnitCents) * BigInt(input.availableQuantity)

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -59,11 +60,14 @@ export default function Home() {
       <div className="relative mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
         <header className="game-topbar">
           <div className="factory-brand-lockup" aria-label="Factory Runway - Plan. Produce. Grow.">
-            <img
-              className="factory-brand-symbol"
-              src="/factoryRunway.svg"
+            <Image
               alt=""
               aria-hidden="true"
+              className="factory-brand-symbol"
+              height={72}
+              priority
+              src="/factoryRunway.svg"
+              width={72}
             />
             <div className="factory-brand-copy">
               <h1 className="factory-brand-title">

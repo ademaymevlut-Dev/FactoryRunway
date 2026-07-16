@@ -29,7 +29,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { acceptMarketOrderAction } from "@/features/orders/actions/accept-market-order-action";
 
-import type { OrderMarketView, OrderOfferItemView, OrderOfferView } from "../types";
+import type {
+  ActiveOrderPriorityView,
+  OrderMarketView,
+  OrderOfferCapacityState,
+  OrderOfferItemView,
+  OrderOfferView,
+} from "../types";
 
 type OfferFilter =
   | "ALL"
@@ -126,7 +132,11 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
             tierFilter={tierFilter}
           />
           {selectedOffer ? (
-            <SelectedOrderPanels key={selectedOffer.id} offer={selectedOffer} />
+            <SelectedOrderPanels
+              activeOrders={orderMarket.activeOrders}
+              key={selectedOffer.id}
+              offer={selectedOffer}
+            />
           ) : (
             <OrdersFilterEmptyState />
           )}
@@ -136,7 +146,13 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
   );
 }
 
-function SelectedOrderPanels({ offer }: { offer: OrderOfferView }) {
+function SelectedOrderPanels({
+  activeOrders,
+  offer,
+}: {
+  activeOrders: ActiveOrderPriorityView[];
+  offer: OrderOfferView;
+}) {
   const [activeItemIndex, setActiveItemIndex] = useState(0);
   const activeItem = offer.items[activeItemIndex] ?? offer.items[0];
 
@@ -148,7 +164,11 @@ function SelectedOrderPanels({ offer }: { offer: OrderOfferView }) {
         offer={offer}
         onActiveItemChange={setActiveItemIndex}
       />
-      <OrderCostPanel activeItem={activeItem} offer={offer} />
+      <OrderCostPanel
+        activeItem={activeItem}
+        activeOrders={activeOrders}
+        offer={offer}
+      />
     </>
   );
 }
@@ -602,9 +622,11 @@ function ColorDetails({ item }: { item: OrderOfferItemView }) {
 
 function OrderCostPanel({
   activeItem,
+  activeOrders,
   offer,
 }: {
   activeItem: OrderOfferItemView | undefined;
+  activeOrders: ActiveOrderPriorityView[];
   offer: OrderOfferView;
 }) {
   const hasMultipleItems = offer.items.length > 1;
@@ -667,9 +689,186 @@ function OrderCostPanel({
           </div>
         </div>
 
+        <CapacityPlanCard offer={offer} />
+        <ActiveOrdersSnapshot activeOrders={activeOrders} />
         <OrderAcceptPlan offer={offer} />
       </div>
     </aside>
+  );
+}
+
+function CapacityPlanCard({ offer }: { offer: OrderOfferView }) {
+  const visibleRows = offer.capacityPlan.rows.slice(0, 5);
+  const hiddenCount = Math.max(0, offer.capacityPlan.rows.length - visibleRows.length);
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            Planlanan Yük
+          </p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Darboğaz:{" "}
+            <strong className="text-foreground">
+              {offer.capacityPlan.bottleneckDepartmentLabel}
+            </strong>
+          </p>
+        </div>
+        <span
+          className={cn(
+            "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold",
+            capacityStateBadgeClass(offer.capacityPlan.state),
+          )}
+        >
+          {offer.capacityPlan.stateLabel}
+        </span>
+      </div>
+
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <CapacityMiniMetric
+          label="Mevcut"
+          value={offer.capacityPlan.currentLoadDaysLabel}
+        />
+        <CapacityMiniMetric
+          label="Teklif"
+          value={offer.capacityPlan.offerLoadDaysLabel}
+        />
+        <CapacityMiniMetric
+          label="Sonrası"
+          tone={offer.capacityPlan.state}
+          value={offer.capacityPlan.afterAcceptLoadDaysLabel}
+        />
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
+        <span className="rounded-md border border-border bg-card/50 px-2 py-1 text-muted-foreground">
+          Tahmin:{" "}
+          <strong className="text-foreground">
+            {offer.capacityPlan.plannedCompletionLabel}
+          </strong>
+        </span>
+        <span className="rounded-md border border-border bg-card/50 px-2 py-1 text-muted-foreground">
+          Termin:{" "}
+          <strong className="text-foreground">
+            {offer.capacityPlan.targetDeliveryLabel}
+          </strong>
+        </span>
+      </div>
+
+      {visibleRows.length > 0 ? (
+        <div className="mt-2 space-y-1.5">
+          {visibleRows.map((row) => (
+            <div
+              className="rounded-md border border-border bg-card/50 px-2 py-1.5"
+              key={row.departmentId}
+            >
+              <div className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="min-w-0 truncate font-medium text-foreground">
+                  {row.departmentName}
+                </span>
+                <span
+                  className={cn(
+                    "shrink-0 font-semibold",
+                    capacityStateTextClass(row.state),
+                  )}
+                >
+                  {row.afterAcceptLoadDaysLabel}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted/50">
+                <div
+                  className={cn("h-full rounded-full", capacityStateBarClass(row.state))}
+                  style={{ width: `${row.afterAcceptLoadPercent}%` }}
+                />
+              </div>
+              <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                <span>
+                  {row.lineCountLabel} · {row.dailyCapacityLabel}
+                </span>
+                <span className="shrink-0">
+                  {row.currentLoadDaysLabel} + {row.offerLoadDaysLabel}
+                </span>
+              </div>
+            </div>
+          ))}
+          {hiddenCount > 0 ? (
+            <p className="text-[10px] text-muted-foreground">
+              +{hiddenCount} bölüm daha var.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CapacityMiniMetric({
+  label,
+  tone = "SAFE",
+  value,
+}: {
+  label: string;
+  tone?: OrderOfferCapacityState;
+  value: string;
+}) {
+  return (
+    <span className="min-w-0 rounded-md border border-border bg-card/50 px-2 py-1">
+      <span className="block text-[10px] text-muted-foreground">{label}</span>
+      <strong className={cn("block truncate text-xs", capacityStateTextClass(tone))}>
+        {value}
+      </strong>
+    </span>
+  );
+}
+
+function ActiveOrdersSnapshot({
+  activeOrders,
+}: {
+  activeOrders: ActiveOrderPriorityView[];
+}) {
+  const visibleOrders = activeOrders.slice(0, 3);
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Aktif Üretim
+        </p>
+        <span className="text-[10px] text-muted-foreground">
+          {activeOrders.length} iş
+        </span>
+      </div>
+      {visibleOrders.length > 0 ? (
+        <div className="mt-2 space-y-1.5">
+          {visibleOrders.map((order) => (
+            <div
+              className="flex items-center justify-between gap-2 rounded-md border border-border bg-card/50 px-2 py-1.5 text-[11px]"
+              key={order.id}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium text-foreground">
+                  {order.productName}
+                </span>
+                <span className="block truncate text-muted-foreground">
+                  {order.orderNo} · {order.customerName}
+                </span>
+              </span>
+              <span className="shrink-0 text-right text-muted-foreground">
+                <strong className="block text-foreground">
+                  {order.remainingQuantity.toLocaleString("tr-TR")} adet
+                </strong>
+                {order.targetDeliveryDay}. gün
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-2 rounded-md border border-dashed border-border bg-card/40 px-2 py-2 text-[11px] text-muted-foreground">
+          Aktif üretim emri yok.
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -879,6 +1078,45 @@ function getTierFilterCount(offers: OrderOfferView[], filter: TierFilter) {
   return offers.filter((offer) =>
     offer.items.some((item) => item.productTier === filter),
   ).length;
+}
+
+function capacityStateBadgeClass(state: OrderOfferCapacityState) {
+  const classes: Record<OrderOfferCapacityState, string> = {
+    BALANCED: "border-cyan-400/45 bg-cyan-400/10 text-cyan-200",
+    CRITICAL: "border-red-400/55 bg-red-400/10 text-red-200",
+    NO_CAPACITY: "border-zinc-400/45 bg-zinc-400/10 text-zinc-200",
+    RISKY: "border-orange-400/55 bg-orange-400/10 text-orange-200",
+    SAFE: "border-emerald-400/45 bg-emerald-400/10 text-emerald-200",
+    STRETCH: "border-amber-400/55 bg-amber-400/10 text-amber-200",
+  };
+
+  return classes[state];
+}
+
+function capacityStateTextClass(state: OrderOfferCapacityState) {
+  const classes: Record<OrderOfferCapacityState, string> = {
+    BALANCED: "text-cyan-200",
+    CRITICAL: "text-red-200",
+    NO_CAPACITY: "text-zinc-200",
+    RISKY: "text-orange-200",
+    SAFE: "text-emerald-200",
+    STRETCH: "text-amber-200",
+  };
+
+  return classes[state];
+}
+
+function capacityStateBarClass(state: OrderOfferCapacityState) {
+  const classes: Record<OrderOfferCapacityState, string> = {
+    BALANCED: "bg-cyan-300",
+    CRITICAL: "bg-red-400",
+    NO_CAPACITY: "bg-zinc-400",
+    RISKY: "bg-orange-400",
+    SAFE: "bg-emerald-300",
+    STRETCH: "bg-amber-300",
+  };
+
+  return classes[state];
 }
 
 function badgeStyle(color: string, selected: boolean): CSSProperties {

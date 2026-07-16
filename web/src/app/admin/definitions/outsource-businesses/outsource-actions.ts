@@ -13,6 +13,26 @@ import { requireAdminUser } from "../../admin-auth";
 
 const pagePath = "/admin/definitions/outsource-businesses";
 
+function currencyToCents(formData: FormData, key: string) {
+  const raw = text(formData, key).replace(",", ".");
+
+  if (!/^\d+(?:\.\d{1,2})?$/.test(raw)) {
+    throw new Error(
+      `${key} para birimi olarak 0 veya daha büyük ve en fazla iki ondalıklı olmalı.`,
+    );
+  }
+
+  const [wholePart, decimalPart = ""] = raw.split(".");
+  const cents =
+    Number(wholePart) * 100 + Number(decimalPart.padEnd(2, "0"));
+
+  if (!Number.isSafeInteger(cents) || cents > 2_147_483_647) {
+    throw new Error(`${key} desteklenen para aralığını aşıyor.`);
+  }
+
+  return cents;
+}
+
 export async function saveOutsourceOptionAction(
   configId: string | null,
   formData: FormData,
@@ -34,12 +54,23 @@ export async function saveOutsourceOptionAction(
     departmentId,
     optionType: text(formData, "optionType") as OutsourceOptionType,
     leadTimeDays: integer(formData, "leadTimeDays", { min: 1 }),
+    baseCostPer1000PointsCents: currencyToCents(
+      formData,
+      "baseCostPer1000Points",
+    ),
     costMultiplierBps: integer(formData, "costMultiplierBps", { min: 1 }),
     qualityRiskBps: integer(formData, "qualityRiskBps", { max: 10000 }),
     delayRiskBps: integer(formData, "delayRiskBps", { max: 10000 }),
     status: text(formData, "status") as ContentStatus,
     metadata: json(formData),
   };
+
+  if (
+    data.status === ContentStatus.ACTIVE &&
+    data.baseCostPer1000PointsCents <= 0
+  ) {
+    throw new Error("Aktif fason tanımı için 1000 point baz maliyeti girilmeli.");
+  }
 
   if (configId) {
     await prisma.outsourceOptionConfig.update({

@@ -145,6 +145,16 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
           sourceId: "order-1",
           sourceType: "CUSTOMER_ORDER",
         },
+        {
+          amountCents: BigInt(24000),
+          category: FinanceCategory.PENALTY,
+          direction: FinanceDirection.EXPENSE,
+          id: "finance-2",
+          metadata: { orderNo: "ORD-1042" },
+          referenceKey: "LATE_DELIVERY_PENALTY:order-1",
+          sourceId: "order-1",
+          sourceType: "CUSTOMER_ORDER",
+        },
       ],
     },
     factoryLeasingContract: { findMany: async () => [] },
@@ -210,6 +220,15 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
   assert.equal(events[0]?.eventKey, "shift.started");
   assert.equal(events.at(-1)?.eventKey, "shift.completed");
   assert.ok(events.some((event) => event.eventKey === "payment.customer_received"));
+  assert.deepEqual(
+    events.find((event) => event.eventKey === "penalty.order_late_paid")
+      ?.payload,
+    {
+      amountCents: "24000",
+      orderNo: "ORD-1042",
+      referenceKey: "LATE_DELIVERY_PENALTY:order-1",
+    },
+  );
   assert.ok(events.some((event) => event.eventKey === "xp.shift_completed"));
   assert.deepEqual(
     events.find((event) => event.eventKey === "xp.shift_completed")?.payload,

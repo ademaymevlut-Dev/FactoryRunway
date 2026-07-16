@@ -24,13 +24,71 @@ export async function processShippingAndReceivables(input: {
   factoryId: string
   prisma: ShippingClient
 }) {
+  const lateOrderIds = await markLateOrders(input)
   const shippedOrderIds = await dispatchReadyOrders(input)
   const settledDueIds = await settleDueReceivables(input)
 
   return {
+    lateOrderIds,
     settledDueIds,
     shippedOrderIds,
   }
+}
+
+async function markLateOrders(input: {
+  factoryDay: number
+  factoryId: string
+  prisma: ShippingClient
+}) {
+  const orders = await input.prisma.customerOrder.findMany({
+    where: {
+      factoryId: input.factoryId,
+      status: {
+        in: [
+          CustomerOrderStatus.ACTIVE,
+          CustomerOrderStatus.IN_PRODUCTION,
+          CustomerOrderStatus.READY_TO_SHIP,
+          CustomerOrderStatus.PARTIALLY_SHIPPED,
+          CustomerOrderStatus.LATE,
+        ],
+      },
+      targetDeliveryDay: { lt: input.factoryDay },
+    },
+    orderBy: [{ targetDeliveryDay: "asc" }, { createdAt: "asc" }],
+    select: {
+      completedQuantity: true,
+      id: true,
+      lateDays: true,
+      targetDeliveryDay: true,
+      totalQuantity: true,
+    },
+  })
+  const lateOrderIds: string[] = []
+
+  for (const order of orders) {
+    if (order.completedQuantity >= order.totalQuantity) continue
+
+    const lateDays = Math.max(0, input.factoryDay - order.targetDeliveryDay)
+
+    if (
+      order.lateDays === lateDays &&
+      lateDays > 0
+    ) {
+      lateOrderIds.push(order.id)
+      continue
+    }
+
+    await input.prisma.customerOrder.update({
+      where: { id: order.id },
+      data: {
+        lateDays,
+        status: CustomerOrderStatus.LATE,
+      },
+    })
+    lateOrderIds.push(order.id)
+  }
+
+  return lateOrderIds
 }
 
 async function dispatchReadyOrders(input: {

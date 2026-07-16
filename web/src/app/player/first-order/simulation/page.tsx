@@ -20,10 +20,11 @@ import {
   buildFirstSimulationSchedule,
   type FirstSimulationStepInput,
 } from "./simulation-math";
+import { FIRST_SIMULATION_SHIFT_XP } from "./reward-config";
 
 export const dynamic = "force-dynamic";
 
-const rewardXp = 1000;
+const rewardXp = FIRST_SIMULATION_SHIFT_XP;
 const productionOrderInclude = {
   customerOrder: true,
   product: {

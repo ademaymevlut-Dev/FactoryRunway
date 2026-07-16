@@ -43,6 +43,7 @@ type ConfigValues = {
   departmentId: string;
   optionType: string;
   leadTimeDays: number;
+  baseCostPer1000PointsCents: number;
   costMultiplierBps: number;
   qualityRiskBps: number;
   delayRiskBps: number;
@@ -149,6 +150,8 @@ export default async function OutsourceBusinessesPage() {
                 departmentId: config.departmentId,
                 optionType: config.optionType,
                 leadTimeDays: config.leadTimeDays,
+                baseCostPer1000PointsCents:
+                  config.baseCostPer1000PointsCents,
                 costMultiplierBps: config.costMultiplierBps,
                 qualityRiskBps: config.qualityRiskBps,
                 delayRiskBps: config.delayRiskBps,
@@ -233,6 +236,21 @@ function OutsourceFields({
             type="number"
           />
         </Field>
+        <Field
+          label="1000 point baz maliyeti"
+          hint="Örnek: 250 girildiğinde 25.000 cent kaydedilir."
+        >
+          <Input
+            defaultValue={formatMoneyInput(
+              config?.baseCostPer1000PointsCents ?? 0,
+            )}
+            inputMode="decimal"
+            min="0"
+            name="baseCostPer1000Points"
+            required
+            type="text"
+          />
+        </Field>
         <Field label="Maliyet çarpanı (bps)" hint="10.000 = normal maliyet, 12.500 = 1,25 kat.">
           <Input
             defaultValue={config?.costMultiplierBps ?? 10000}
@@ -273,6 +291,10 @@ function OutsourceFields({
       </Field>
     </>
   );
+}
+
+function formatMoneyInput(cents: number) {
+  return (cents / 100).toFixed(2).replace(/\.00$/, "");
 }
 
 function displayName(

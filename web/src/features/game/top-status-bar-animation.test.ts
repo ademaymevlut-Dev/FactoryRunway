@@ -16,25 +16,33 @@ test("üst HUD nakitten sonra XP metriğini üretir", () => {
   assert.match(snapshot, /value: `\$\{formatNumber\(factory\.currentXp\)\} XP`/);
 });
 
-test("üst HUD metrik değişimlerini ve level up kutusunu animasyonla gösterir", () => {
+test("üst HUD metrik değişimlerini ve level artışını inline animasyonla gösterir", () => {
   const statusBar = readSource("./components/top-status-bar.tsx");
   const styles = readSource("./components/top-status-bar.module.css");
 
   assert.match(statusBar, /AnimatedCashMetric/);
   assert.match(statusBar, /AnimatedXpMetric/);
   assert.match(statusBar, /AnimatedLevelMetric/);
-  assert.match(statusBar, /LevelUpCelebration/);
+  assert.doesNotMatch(statusBar, /LevelUpCelebration/);
+  assert.doesNotMatch(statusBar, /data-level-up-celebration/);
+  assert.doesNotMatch(statusBar, /buildConfettiPieces/);
   assert.match(statusBar, /useDelayedHudSnapshot/);
   assert.match(statusBar, /useGameUiStore/);
   assert.match(statusBar, /pendingSnapshotRef/);
   assert.match(statusBar, /shouldHoldStatusUpdate/);
-  assert.match(statusBar, /data-level-up-celebration/);
+  assert.match(statusBar, /styles\.levelPulse/);
+  assert.match(statusBar, /styles\.valueLevel/);
+  assert.match(statusBar, /styles\.deltaLevel/);
+  assert.match(statusBar, /formatSignedLevel/);
   assert.match(statusBar, /useNumericTransition/);
   assert.match(statusBar, /usePrefersReducedMotion/);
   assert.match(styles, /hudCashPositive/);
   assert.match(styles, /hudCashNegative/);
   assert.match(styles, /hudXpPositive/);
+  assert.match(styles, /hudLevelPositive/);
+  assert.match(styles, /\.deltaLevel/);
+  assert.match(styles, /\.valueLevel/);
   assert.match(styles, /hudMetricFlip/);
-  assert.match(styles, /hudConfetti/);
+  assert.doesNotMatch(styles, /hudConfetti|celebrationOverlay|celebrationCard|confettiPiece/);
   assert.match(styles, /prefers-reduced-motion: reduce/);
 });

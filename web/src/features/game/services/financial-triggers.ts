@@ -8,7 +8,7 @@ import {
   type Prisma,
 } from "@/generated/prisma/client";
 
-type FinancialTriggerClient = Prisma.TransactionClient;
+export type FinancialTriggerClient = Prisma.TransactionClient;
 
 const PERIOD_DAYS = 22;
 
@@ -321,7 +321,7 @@ async function processOperatingExpensePayments(input: {
   return result;
 }
 
-async function settleFactoryExpense(input: {
+export async function settleFactoryExpense(input: {
   amountCents: bigint;
   category: FinanceCategory;
   description: string;

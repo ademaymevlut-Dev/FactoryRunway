@@ -1,8 +1,10 @@
 import {
+  ContentStatus,
   FactoryProductionLineStatus,
   MarketOrderOfferStatus,
   ProductImageVariant,
   ProductionOrderStatus,
+  RouteProcessingMode,
   type CurrencyCode,
   type ProductTier,
 } from "@/generated/prisma/enums";
@@ -11,6 +13,8 @@ import { getPrisma } from "@/lib/db";
 import type {
   OrderMarketView,
   ActiveOrderPriorityView,
+  OrderOfferCapacityPlanView,
+  OrderOfferCapacityState,
   OrderOfferItemColorView,
   OrderOfferItemView,
   OrderOfferView,
@@ -21,6 +25,14 @@ const COST_LINE_STATUSES = [
   FactoryProductionLineStatus.IDLE,
   FactoryProductionLineStatus.RUNNING,
 ] as const;
+const ACTIVE_PRODUCTION_STATUSES = [
+  ProductionOrderStatus.PLANNED,
+  ProductionOrderStatus.RELEASED,
+  ProductionOrderStatus.IN_PROGRESS,
+  ProductionOrderStatus.WAITING_INPUT,
+  ProductionOrderStatus.WAITING_OUTSOURCE,
+] as const;
+const DELIVERY_CAPACITY_HORIZON_DAYS = 20;
 
 type TranslationRecord = {
   locale: string;
@@ -29,19 +41,44 @@ type TranslationRecord = {
 
 type MarketOfferRecord = Awaited<ReturnType<typeof fetchMarketOffers>>[number];
 type MarketOfferItemRecord = MarketOfferRecord["items"][number];
+type CapacityContext = Awaited<ReturnType<typeof fetchFactoryCapacityContext>>;
+type DepartmentCapacityInfo = {
+  dailyPointCapacity: number;
+  lineCount: number;
+};
+type DepartmentLoadSnapshotRow = {
+  departmentId: string;
+  dailyPointCapacity: number;
+  existingWorkPoints: number;
+  offerWorkPoints: number;
+  queueAfterAcceptDays: number;
+};
+type DepartmentLoadSnapshot = {
+  departments: DepartmentLoadSnapshotRow[];
+  predictedCompletionDays: number | null;
+  targetDeliveryDays: number | null;
+};
+type CapacityRowInternal = OrderOfferCapacityPlanView["rows"][number] & {
+  afterAcceptLoadDaysValue: number;
+  currentLoadDaysValue: number;
+  offerLoadDaysValue: number;
+  sortOrder: number;
+};
 
 export async function getOrderMarketView(input: {
   currentDay: number;
   factoryId: string;
   currencyCode: CurrencyCode;
 }): Promise<OrderMarketView> {
-  const [offers, departmentCosts, activeOrders] = await Promise.all([
+  const [offers, departmentCosts, activeOrders, capacityContext] = await Promise.all([
     fetchMarketOffers(input.factoryId),
     fetchFactoryDepartmentCosts(input.factoryId),
     fetchActiveProductionOrders(input.factoryId),
+    fetchFactoryCapacityContext(input.factoryId),
   ]);
   const offerViews = offers.map((offer) =>
     toOrderOfferView({
+      capacityContext,
       currencyCode: input.currencyCode,
       currentDay: input.currentDay,
       departmentCosts,
@@ -107,6 +144,89 @@ function toActiveOrderPriorityView(
     productName: order.product.name,
     remainingQuantity: order.remainingQuantity,
     targetDeliveryDay: order.targetDeliveryDay,
+  };
+}
+
+async function fetchFactoryCapacityContext(factoryId: string) {
+  const prisma = getPrisma();
+  const [factory, lines, queueRows] = await Promise.all([
+    prisma.factory.findUnique({
+      where: { id: factoryId },
+      select: { sectorId: true },
+    }),
+    prisma.factoryProductionLine.findMany({
+      where: {
+        factoryId,
+        status: {
+          in: [...COST_LINE_STATUSES],
+        },
+      },
+      select: {
+        conditionBps: true,
+        departmentId: true,
+        productionLineTemplate: {
+          select: {
+            dailyPointCapacity: true,
+          },
+        },
+      },
+    }),
+    prisma.productionOrderRouteProgress.findMany({
+      where: {
+        factoryId,
+        isRequired: true,
+        processingMode: RouteProcessingMode.INTERNAL,
+        remainingQuantity: { gt: 0 },
+        productionOrder: {
+          status: { in: [...ACTIVE_PRODUCTION_STATUSES] },
+        },
+      },
+      select: {
+        completedQuantity: true,
+        departmentId: true,
+        remainingQuantity: true,
+        setupPoints: true,
+        workloadPointsPerUnit: true,
+      },
+    }),
+  ]);
+  const departments = factory
+    ? await prisma.department.findMany({
+        where: {
+          sectorId: factory.sectorId,
+          status: ContentStatus.ACTIVE,
+        },
+        orderBy: [{ routeOrder: "asc" }, { key: "asc" }],
+        select: {
+          id: true,
+          key: true,
+          routeOrder: true,
+          translations: {
+            where: { locale },
+            select: { locale: true, name: true },
+          },
+        },
+      })
+    : [];
+  const departmentCapacityById = calculateDepartmentCapacityById(lines);
+  const currentWorkPointsByDepartmentId = calculateCurrentWorkPointsByDepartmentId(
+    queueRows,
+  );
+  const departmentNameById = new Map(
+    departments.map((department) => [
+      department.id,
+      pickTranslation(department.translations, department.key),
+    ]),
+  );
+  const departmentSortOrderById = new Map(
+    departments.map((department) => [department.id, department.routeOrder]),
+  );
+
+  return {
+    currentWorkPointsByDepartmentId,
+    departmentCapacityById,
+    departmentNameById,
+    departmentSortOrderById,
   };
 }
 
@@ -246,11 +366,13 @@ async function fetchFactoryDepartmentCosts(factoryId: string) {
 }
 
 function toOrderOfferView({
+  capacityContext,
   currencyCode,
   currentDay,
   departmentCosts,
   offer,
 }: {
+  capacityContext: CapacityContext;
   currencyCode: CurrencyCode;
   currentDay: number;
   departmentCosts: Map<string, number>;
@@ -307,6 +429,7 @@ function toOrderOfferView({
     plannedMarginLabel: formatMarginPercent(plannedMarginBps),
     capacityRiskLabel: formatBpsNumber(offer.capacityRiskBps),
     deliveryRiskLabel: formatBpsNumber(offer.deliveryRiskBps),
+    capacityPlan: buildCapacityPlanView({ capacityContext, offer }),
     items: items.map(toPublicOrderOfferItemView),
   };
 }
@@ -379,6 +502,332 @@ function toPublicOrderOfferItemView({
   void plannedTotalCostLabelRaw;
 
   return item;
+}
+
+function buildCapacityPlanView({
+  capacityContext,
+  offer,
+}: {
+  capacityContext: CapacityContext;
+  offer: MarketOfferRecord;
+}): OrderOfferCapacityPlanView {
+  const snapshot = parseDepartmentLoadSnapshot(offer.departmentLoadSnapshot);
+  const snapshotByDepartmentId = new Map(
+    (snapshot?.departments ?? []).map((department) => [
+      department.departmentId,
+      department,
+    ]),
+  );
+  const fallbackOfferWorkPointsByDepartmentId =
+    calculateOfferWorkPointsByDepartmentId(offer.items);
+  const departmentIds = new Set<string>([
+    ...capacityContext.currentWorkPointsByDepartmentId.keys(),
+    ...fallbackOfferWorkPointsByDepartmentId.keys(),
+    ...snapshotByDepartmentId.keys(),
+  ]);
+  const rows: CapacityRowInternal[] = Array.from(departmentIds, (departmentId) => {
+    const snapshotRow = snapshotByDepartmentId.get(departmentId);
+    const capacityInfo =
+      capacityContext.departmentCapacityById.get(departmentId) ??
+      toSnapshotCapacityInfo(snapshotRow);
+    const dailyPointCapacity = capacityInfo?.dailyPointCapacity ?? 0;
+    const currentWorkPoints = capacityContext.currentWorkPointsByDepartmentId.has(
+      departmentId,
+    )
+      ? (capacityContext.currentWorkPointsByDepartmentId.get(departmentId) ?? 0)
+      : (snapshotRow?.existingWorkPoints ?? 0);
+    const offerWorkPoints =
+      snapshotRow?.offerWorkPoints ??
+      fallbackOfferWorkPointsByDepartmentId.get(departmentId) ??
+      0;
+    const currentLoadDaysValue = calculateLoadDays(
+      currentWorkPoints,
+      dailyPointCapacity,
+    );
+    const offerLoadDaysValue = calculateLoadDays(
+      offerWorkPoints,
+      dailyPointCapacity,
+    );
+    const afterAcceptLoadDaysValue = calculateLoadDays(
+      currentWorkPoints + offerWorkPoints,
+      dailyPointCapacity,
+    );
+    const state = getCapacityState(
+      afterAcceptLoadDaysValue,
+      dailyPointCapacity,
+    );
+
+    return {
+      afterAcceptLoadDaysLabel: formatDays(afterAcceptLoadDaysValue),
+      afterAcceptLoadDaysValue,
+      afterAcceptLoadPercent: getLoadPercent(afterAcceptLoadDaysValue, state),
+      currentLoadDaysLabel: formatDays(currentLoadDaysValue),
+      currentLoadDaysValue,
+      dailyCapacityLabel:
+        dailyPointCapacity > 0
+          ? `${formatNumber(dailyPointCapacity)} point/gün`
+          : "Planlı hat yok",
+      departmentId,
+      departmentName:
+        capacityContext.departmentNameById.get(departmentId) ?? "Bölüm",
+      lineCountLabel:
+        (capacityInfo?.lineCount ?? 0) > 0
+          ? `${formatNumber(capacityInfo?.lineCount ?? 0)} hat`
+          : dailyPointCapacity > 0
+            ? "Hat bilgisi yok"
+            : "Hat yok",
+      offerLoadDaysLabel: formatDays(offerLoadDaysValue),
+      offerLoadDaysValue,
+      sortOrder: capacityContext.departmentSortOrderById.get(departmentId) ?? 999,
+      state,
+      stateLabel: getCapacityStateLabel(state),
+    };
+  }).sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+
+    return a.departmentName.localeCompare(b.departmentName, "tr");
+  });
+
+  if (rows.length === 0) {
+    return {
+      afterAcceptLoadDaysLabel: "-",
+      bottleneckDepartmentLabel: "Darboğaz yok",
+      currentLoadDaysLabel: "-",
+      offerLoadDaysLabel: "-",
+      plannedCompletionLabel: "-",
+      rows: [],
+      state: "NO_CAPACITY",
+      stateLabel: getCapacityStateLabel("NO_CAPACITY"),
+      targetDeliveryLabel: `${offer.targetDeliveryDays} gün termin`,
+    };
+  }
+
+  const bottleneck = rows.reduce((current, row) =>
+    row.afterAcceptLoadDaysValue > current.afterAcceptLoadDaysValue
+      ? row
+      : current,
+  );
+  const currentLoadDaysValue = getMaxLoadDays(
+    rows.map((row) => row.currentLoadDaysValue),
+  );
+  const offerLoadDaysValue = getMaxLoadDays(
+    rows.map((row) => row.offerLoadDaysValue),
+  );
+  const afterAcceptLoadDaysValue = getMaxLoadDays(
+    rows.map((row) => row.afterAcceptLoadDaysValue),
+  );
+  const state = getCapacityState(
+    afterAcceptLoadDaysValue,
+    bottleneck.state === "NO_CAPACITY" ? 0 : 1,
+  );
+  const plannedCompletionDays =
+    snapshot?.predictedCompletionDays ??
+    (Number.isFinite(afterAcceptLoadDaysValue)
+      ? Math.ceil(afterAcceptLoadDaysValue) + 1
+      : null);
+
+  return {
+    afterAcceptLoadDaysLabel: formatDays(afterAcceptLoadDaysValue),
+    bottleneckDepartmentLabel: bottleneck.departmentName,
+    currentLoadDaysLabel: formatDays(currentLoadDaysValue),
+    offerLoadDaysLabel: formatDays(offerLoadDaysValue),
+    plannedCompletionLabel:
+      plannedCompletionDays === null
+        ? "-"
+        : `${formatNumber(plannedCompletionDays)} gün tahmini`,
+    rows,
+    state,
+    stateLabel: getCapacityStateLabel(state),
+    targetDeliveryLabel: `${
+      snapshot?.targetDeliveryDays ?? offer.targetDeliveryDays
+    } gün termin`,
+  };
+}
+
+function calculateDepartmentCapacityById(
+  lines: Array<{
+    conditionBps: number;
+    departmentId: string;
+    productionLineTemplate: { dailyPointCapacity: number };
+  }>,
+) {
+  const capacityByDepartmentId = new Map<string, DepartmentCapacityInfo>();
+
+  for (const line of lines) {
+    const current = capacityByDepartmentId.get(line.departmentId) ?? {
+      dailyPointCapacity: 0,
+      lineCount: 0,
+    };
+    const effectiveDailyCapacity = Math.floor(
+      (line.productionLineTemplate.dailyPointCapacity * line.conditionBps) /
+        10_000,
+    );
+
+    capacityByDepartmentId.set(line.departmentId, {
+      dailyPointCapacity:
+        current.dailyPointCapacity + Math.max(0, effectiveDailyCapacity),
+      lineCount: current.lineCount + 1,
+    });
+  }
+
+  return capacityByDepartmentId;
+}
+
+function calculateCurrentWorkPointsByDepartmentId(
+  rows: Array<{
+    completedQuantity: number;
+    departmentId: string;
+    remainingQuantity: number;
+    setupPoints: number;
+    workloadPointsPerUnit: number;
+  }>,
+) {
+  const workPointsByDepartmentId = new Map<string, number>();
+
+  for (const row of rows) {
+    const workPoints =
+      row.remainingQuantity * row.workloadPointsPerUnit +
+      (row.completedQuantity <= 0 ? Math.max(0, row.setupPoints) : 0);
+
+    workPointsByDepartmentId.set(
+      row.departmentId,
+      (workPointsByDepartmentId.get(row.departmentId) ?? 0) + workPoints,
+    );
+  }
+
+  return workPointsByDepartmentId;
+}
+
+function calculateOfferWorkPointsByDepartmentId(
+  items: MarketOfferRecord["items"],
+) {
+  const workPointsByDepartmentId = new Map<string, number>();
+
+  for (const item of items) {
+    for (const step of item.product.routeSteps) {
+      if (!step.isRequired) continue;
+
+      const workPoints =
+        item.quantity * step.workloadPointsPerUnit + Math.max(0, step.setupPoints);
+
+      workPointsByDepartmentId.set(
+        step.departmentId,
+        (workPointsByDepartmentId.get(step.departmentId) ?? 0) + workPoints,
+      );
+    }
+  }
+
+  return workPointsByDepartmentId;
+}
+
+function parseDepartmentLoadSnapshot(
+  value: unknown,
+): DepartmentLoadSnapshot | null {
+  if (!isRecord(value) || !Array.isArray(value.departments)) return null;
+
+  const departments = value.departments.flatMap((department) => {
+    if (!isRecord(department) || typeof department.departmentId !== "string") {
+      return [];
+    }
+
+    return [
+      {
+        dailyPointCapacity: readFiniteNumber(department.dailyPointCapacity) ?? 0,
+        departmentId: department.departmentId,
+        existingWorkPoints: readFiniteNumber(department.existingWorkPoints) ?? 0,
+        offerWorkPoints: readFiniteNumber(department.offerWorkPoints) ?? 0,
+        queueAfterAcceptDays:
+          readFiniteNumber(department.queueAfterAcceptDays) ?? 0,
+      },
+    ];
+  });
+
+  return {
+    departments,
+    predictedCompletionDays: readFiniteNumber(value.predictedCompletionDays),
+    targetDeliveryDays: readFiniteNumber(value.targetDeliveryDays),
+  };
+}
+
+function toSnapshotCapacityInfo(
+  snapshotRow: DepartmentLoadSnapshotRow | undefined,
+): DepartmentCapacityInfo | undefined {
+  if (!snapshotRow) return undefined;
+
+  return {
+    dailyPointCapacity: snapshotRow.dailyPointCapacity,
+    lineCount: 0,
+  };
+}
+
+function calculateLoadDays(workPoints: number, dailyPointCapacity: number) {
+  if (dailyPointCapacity <= 0) return Number.POSITIVE_INFINITY;
+
+  return workPoints / dailyPointCapacity;
+}
+
+function getMaxLoadDays(values: number[]) {
+  if (values.length === 0) return 0;
+
+  return values.reduce((max, value) => Math.max(max, value), 0);
+}
+
+function getCapacityState(
+  loadDays: number,
+  dailyPointCapacity: number,
+): OrderOfferCapacityState {
+  if (dailyPointCapacity <= 0 || !Number.isFinite(loadDays)) return "NO_CAPACITY";
+  if (loadDays <= 4) return "SAFE";
+  if (loadDays <= 7) return "BALANCED";
+  if (loadDays <= 10) return "STRETCH";
+  if (loadDays <= 15) return "RISKY";
+
+  return "CRITICAL";
+}
+
+function getCapacityStateLabel(state: OrderOfferCapacityState) {
+  const labels: Record<OrderOfferCapacityState, string> = {
+    BALANCED: "Dengeli",
+    CRITICAL: "Kritik",
+    NO_CAPACITY: "Hat yok",
+    RISKY: "Riskli",
+    SAFE: "Rahat",
+    STRETCH: "Yoğun",
+  };
+
+  return labels[state];
+}
+
+function getLoadPercent(loadDays: number, state: OrderOfferCapacityState) {
+  if (state === "NO_CAPACITY") return 100;
+
+  return clampNumber(
+    Math.round((loadDays / DELIVERY_CAPACITY_HORIZON_DAYS) * 100),
+    0,
+    100,
+  );
+}
+
+function formatDays(value: number) {
+  if (!Number.isFinite(value)) return "-";
+  if (value === 0) return "0 gün";
+
+  return `${new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: value < 10 ? 1 : 0,
+    minimumFractionDigits: value < 1 ? 1 : 0,
+  }).format(value)} gün`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readFiniteNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function calculateRouteUnitCostCents(

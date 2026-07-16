@@ -27,10 +27,19 @@ type ProductDefinitionsValue = {
 
 type ProductRouteCapacityValue = {
   id: string;
+  canOutsource: boolean;
   departmentName: string;
   lineKey: string | null;
   workloadPointsPerUnit: number;
   dailyPointCapacity: number | null;
+  outsourceOptions: ProductRouteOutsourceOptionValue[];
+};
+
+type ProductRouteOutsourceOptionValue = {
+  baseCostPer1000PointsCents: number;
+  costMultiplierBps: number;
+  leadTimeDays: number;
+  optionType: "FAST" | "STANDARD" | "SAFE";
 };
 
 export function ProductDefinitionsForm({
@@ -178,7 +187,7 @@ function PricingSummary({
               : formatCurrency(analysis.unitCost, currencyCode)}
           </h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Birim başı maliyet = aylık gider / darboğaz aylık adet
+            Birim maliyet = iç gider payı + fiyatlı fason maliyeti
           </p>
         </div>
         {analysis.bottleneck ? (
@@ -204,6 +213,14 @@ function PricingSummary({
             analysis.monthlyOutput === null
               ? "-"
               : formatInteger(analysis.monthlyOutput)
+          }
+        />
+        <SummaryMetric
+          label="Fason / adet"
+          value={
+            analysis.outsourceUnitCost === null
+              ? "-"
+              : formatCurrency(analysis.outsourceUnitCost, currencyCode)
           }
         />
         <SummaryMetric
@@ -240,22 +257,16 @@ function PricingSummary({
           <thead className="border-b border-border text-muted-foreground">
             <tr>
               <th className="px-3 py-2 font-medium">Departman</th>
+              <th className="px-3 py-2 font-medium">Kaynak</th>
               <th className="px-3 py-2 text-right font-medium">Puan</th>
               <th className="px-3 py-2 text-right font-medium">Adet/gün</th>
             </tr>
           </thead>
           <tbody>
-            {routeCapacities.map((route) => {
-              const dailyOutput =
-                route.dailyPointCapacity === null
-                  ? null
-                  : Math.floor(
-                      route.dailyPointCapacity /
-                        route.workloadPointsPerUnit,
-                    );
+            {analysis.routeOutputs.map((route) => {
               const isBottleneck =
                 analysis.bottleneck?.id === route.id &&
-                dailyOutput !== null;
+                route.dailyOutput !== null;
 
               return (
                 <tr
@@ -272,11 +283,17 @@ function PricingSummary({
                       {route.lineKey ?? "WORKSHOP hattı yok"}
                     </p>
                   </td>
+                  <td className="px-3 py-2">
+                    <p className="font-medium">{route.sourceLabel}</p>
+                    <p className="max-w-[220px] text-[11px] text-muted-foreground">
+                      {route.sourceDetail}
+                    </p>
+                  </td>
                   <td className="px-3 py-2 text-right font-mono">
                     {route.workloadPointsPerUnit}
                   </td>
                   <td className="px-3 py-2 text-right font-mono">
-                    {dailyOutput === null ? "-" : formatInteger(dailyOutput)}
+                    {route.dailyOutput === null ? "-" : formatInteger(route.dailyOutput)}
                   </td>
                 </tr>
               );
@@ -285,7 +302,7 @@ function PricingSummary({
               <tr>
                 <td
                   className="px-3 py-6 text-center text-muted-foreground"
-                  colSpan={3}
+                  colSpan={4}
                 >
                   Rota adımı eklenince maliyet hesabı oluşacak.
                 </td>
@@ -336,20 +353,58 @@ function calculatePricingAnalysis({
   monthlyExpense: string;
   routeCapacities: ProductRouteCapacityValue[];
 }) {
-  const routeOutputs = routeCapacities.map((route) => ({
-    ...route,
-    dailyOutput:
+  const routeOutputs = routeCapacities.map((route) => {
+    const dailyOutput =
       route.dailyPointCapacity === null
         ? null
-        : Math.floor(route.dailyPointCapacity / route.workloadPointsPerUnit),
-  }));
+        : Math.floor(route.dailyPointCapacity / route.workloadPointsPerUnit);
+    const hasInternalOutput = dailyOutput !== null && dailyOutput > 0;
+    const pricingOutsourceOption =
+      !hasInternalOutput && route.canOutsource
+        ? pickPricingOutsourceOption(route.outsourceOptions)
+        : null;
+    const outsourceUnitCost =
+      pricingOutsourceOption === null
+        ? null
+        : calculateOutsourceUnitCost(route, pricingOutsourceOption);
+    const sourceLabel =
+      hasInternalOutput
+        ? "İç hat"
+        : outsourceUnitCost !== null && pricingOutsourceOption
+          ? `Fason ${pricingOutsourceOption.optionType}`
+          : route.canOutsource
+            ? "Fason fiyatı eksik"
+            : "Kapasite yok";
+    const sourceDetail =
+      hasInternalOutput
+        ? (route.lineKey ?? "WORKSHOP hattı yok")
+        : route.outsourceOptions.length > 0
+          ? formatOutsourceOptionCosts(route)
+          : "Aktif ve fiyatlı fason seçeneği yok";
+
+    return {
+      ...route,
+      dailyOutput,
+      outsourceUnitCost,
+      pricingOutsourceOption,
+      sourceDetail,
+      sourceLabel,
+    };
+  });
+  const missingRoute = routeOutputs.find(
+    (route) =>
+      (route.dailyOutput === null || route.dailyOutput <= 0) &&
+      route.outsourceUnitCost === null,
+  );
+  const internalRouteOutputs = routeOutputs.filter(
+    (route) => route.dailyOutput !== null && route.dailyOutput > 0,
+  );
   const isComplete =
     routeOutputs.length > 0 &&
-    routeOutputs.every(
-      (route) => route.dailyOutput !== null && route.dailyOutput > 0,
-    );
+    !missingRoute &&
+    internalRouteOutputs.length > 0;
   const bottleneck = isComplete
-    ? routeOutputs.reduce((lowest, route) =>
+    ? internalRouteOutputs.reduce((lowest, route) =>
         (route.dailyOutput ?? 0) < (lowest.dailyOutput ?? 0)
           ? route
           : lowest,
@@ -359,9 +414,19 @@ function calculatePricingAnalysis({
   const monthlyOutput =
     dailyOutput === null ? null : dailyOutput * DEFAULT_WORK_DAYS;
   const monthlyExpenseValue = parseMoney(monthlyExpense);
-  const unitCost =
+  const internalUnitCost =
     monthlyOutput && monthlyExpenseValue !== null
       ? monthlyExpenseValue / monthlyOutput
+      : null;
+  const outsourceUnitCost = isComplete
+    ? routeOutputs.reduce(
+        (total, route) => total + (route.outsourceUnitCost ?? 0),
+        0,
+      )
+    : null;
+  const unitCost =
+    internalUnitCost !== null && outsourceUnitCost !== null
+      ? internalUnitCost + outsourceUnitCost
       : null;
   const unitPrice = parseMoney(baseUnitPrice);
   const unitProfit =
@@ -378,12 +443,57 @@ function calculatePricingAnalysis({
   return {
     bottleneck,
     dailyOutput,
+    internalUnitCost,
     marginPercent,
     markupPercent,
     monthlyOutput,
+    outsourceUnitCost,
+    routeOutputs,
     unitCost,
     unitProfit,
   };
+}
+
+function pickPricingOutsourceOption(
+  options: ProductRouteOutsourceOptionValue[],
+) {
+  return (
+    options.find((option) => option.optionType === "STANDARD") ??
+    options.reduce<ProductRouteOutsourceOptionValue | null>(
+      (lowest, option) =>
+        !lowest || option.costMultiplierBps < lowest.costMultiplierBps
+          ? option
+          : lowest,
+      null,
+    )
+  );
+}
+
+function calculateOutsourceUnitCost(
+  route: ProductRouteCapacityValue,
+  option: ProductRouteOutsourceOptionValue,
+) {
+  const baseCostPerUnitCents = Math.ceil(
+    (route.workloadPointsPerUnit * option.baseCostPer1000PointsCents) / 1000,
+  );
+  const costPerUnitCents = Math.ceil(
+    (baseCostPerUnitCents * option.costMultiplierBps) / 10_000,
+  );
+
+  return costPerUnitCents / 100;
+}
+
+function formatOutsourceOptionCosts(route: ProductRouteCapacityValue) {
+  return route.outsourceOptions
+    .map((option) => {
+      const unitCost = calculateOutsourceUnitCost(route, option);
+
+      return `${option.optionType} ${unitCost.toLocaleString("tr-TR", {
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 2,
+      })}`;
+    })
+    .join(" · ");
 }
 
 function parseMoney(value: string) {

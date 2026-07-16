@@ -1,0 +1,1 @@
+export const FIRST_SIMULATION_SHIFT_XP = 30;
