@@ -9,6 +9,7 @@ import {
   ProductionOrderStatus,
   type PrismaClient,
 } from "@/generated/prisma/client"
+import { calculateCustomerRelationshipImpact } from "@/lib/customer-relationship"
 
 import {
   calculateDueSettlement,
@@ -114,9 +115,13 @@ async function dispatchReadyOrders(input: {
       completedDay: true,
       id: true,
       orderNo: true,
+      metadata: true,
       paymentTermDays: true,
       shippedQuantity: true,
       targetDeliveryDay: true,
+      customerSegment: {
+        select: { metadata: true },
+      },
       items: {
         orderBy: { sortOrder: "asc" },
         select: {
@@ -159,6 +164,11 @@ async function dispatchReadyOrders(input: {
       currentDay: input.factoryDay,
       targetDeliveryDay: order.targetDeliveryDay,
     })
+    const lateDays = Math.max(0, shippedDay - order.targetDeliveryDay)
+    const customerRelationshipImpact = calculateCustomerRelationshipImpact({
+      lateDays,
+      segmentMetadata: order.customerSegment?.metadata,
+    })
 
     for (const item of order.items) {
       await input.prisma.customerOrderItem.update({
@@ -178,7 +188,16 @@ async function dispatchReadyOrders(input: {
       where: { id: order.id },
       data: {
         completedQuantity: totalQuantity,
-        lateDays: Math.max(0, shippedDay - order.targetDeliveryDay),
+        lateDays,
+        metadata: mergeMetadata(order.metadata, {
+          customerRelationshipImpact: {
+            ...customerRelationshipImpact,
+            calculatedDay: input.factoryDay,
+            shippedDay,
+            source: "shipping-service",
+            targetDeliveryDay: order.targetDeliveryDay,
+          },
+        }),
         shippedDay,
         shippedQuantity: totalQuantity,
         status: CustomerOrderStatus.SHIPPED,
@@ -332,4 +351,18 @@ async function settleDueReceivables(input: {
   }
 
   return settledDueIds
+}
+
+function mergeMetadata(
+  source: Prisma.JsonValue | null,
+  next: Prisma.InputJsonObject,
+): Prisma.InputJsonObject {
+  const base = source && typeof source === "object" && !Array.isArray(source)
+    ? (source as Prisma.InputJsonObject)
+    : {}
+
+  return {
+    ...base,
+    ...next,
+  }
 }

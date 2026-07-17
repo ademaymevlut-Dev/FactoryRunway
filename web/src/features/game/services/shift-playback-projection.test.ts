@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { FinanceCategory, FinanceDirection } from "@/generated/prisma/client";
+import {
+  FinanceCategory,
+  FinanceDirection,
+  ProductImageVariant,
+  ProductImageView,
+} from "@/generated/prisma/client";
 
 import {
   getShiftDepartmentPerformance,
@@ -27,7 +32,7 @@ test("ürün sonuçları product + order bazında aggregate edilir", async () =>
 
   assert.equal(products.length, 1);
   assert.equal(products[0]?.productName, "Manama T-Shirt");
-  assert.equal(products[0]?.productImageUrl, "https://example.com/card.webp");
+  assert.equal(products[0]?.productImageUrl, "https://example.com/front-thumb.webp");
   assert.equal(products[0]?.orderCode, "ORD-1042");
   assert.equal(products[0]?.totalProcessedQuantity, 1200);
   assert.deepEqual(products[0]?.departments, [
@@ -131,7 +136,28 @@ test("departman performansı aynı departmandaki çoklu hatları aggregate eder"
 
 test("günlük event projection kronolojik dakika ve sequence sırasını korur", async () => {
   const prisma = {
-    customerOrder: { findMany: async () => [] },
+    customerOrder: {
+      findMany: async () => [
+        {
+          id: "order-1",
+          metadata: {
+            customerRelationshipImpact: {
+              label: "gained",
+              lateDays: 0,
+              trustChangeBps: 700,
+            },
+          },
+          orderNo: "ORD-1042",
+          shippedQuantity: 500,
+          items: [
+            {
+              quantity: 500,
+              product: { name: "Manama T-Shirt" },
+            },
+          ],
+        },
+      ],
+    },
     factoryFinanceDue: { findMany: async () => [] },
     factoryFinanceTransaction: {
       findMany: async () => [
@@ -219,6 +245,15 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
   );
   assert.equal(events[0]?.eventKey, "shift.started");
   assert.equal(events.at(-1)?.eventKey, "shift.completed");
+  assert.ok(events.some((event) => event.eventKey === "shipping.order_shipped"));
+  assert.deepEqual(
+    events.find((event) => event.eventKey === "customer.relationship_gained")
+      ?.payload,
+    {
+      orderCode: "ORD-1042",
+      trustChangeBps: 700,
+    },
+  );
   assert.ok(events.some((event) => event.eventKey === "payment.customer_received"));
   assert.deepEqual(
     events.find((event) => event.eventKey === "penalty.order_late_paid")
@@ -263,7 +298,23 @@ function buildLineResult(input: {
       id: "product-1",
       key: "manama_tshirt",
       name: "Manama T-Shirt",
-      images: [{ url: "https://example.com/card.webp" }],
+      images: [
+        {
+          url: "https://example.com/back-card.webp",
+          variant: ProductImageVariant.CARD,
+          view: ProductImageView.BACK,
+        },
+        {
+          url: "https://example.com/front-card.webp",
+          variant: ProductImageVariant.CARD,
+          view: ProductImageView.FRONT,
+        },
+        {
+          url: "https://example.com/front-thumb.webp",
+          variant: ProductImageVariant.THUMBNAIL,
+          view: ProductImageView.FRONT,
+        },
+      ],
     },
     productionOrder: {
       id: "production-order-1",

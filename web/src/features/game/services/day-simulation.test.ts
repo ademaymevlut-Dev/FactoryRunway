@@ -354,5 +354,5 @@ test("aynı factory ve gameDay claim edildiğinde ikinci denemeyi reddeder", asy
 
   assert.equal(createCalls[0]?.gameDay, 14);
   assert.equal(createCalls[0]?.status, ShiftSimulationStatus.RUNNING);
-  assert.equal(createCalls[0]?.simulationDurationSeconds, 25);
+  assert.equal(createCalls[0]?.simulationDurationSeconds, 20);
 });

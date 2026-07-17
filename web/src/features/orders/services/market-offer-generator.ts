@@ -12,6 +12,12 @@ import {
 } from "@/generated/prisma/enums";
 import { getPrisma } from "@/lib/db";
 import {
+  buildCustomerRelationshipMetadata,
+  buildCustomerRelationshipSummary,
+  calculateCustomerSelectionWeight,
+  type CustomerRelationshipSummary,
+} from "@/lib/customer-relationship";
+import {
   getOrderProductCandidatesForFactory,
   type DepartmentDailyCapacity,
   type OrderProductCandidate,
@@ -176,6 +182,8 @@ type RecentOfferForPenalty = Awaited<
   ReturnType<typeof fetchRecentOffersForFactory>
 >[number];
 
+type CustomerRelationshipById = Map<string, CustomerRelationshipSummary>;
+
 type FactoryCostContext = Awaited<ReturnType<typeof fetchFactoryCostContext>>;
 
 type PlannedOfferItem = {
@@ -236,7 +244,16 @@ export async function ensureMarketOfferForFactory(
   }
 
   const currentStage = factoryCostContext.operatingStageState?.currentStage;
-  const [marketRules, customers, recentOffers, activeOfferCount, todayOfferCount, offerCount, repeatCustomerIds, queueRows] =
+  const [
+    marketRules,
+    customers,
+    recentOffers,
+    activeOfferCount,
+    todayOfferCount,
+    offerCount,
+    customerRelationshipById,
+    queueRows,
+  ] =
     await Promise.all([
       fetchMarketRules({
         currentStageId: currentStage?.id ?? null,
@@ -261,9 +278,14 @@ export async function ensureMarketOfferForFactory(
         },
       }),
       prisma.marketOrderOffer.count({ where: { factoryId } }),
-      fetchRepeatCustomerIds(factoryId),
+      fetchCustomerRelationshipsForFactory(factoryId),
       fetchQueueRows(factoryId),
     ]);
+  const repeatCustomerIds = new Set(
+    Array.from(customerRelationshipById.values())
+      .filter((relationship) => relationship.repeatEligible)
+      .map((relationship) => relationship.virtualCustomerId),
+  );
 
   if (customers.length === 0) {
     return { created: false, reason: "NO_CUSTOMERS" };
@@ -324,6 +346,7 @@ export async function ensureMarketOfferForFactory(
     if (!offerTypeRule) continue;
 
     const customer = pickCustomerForOffer({
+      customerRelationshipById,
       customers,
       customerRecentCounts,
       offerType: offerTypeRule.offerType,
@@ -349,6 +372,8 @@ export async function ensureMarketOfferForFactory(
     const plannedOffer = buildPlannedOffer({
       currentDay: factoryCostContext.currentDay,
       customer,
+      customerRelationship:
+        customerRelationshipById.get(customer.id) ?? null,
       departmentCapacityById,
       existingWorkPointsByDepartmentId,
       factoryExpenseBreakdown,
@@ -619,7 +644,9 @@ async function fetchRecentOffersForFactory(factoryId: string) {
   });
 }
 
-async function fetchRepeatCustomerIds(factoryId: string) {
+async function fetchCustomerRelationshipsForFactory(
+  factoryId: string,
+): Promise<CustomerRelationshipById> {
   const prisma = getPrisma();
   const orders = await prisma.customerOrder.findMany({
     where: {
@@ -629,13 +656,64 @@ async function fetchRepeatCustomerIds(factoryId: string) {
         in: [CustomerOrderStatus.SHIPPED, CustomerOrderStatus.DELIVERED],
       },
     },
-    select: { virtualCustomerId: true },
+    orderBy: [{ shippedDay: "asc" }, { createdAt: "asc" }],
+    select: {
+      lateDays: true,
+      shippedDay: true,
+      targetDeliveryDay: true,
+      virtualCustomerId: true,
+      customerSegment: {
+        select: { metadata: true },
+      },
+    },
   });
+  const groupedOrders = new Map<
+    string,
+    {
+      orders: Array<{
+        lateDays: number;
+        shippedDay: number | null;
+        targetDeliveryDay: number;
+      }>;
+      segmentMetadata: unknown;
+    }
+  >();
 
-  return new Set(
-    orders.flatMap((order) =>
-      order.virtualCustomerId ? [order.virtualCustomerId] : [],
-    ),
+  for (const order of orders) {
+    if (!order.virtualCustomerId) continue;
+
+    const current = groupedOrders.get(order.virtualCustomerId);
+
+    if (current) {
+      current.orders.push({
+        lateDays: order.lateDays,
+        shippedDay: order.shippedDay,
+        targetDeliveryDay: order.targetDeliveryDay,
+      });
+      current.segmentMetadata = order.customerSegment?.metadata ?? current.segmentMetadata;
+    } else {
+      groupedOrders.set(order.virtualCustomerId, {
+        orders: [
+          {
+            lateDays: order.lateDays,
+            shippedDay: order.shippedDay,
+            targetDeliveryDay: order.targetDeliveryDay,
+          },
+        ],
+        segmentMetadata: order.customerSegment?.metadata,
+      });
+    }
+  }
+
+  return new Map(
+    Array.from(groupedOrders.entries()).map(([virtualCustomerId, group]) => [
+      virtualCustomerId,
+      buildCustomerRelationshipSummary({
+        orders: group.orders,
+        segmentMetadata: group.segmentMetadata,
+        virtualCustomerId,
+      }),
+    ]),
   );
 }
 
@@ -741,6 +819,7 @@ function pickOfferTypeRule(input: {
 }
 
 function pickCustomerForOffer(input: {
+  customerRelationshipById: CustomerRelationshipById;
   customers: VirtualCustomerForOffer[];
   customerRecentCounts: Map<string, number>;
   offerType: MarketOrderOfferType;
@@ -756,19 +835,22 @@ function pickCustomerForOffer(input: {
   return pickWeighted(typeEligibleCustomers, input.seed, (customer) => {
     const recentPenalty = input.customerRecentCounts.get(customer.id) ?? 0;
     const batchPenalty = input.usedCustomerIds.get(customer.id) ?? 0;
+    const relationship = input.customerRelationshipById.get(customer.id) ?? null;
     const trustWeight = Math.max(100, 10_000 - customer.trustRequirementBps);
     const offerWeight = readPositiveNumber(
       isRecord(customer.metadata) ? customer.metadata.offerWeight : null,
     ) ?? 100;
-
-    return Math.max(
-      1,
-      Math.round(
-        (trustWeight * offerWeight) /
-          100 /
-          (1 + recentPenalty * 0.75 + batchPenalty * 3),
-      ),
+    const baseWeight = Math.round(
+      (trustWeight * offerWeight) /
+        100 /
+        (1 + recentPenalty * 0.75 + batchPenalty * 3),
     );
+
+    return calculateCustomerSelectionWeight({
+      baseWeight,
+      offerType: input.offerType,
+      relationship,
+    });
   });
 }
 
@@ -904,6 +986,7 @@ function pickProductForOffer(input: {
 function buildPlannedOffer(input: {
   currentDay: number;
   customer: VirtualCustomerForOffer;
+  customerRelationship: CustomerRelationshipSummary | null;
   departmentCapacityById: Map<string, DepartmentDailyCapacity>;
   existingWorkPointsByDepartmentId: Map<string, number>;
   factoryExpenseBreakdown: ReturnType<typeof calculateFactoryMonthlyExpenseCents>;
@@ -1058,6 +1141,9 @@ function buildPlannedOffer(input: {
       materialReadyDays: MATERIAL_READY_DAYS,
       outsourcedLeadDays,
       factoryMonthlyExpenseCents: input.factoryExpenseBreakdown.totalCents,
+      customerRelationship: buildCustomerRelationshipMetadata(
+        input.customerRelationship,
+      ),
       monthlyDirectLineCostCents: input.factoryExpenseBreakdown.directLineCostCents,
       monthlyLeasingPaymentCents: input.factoryExpenseBreakdown.leasingPaymentCents,
       monthlySharedStageCostCents:

@@ -48,7 +48,7 @@ export function WarehousePanel({ warehouse }: { warehouse: GameWarehouseView }) 
 
   return (
     <Tabs
-      className="flex max-h-[calc(100dvh-11rem)] min-h-[420px] flex-col gap-3"
+      className="flex h-full min-h-0 flex-col gap-3 overflow-hidden"
       onValueChange={(value) => setActiveTab(value as WarehouseTabKey)}
       value={activeTab}
     >
@@ -156,7 +156,7 @@ function WarehouseContent({
   }
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="h-full min-h-0">
       <div className="space-y-2 p-3">
         {items.map((item) =>
           item.kind === "product" ? (

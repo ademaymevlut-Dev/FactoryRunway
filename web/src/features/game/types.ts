@@ -193,6 +193,7 @@ export type FactoryMapItem =
       purchaseCostCents: string;
       hasActiveLeasingContract: boolean;
       imageUrl: string | null;
+      detailImageUrl: string | null;
       workload: FactoryLineWorkload;
     }
   | {

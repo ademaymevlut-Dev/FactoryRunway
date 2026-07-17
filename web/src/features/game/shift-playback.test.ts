@@ -45,20 +45,20 @@ test("simulatedGameDay ile nextGameDay değerlerini ayrı tutar", () => {
 test("completedAt değerini kalıcı playback başlangıç ankrajı olarak kullanır", () => {
   const playback = toShiftPlayback(
     buildRecord(),
-    new Date("2026-07-11T10:00:24.999Z"),
+    new Date("2026-07-11T10:00:19.999Z"),
   );
 
   assert.ok(playback);
   assert.equal(playback.playbackStartedAt, "2026-07-11T10:00:00.000Z");
-  assert.equal(playback.playbackEndsAt, "2026-07-11T10:00:25.000Z");
-  assert.equal(playback.playbackDurationSeconds, 25);
+  assert.equal(playback.playbackEndsAt, "2026-07-11T10:00:20.000Z");
+  assert.equal(playback.playbackDurationSeconds, 20);
   assert.equal(playback.isActive, true);
 });
 
-test("25 saniye dolduğunda playback aktif sayılmaz", () => {
+test("20 saniye dolduğunda playback aktif sayılmaz", () => {
   const playback = toShiftPlayback(
     buildRecord(),
-    new Date("2026-07-11T10:00:25.000Z"),
+    new Date("2026-07-11T10:00:20.000Z"),
   );
 
   assert.ok(playback);
@@ -87,7 +87,7 @@ test("tamamlanmamış vardiya için playback üretmez", () => {
   assert.equal(toShiftPlayback(buildRecord({ completedAt: null })), null);
 });
 
-test("tek global saat 0, 12.5 ve 25 saniyeyi 08:00, 12:30 ve 17:00'a eşler", () => {
+test("tek global saat 0, 10 ve 20 saniyeyi 08:00, 12:30 ve 17:00'a eşler", () => {
   const playback = toShiftPlayback(buildRecord());
 
   assert.ok(playback);
@@ -99,13 +99,13 @@ test("tek global saat 0, 12.5 ve 25 saniyeyi 08:00, 12:30 ve 17:00'a eşler", ()
   );
   assert.equal(
     formatShiftPlaybackTime(
-      getShiftPlaybackMinute(playback, startedAt + 12_500),
+      getShiftPlaybackMinute(playback, startedAt + 10_000),
     ),
     "12:30",
   );
   assert.equal(
     formatShiftPlaybackTime(
-      getShiftPlaybackMinute(playback, startedAt + 25_000),
+      getShiftPlaybackMinute(playback, startedAt + 20_000),
     ),
     "17:00",
   );

@@ -145,6 +145,7 @@ export function ShiftPlaybackHud() {
                   department.queueEnteredTimeline,
                   shiftMinute,
                 )}
+                shiftMinute={shiftMinute}
               />
             ))}
           </div>
@@ -170,7 +171,10 @@ function getDepartmentProductResults({
 
     return {
       orderCode: product.orderCode,
+      orderId: product.orderId,
       processedQuantity: department.processedQuantity,
+      productId: product.productId,
+      productImageUrl: product.productImageUrl,
       productName: product.productName,
     };
   });

@@ -135,8 +135,11 @@ type ProductionLineRecord = {
     imageUrl: string | null;
     imagePathname: string | null;
     visualAssets: Array<{
+      variant: ProductionLineAssetVariant;
       url: string;
       pathname: string | null;
+      width: number;
+      height: number;
     }>;
     staffRequirements: Array<{
       requiredQuantity: number;
@@ -243,10 +246,13 @@ export async function getGameSnapshot(input: {
                   imageUrl: true,
                   imagePathname: true,
                   visualAssets: {
-                    where: { variant: ProductionLineAssetVariant.MAP },
+                    orderBy: { variant: "asc" },
                     select: {
-                      url: true,
+                      height: true,
                       pathname: true,
+                      url: true,
+                      variant: true,
+                      width: true,
                     },
                   },
                   staffRequirements: {
@@ -1215,6 +1221,7 @@ function toProductionLineItem(
     purchaseCostCents: String(template.purchaseCostCents),
     hasActiveLeasingContract: line.leasingContracts.length > 0,
     imageUrl: getLineImageUrl(line),
+    detailImageUrl: getLineDetailImageUrl(line),
     workload:
       workloadByDepartmentId.get(line.departmentId) ??
       buildFactoryLineWorkload({
@@ -1453,9 +1460,28 @@ function buildNotifications({
 
 function getLineImageUrl(line: ProductionLineRecord) {
   const template = line.productionLineTemplate;
-  const visual = template.visualAssets[0];
+  const visual =
+    template.visualAssets.find((asset) => asset.variant === ProductionLineAssetVariant.MAP) ??
+    template.visualAssets.find((asset) => asset.variant === ProductionLineAssetVariant.CARD) ??
+    template.visualAssets.find((asset) => asset.variant === ProductionLineAssetVariant.THUMBNAIL);
 
   return visual?.url ?? template.imageUrl ?? template.imagePathname ?? getFallbackLineImage(
+    line.department.key,
+    template.grade,
+  );
+}
+
+function getLineDetailImageUrl(line: ProductionLineRecord) {
+  const template = line.productionLineTemplate;
+  const detailVisual = template.visualAssets.find(
+    (asset) => asset.variant === ProductionLineAssetVariant.DETAIL,
+  );
+  const largestVisual = template.visualAssets
+    .slice()
+    .sort((first, second) => second.width * second.height - first.width * first.height)[0];
+  const visual = detailVisual ?? largestVisual;
+
+  return visual?.url ?? visual?.pathname ?? template.imageUrl ?? template.imagePathname ?? getFallbackLineImage(
     line.department.key,
     template.grade,
   );

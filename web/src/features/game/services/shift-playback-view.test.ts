@@ -15,7 +15,7 @@ function buildPrisma(completedAt: Date) {
         gameDay: 4,
         status: "COMPLETED" as const,
         simulationVersion: "v1",
-        simulationDurationSeconds: 25,
+        simulationDurationSeconds: 20,
         completedAt,
         totalProducedQuantity: 300,
         activeLineCount: 2,
@@ -45,7 +45,7 @@ function buildPrisma(completedAt: Date) {
 test("sayfa yenilemesinde süresi devam eden son playback tekrar okunur", async () => {
   const playback = await getActiveShiftPlayback({
     factoryId: "factory-1",
-    now: new Date("2026-07-11T10:00:20.000Z"),
+    now: new Date("2026-07-11T10:00:15.000Z"),
     prisma: buildPrisma(new Date("2026-07-11T10:00:00.000Z")),
   });
 
@@ -88,12 +88,12 @@ test("süresi dolmuş vardiya aktif playback olarak dönmez", async () => {
   const prisma = buildPrisma(new Date("2026-07-11T10:00:00.000Z"));
   const active = await getActiveShiftPlayback({
     factoryId: "factory-1",
-    now: new Date("2026-07-11T10:00:25.000Z"),
+    now: new Date("2026-07-11T10:00:20.000Z"),
     prisma,
   });
   const latest = await getLatestShiftPlayback({
     factoryId: "factory-1",
-    now: new Date("2026-07-11T10:00:25.000Z"),
+    now: new Date("2026-07-11T10:00:20.000Z"),
     prisma,
   });
 

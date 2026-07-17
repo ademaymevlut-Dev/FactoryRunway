@@ -2,7 +2,6 @@ import {
   Boxes,
   Factory,
   ListChecks,
-  PackageCheck,
   Users,
   X,
 } from "lucide-react";
@@ -13,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { FinancePanel } from "@/features/finance/components/finance-panel";
 import { OrdersPanel } from "@/features/orders/components/orders-panel";
 import { DepartmentQueuePanel } from "@/features/production-queue/components/department-queue-panel";
+import { ReportsPanel } from "@/features/reports/components/reports-panel";
 import { WarehousePanel } from "@/features/warehouse/components/warehouse-panel";
 import { ProductionLineInvestmentPanel } from "@/features/investment/components/production-line-investment-panel";
 import { UpgradeProductionLinePanel } from "@/features/investment/components/upgrade-production-line-panel";
@@ -89,13 +89,14 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     ),
   },
   reports: {
+    layout: "center",
+    size: "wide",
     title: "Raporlar",
     render: ({ snapshot }) => (
-      <PanelScaffold
-        icon={<PackageCheck size={18} />}
-        title="Raporlar"
-        value={`${snapshot.factory.currentDay}. gün`}
-        body="Günün üretim görünümü hazır."
+      <ReportsPanel
+        currencyCode={snapshot.factory.currencyCode}
+        currentDay={snapshot.factory.currentDay}
+        factoryId={snapshot.factory.id}
       />
     ),
   },
@@ -253,7 +254,8 @@ export function PanelChrome({
       </div>
       <div
         className={cn(
-          "min-h-0 flex-1 overscroll-contain overflow-y-auto",
+          "min-h-0 flex-1 overscroll-contain",
+          layout === "center" ? "overflow-hidden" : "overflow-y-auto",
         )}
       >
         {children}

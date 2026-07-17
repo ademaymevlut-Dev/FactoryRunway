@@ -1,6 +1,12 @@
 "use client";
 
-import { Banknote, ClipboardList, ListChecks, type LucideIcon } from "lucide-react";
+import {
+  Banknote,
+  BarChart3,
+  ClipboardList,
+  ListChecks,
+  type LucideIcon,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +45,12 @@ const leftDockItems: LeftDockItem[] = [
     tooltip: "Finans",
     icon: Banknote,
   },
+  {
+    key: "reports",
+    label: "Reports",
+    tooltip: "Raporlar",
+    icon: BarChart3,
+  },
 ];
 
 export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
@@ -65,7 +77,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                 <Button
                   aria-label={item.tooltip}
                   className={cn(
-                    "group/leftdock relative h-[68px] w-[68px] flex-col gap-1.5 overflow-hidden rounded-xl border border-primary/25 bg-primary px-1.5 py-2 text-white shadow-[0_10px_22px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.16)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-primary hover:text-white hover:shadow-[0_0_22px_hsl(var(--primary)/0.44),inset_0_0_18px_rgba(255,255,255,0.12)] active:scale-95",
+                    "group/leftdock relative h-[68px] w-[68px] flex-col gap-1.5 overflow-visible rounded-xl border border-primary/25 bg-primary px-1.5 py-2 text-white shadow-[0_10px_22px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.16)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-primary hover:text-white hover:shadow-[0_0_22px_hsl(var(--primary)/0.44),inset_0_0_18px_rgba(255,255,255,0.12)] active:scale-95",
                     isActive && "border-white/35 shadow-[0_0_22px_hsl(var(--primary)/0.48),inset_0_0_18px_rgba(255,255,255,0.14)]",
                   )}
                   data-map-control="true"
@@ -93,7 +105,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                   </span>
                   {badgeCount > 0 ? (
                     <span
-                      className="absolute -right-1.5 -top-1.5 z-20 grid h-6 min-w-6 place-items-center rounded-full border border-white/45 bg-red-500 px-1 text-[10px] font-black leading-none text-white shadow-[0_0_16px_rgba(239,68,68,0.72)]"
+                      className="absolute -right-1.5 -top-1.5 z-30 grid h-6 min-w-6 place-items-center rounded-full border border-white/45 bg-red-500 px-1 text-[10px] font-black leading-none text-white shadow-[0_0_16px_rgba(239,68,68,0.72)]"
                       style={{
                         animation: "orderBadgeScale 1.25s ease-in-out infinite",
                       }}

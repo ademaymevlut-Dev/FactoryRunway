@@ -12,9 +12,19 @@ test("sipariş paneli production priority tabını kaldırıp doğrudan pazarı 
   assert.doesNotMatch(panel, /Üretim Önceliği/);
   assert.doesNotMatch(panel, /OrderPriorityList/);
   assert.match(panel, /Sipariş Pazarı/);
-  assert.match(panel, /OrderListPanel/);
+  assert.match(panel, /OrderSidebarPanel/);
   assert.match(panel, /SelectedOrderDetail/);
   assert.match(panel, /OrderCostPanel/);
+  assert.doesNotMatch(panel, /OrderMarketEntryPanel/);
+  assert.match(panel, /Normal Siparişler/);
+  assert.match(panel, /RPT Order/);
+  assert.match(panel, /Express Order/);
+  assert.match(panel, /Premium Products/);
+  assert.match(panel, /Luxury/);
+  assert.match(panel, /Filtreyi değiştir/);
+  assert.match(panel, /matchesMarketFilter/);
+  assert.match(panel, /CustomerRelationshipCard/);
+  assert.match(panel, /Müşteri İlişkisi/);
 });
 
 test("sipariş paneli ürün kart arka planında ArtCard deneme bileşenini kullanır", () => {

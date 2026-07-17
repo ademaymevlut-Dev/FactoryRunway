@@ -15,6 +15,7 @@ import type {
   ActiveOrderPriorityView,
   OrderOfferCapacityPlanView,
   OrderOfferCapacityState,
+  OrderOfferCustomerRelationshipView,
   OrderOfferItemColorView,
   OrderOfferItemView,
   OrderOfferView,
@@ -396,6 +397,7 @@ function toOrderOfferView({
     id: offer.id,
     offerNo: offer.offerNo,
     customerName: offer.virtualCustomer.name,
+    customerRelationship: buildCustomerRelationshipView(offer.metadata),
     offerType: offer.offerType,
     offerTypeLabel: formatOfferType(offer.offerType),
     isCollection: offer.items.length > 1,
@@ -502,6 +504,52 @@ function toPublicOrderOfferItemView({
   void plannedTotalCostLabelRaw;
 
   return item;
+}
+
+function buildCustomerRelationshipView(
+  metadata: unknown,
+): OrderOfferCustomerRelationshipView | null {
+  const source = isRecord(metadata) ? metadata.customerRelationship : null;
+
+  if (!isRecord(source)) return null;
+
+  const relationshipScoreBps = clampNumber(
+    Math.round(readFiniteNumber(source.relationshipScoreBps) ?? 0),
+    0,
+    10_000,
+  );
+  const completedOrderCount = Math.max(
+    0,
+    Math.round(readFiniteNumber(source.completedOrderCount) ?? 0),
+  );
+  const lateOrderCount = Math.max(
+    0,
+    Math.round(readFiniteNumber(source.lateOrderCount) ?? 0),
+  );
+  const totalLateDays = Math.max(
+    0,
+    Math.round(readFiniteNumber(source.totalLateDays) ?? 0),
+  );
+  const repeatWeightBps = clampNumber(
+    Math.round(readFiniteNumber(source.repeatWeightBps) ?? 0),
+    0,
+    10_000,
+  );
+  const repeatEligible = source.repeatEligible === true;
+  const status = readCustomerRelationshipStatus(source.status);
+
+  return {
+    completedOrderCount,
+    lateOrderCount,
+    relationshipScoreBps,
+    relationshipScoreLabel: formatBpsPercent(relationshipScoreBps),
+    repeatEligible,
+    repeatLabel: repeatEligible ? "RPT uygun" : "RPT beklemede",
+    repeatWeightLabel: formatBpsPercent(repeatWeightBps),
+    status,
+    statusLabel: formatCustomerRelationshipStatus(status),
+    totalLateDays,
+  };
 }
 
 function buildCapacityPlanView({
@@ -915,6 +963,36 @@ function formatBpsNumber(value: number) {
     maximumFractionDigits: 1,
     minimumFractionDigits: 0,
   }).format(value / 100);
+}
+
+function formatBpsPercent(value: number) {
+  return `%${formatBpsNumber(value)}`;
+}
+
+function readCustomerRelationshipStatus(value: unknown) {
+  if (
+    value === "trusted" ||
+    value === "warm" ||
+    value === "at_risk" ||
+    value === "new"
+  ) {
+    return value;
+  }
+
+  return "new";
+}
+
+function formatCustomerRelationshipStatus(
+  status: OrderOfferCustomerRelationshipView["status"],
+) {
+  const labels: Record<OrderOfferCustomerRelationshipView["status"], string> = {
+    at_risk: "Riskli",
+    new: "Yeni",
+    trusted: "Güvenilir",
+    warm: "Sıcak",
+  };
+
+  return labels[status];
 }
 
 function formatMoney(cents: number, currencyCode: CurrencyCode) {

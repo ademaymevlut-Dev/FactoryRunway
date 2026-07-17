@@ -10,6 +10,9 @@ import {
 } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  ArrowLeft,
+  BadgePercent,
+  Bolt,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -19,13 +22,16 @@ import {
   Hash,
   PackageCheck,
   Palette,
+  Repeat2,
   Route,
+  ShoppingBag,
+  TrendingUp,
+  type LucideIcon,
 } from "lucide-react";
 
 import { ArtCard } from "@/components/ui/art-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { acceptMarketOrderAction } from "@/features/orders/actions/accept-market-order-action";
 
@@ -37,30 +43,63 @@ import type {
   OrderOfferView,
 } from "../types";
 
-type OfferFilter =
-  | "ALL"
-  | "NORMAL"
-  | "OPPORTUNITY"
-  | "EXPRESS"
+type MarketFilter =
+  | "NORMAL_CORE"
+  | "OPPORTUNITY_CORE"
   | "REPEAT"
-  | "COLLECTION";
-type TierFilter = "ALL" | "BASIC" | "STANDARD" | "PREMIUM" | "LUXURY";
+  | "EXPRESS"
+  | "PREMIUM"
+  | "LUXURY";
 
-const offerFilters: Array<{ label: string; value: OfferFilter }> = [
-  { label: "Tümü", value: "ALL" },
-  { label: "Normal", value: "NORMAL" },
-  { label: "Fırsat", value: "OPPORTUNITY" },
-  { label: "Express", value: "EXPRESS" },
-  { label: "RPT", value: "REPEAT" },
-  { label: "Koleksiyon", value: "COLLECTION" },
-];
-
-const tierFilters: Array<{ label: string; value: TierFilter }> = [
-  { label: "Tümü", value: "ALL" },
-  { label: "Basic", value: "BASIC" },
-  { label: "Standard", value: "STANDARD" },
-  { label: "Premium", value: "PREMIUM" },
-  { label: "Luxury", value: "LUXURY" },
+const marketFilters: Array<{
+  description: string;
+  hint: string;
+  icon: LucideIcon;
+  label: string;
+  value: MarketFilter;
+}> = [
+  {
+    description: "Basic ve Standard ürünlerde dengeli terminli işler.",
+    hint: "Basic + Standard",
+    icon: ShoppingBag,
+    label: "Normal Siparişler",
+    value: "NORMAL_CORE",
+  },
+  {
+    description: "Basic ve Standard ürünlerde daha yüksek kar baskısı.",
+    hint: "Basic + Standard",
+    icon: BadgePercent,
+    label: "Fırsat",
+    value: "OPPORTUNITY_CORE",
+  },
+  {
+    description: "Tüm segmentlerde tekrar sipariş potansiyeli.",
+    hint: "Tüm segmentler",
+    icon: Repeat2,
+    label: "RPT Order",
+    value: "REPEAT",
+  },
+  {
+    description: "Tüm segmentlerde kısa termin ve yüksek teslimat baskısı.",
+    hint: "Tüm segmentler",
+    icon: Bolt,
+    label: "Express Order",
+    value: "EXPRESS",
+  },
+  {
+    description: "Sadece Premium ürünlerden oluşan siparişler.",
+    hint: "Premium",
+    icon: TrendingUp,
+    label: "Premium Products",
+    value: "PREMIUM",
+  },
+  {
+    description: "Sadece Luxury ürünlerden oluşan yüksek değerli işler.",
+    hint: "Luxury",
+    icon: Factory,
+    label: "Luxury",
+    value: "LUXURY",
+  },
 ];
 
 const offerAccentClasses = {
@@ -82,31 +121,51 @@ const offerAccentClasses = {
   },
 } as const;
 
+const marketFilterAccentClasses: Record<
+  MarketFilter,
+  { badge: string; border: string }
+> = {
+  EXPRESS: {
+    badge: "border-rose-400/55 bg-rose-400/10 text-rose-200",
+    border: "border-l-rose-400",
+  },
+  LUXURY: {
+    badge: "border-fuchsia-400/55 bg-fuchsia-400/10 text-fuchsia-200",
+    border: "border-l-fuchsia-400",
+  },
+  NORMAL_CORE: {
+    badge: "border-sky-400/55 bg-sky-400/10 text-sky-200",
+    border: "border-l-sky-400",
+  },
+  OPPORTUNITY_CORE: {
+    badge: "border-amber-400/60 bg-amber-400/10 text-amber-200",
+    border: "border-l-amber-400",
+  },
+  PREMIUM: {
+    badge: "border-violet-400/55 bg-violet-400/10 text-violet-200",
+    border: "border-l-violet-400",
+  },
+  REPEAT: {
+    badge: "border-emerald-400/55 bg-emerald-400/10 text-emerald-200",
+    border: "border-l-emerald-400",
+  },
+};
+
 type OrdersPanelProps = {
   orderMarket: OrderMarketView;
 };
 
 export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
-  const [selectedId, setSelectedId] = useState(
-    orderMarket.offers[0]?.id ?? "",
-  );
-  const [offerFilter, setOfferFilter] = useState<OfferFilter>("ALL");
-  const [tierFilter, setTierFilter] = useState<TierFilter>("ALL");
+  const [selectedFilter, setSelectedFilter] = useState<MarketFilter | null>(null);
+  const [selectedId, setSelectedId] = useState("");
   const filteredOffers = useMemo(
     () =>
-      orderMarket.offers.filter((offer) => {
-        const matchesOfferType =
-          offerFilter === "ALL" ||
-          (offerFilter === "COLLECTION"
-            ? offer.isCollection
-            : offer.offerType === offerFilter);
-        const matchesTier =
-          tierFilter === "ALL" ||
-          offer.items.some((item) => item.productTier === tierFilter);
-
-        return matchesOfferType && matchesTier;
-      }),
-    [offerFilter, orderMarket.offers, tierFilter],
+      selectedFilter === null
+        ? []
+        : orderMarket.offers.filter((offer) =>
+            matchesMarketFilter(offer, selectedFilter),
+          ),
+    [orderMarket.offers, selectedFilter],
   );
   const selectedOffer = useMemo(
     () =>
@@ -114,6 +173,18 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
       filteredOffers[0],
     [filteredOffers, selectedId],
   );
+  const selectFilter = (filter: MarketFilter) => {
+    const nextOffers = orderMarket.offers.filter((offer) =>
+      matchesMarketFilter(offer, filter),
+    );
+
+    setSelectedFilter(filter);
+    setSelectedId(nextOffers[0]?.id ?? "");
+  };
+  const resetFilter = () => {
+    setSelectedFilter(null);
+    setSelectedId("");
+  };
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
@@ -121,25 +192,22 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
         <OrdersEmptyState />
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
-          <OrderListPanel
-            offerFilter={offerFilter}
+          <OrderSidebarPanel
             offers={filteredOffers}
+            selectedFilter={selectedFilter}
             onSelect={setSelectedId}
-            onOfferFilterChange={setOfferFilter}
-            onTierFilterChange={setTierFilter}
+            onBack={resetFilter}
+            onSelectFilter={selectFilter}
             selectedId={selectedOffer?.id ?? ""}
             sourceOffers={orderMarket.offers}
-            tierFilter={tierFilter}
           />
-          {selectedOffer ? (
+          {selectedFilter && selectedOffer ? (
             <SelectedOrderPanels
               activeOrders={orderMarket.activeOrders}
               key={selectedOffer.id}
               offer={selectedOffer}
             />
-          ) : (
-            <OrdersFilterEmptyState />
-          )}
+          ) : null}
         </div>
       )}
     </div>
@@ -173,19 +241,6 @@ function SelectedOrderPanels({
   );
 }
 
-function OrdersFilterEmptyState() {
-  return (
-    <div className="grid min-h-[320px] place-items-center rounded-lg border border-dashed border-border bg-card/50 p-6 text-center xl:col-span-2">
-      <div>
-        <p className="text-sm font-medium text-foreground">Bu filtrede teklif yok</p>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Pazar yeni teklifler oluşturduğunda burada görünecek.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 function OrdersEmptyState() {
   return (
     <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center">
@@ -207,76 +262,157 @@ function OrdersEmptyState() {
   );
 }
 
-function OrderListPanel({
+function OrderSidebarPanel({
   offers,
   sourceOffers,
-  offerFilter,
-  tierFilter,
+  selectedFilter,
   selectedId,
   onSelect,
-  onOfferFilterChange,
-  onTierFilterChange,
+  onBack,
+  onSelectFilter,
 }: {
   offers: OrderOfferView[];
   sourceOffers: OrderOfferView[];
-  offerFilter: OfferFilter;
-  tierFilter: TierFilter;
+  selectedFilter: MarketFilter | null;
   selectedId: string;
   onSelect: (id: string) => void;
-  onOfferFilterChange: (filter: OfferFilter) => void;
-  onTierFilterChange: (filter: TierFilter) => void;
+  onBack: () => void;
+  onSelectFilter: (filter: MarketFilter) => void;
 }) {
+  const selectedMarketFilter =
+    selectedFilter === null ? null : getMarketFilter(selectedFilter);
+
   return (
     <aside className="flex min-h-0 flex-col rounded-lg border border-border bg-card/70 p-3">
       <div className="mb-3">
+        {selectedFilter ? (
+          <Button
+            className="mb-3 h-8 gap-1.5 px-2 text-xs"
+            onClick={onBack}
+            size="sm"
+            type="button"
+            variant="ghost"
+          >
+            <ArrowLeft size={14} />
+            Filtreyi değiştir
+          </Button>
+        ) : null}
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
           Sipariş Pazarı
         </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-none text-foreground">
-          Ürün Siparişleri
+        <h2 className="mt-2 text-2xl font-semibold leading-tight text-foreground">
+          {selectedMarketFilter?.label ?? "Filtre Seç"}
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          {offers.length} açık teklif
+          {selectedMarketFilter
+            ? `${offers.length} açık teklif`
+            : `${sourceOffers.length} açık teklif`}
         </p>
       </div>
-      <div className="mb-3 space-y-2">
-        <Tabs onValueChange={(value) => onOfferFilterChange(value as OfferFilter)} value={offerFilter}>
-          <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-background/60 p-1">
-            {offerFilters.map((filter) => (
-              <TabsTrigger className="h-7 shrink-0 rounded-md px-2 text-[11px]" key={filter.value} value={filter.value}>
-                {filter.label} ({getOfferFilterCount(sourceOffers, filter.value)})
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-        <Tabs onValueChange={(value) => onTierFilterChange(value as TierFilter)} value={tierFilter}>
-          <TabsList className="h-auto w-full justify-start overflow-x-auto rounded-lg bg-background/60 p-1">
-            {tierFilters.map((filter) => (
-              <TabsTrigger className="h-7 shrink-0 rounded-md px-2 text-[11px]" key={filter.value} value={filter.value}>
-                {filter.label} ({getTierFilterCount(sourceOffers, filter.value)})
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </Tabs>
-      </div>
-      <div className="min-h-0 flex-1 touch-pan-y overscroll-contain space-y-2 overflow-y-auto pr-1">
-        {offers.length > 0 ? (
-          offers.map((offer, index) => (
-            <OrderListCard
-              index={index}
-              key={offer.id}
-              offer={offer}
-              onSelect={onSelect}
-              selected={offer.id === selectedId}
+
+      {selectedFilter === null ? (
+        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+          {marketFilters.map((filter) => (
+            <MarketFilterButton
+              count={getMarketFilterCount(sourceOffers, filter.value)}
+              filter={filter}
+              key={filter.value}
+              onSelect={onSelectFilter}
             />
-          ))
-        ) : (
-          <p className="rounded-lg border border-dashed border-border bg-background/40 p-3 text-center text-xs text-muted-foreground">
-            Bu filtrede teklif bulunmuyor.
-          </p>
-        )}
-      </div>
+          ))}
+        </div>
+      ) : null}
+
+      {selectedMarketFilter ? (
+        <MarketFilterBrief filter={selectedMarketFilter} />
+      ) : null}
+
+      {selectedFilter !== null ? (
+        <div className="min-h-0 flex-1 touch-pan-y overscroll-contain space-y-2 overflow-y-auto pr-1">
+          {offers.length > 0 ? (
+            offers.map((offer, index) => (
+              <OrderListCard
+                index={index}
+                key={offer.id}
+                offer={offer}
+                onSelect={onSelect}
+                selected={offer.id === selectedId}
+              />
+            ))
+          ) : (
+            <p className="rounded-lg border border-dashed border-border bg-background/40 p-3 text-center text-xs text-muted-foreground">
+              Bu grupta teklif bulunmuyor.
+            </p>
+          )}
+        </div>
+      ) : null}
     </aside>
+  );
+}
+
+function MarketFilterButton({
+  count,
+  filter,
+  onSelect,
+}: {
+  count: number;
+  filter: (typeof marketFilters)[number];
+  onSelect: (filter: MarketFilter) => void;
+}) {
+  const Icon = filter.icon;
+  const accent = marketFilterAccentClasses[filter.value];
+
+  return (
+    <button
+      className={cn(
+        "group flex w-full items-center gap-2 rounded-lg border border-border border-l-[3px] bg-background/55 p-2 text-left transition-all duration-200 hover:bg-secondary/60",
+        accent.border,
+      )}
+      onClick={() => onSelect(filter.value)}
+      type="button"
+    >
+      <span className="grid size-8 shrink-0 place-items-center rounded-md border border-white/10 bg-card/80 text-foreground group-hover:text-primary">
+        <Icon size={15} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-foreground">
+          {filter.label}
+        </span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+          {filter.hint}
+        </span>
+      </span>
+      <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold", accent.badge)}>
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function MarketFilterBrief({
+  filter,
+}: {
+  filter: (typeof marketFilters)[number];
+}) {
+  const Icon = filter.icon;
+  const accent = marketFilterAccentClasses[filter.value];
+
+  return (
+    <div className={cn("mb-3 rounded-lg border border-border border-l-[3px] bg-background/60 p-2.5", accent.border)}>
+      <div className="flex items-center gap-2">
+        <span className="grid size-8 place-items-center rounded-md border border-white/10 bg-card/70 text-foreground">
+          <Icon size={15} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-foreground">
+            {filter.hint}
+          </span>
+          <span className="mt-0.5 block text-[11px] leading-4 text-muted-foreground">
+            {filter.description}
+          </span>
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -689,11 +825,96 @@ function OrderCostPanel({
           </div>
         </div>
 
+        <CustomerRelationshipCard offer={offer} />
         <CapacityPlanCard offer={offer} />
         <ActiveOrdersSnapshot activeOrders={activeOrders} />
         <OrderAcceptPlan offer={offer} />
       </div>
     </aside>
+  );
+}
+
+function CustomerRelationshipCard({ offer }: { offer: OrderOfferView }) {
+  const relationship = offer.customerRelationship;
+
+  if (!relationship) {
+    return (
+      <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
+        <div className="flex items-center gap-2">
+          <span className="grid size-8 place-items-center rounded-md border border-sky-300/25 bg-sky-400/10 text-sky-100">
+            <ShoppingBag size={15} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Müşteri İlişkisi
+            </span>
+            <strong className="block text-xs text-foreground">Yeni müşteri</strong>
+          </span>
+        </div>
+        <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+          İlk teslim performansı sonrası güven ve RPT ihtimali oluşacak.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className={cn("grid size-8 place-items-center rounded-md border", relationshipStatusIconClass(relationship.status))}>
+            <Repeat2 size={15} />
+          </span>
+          <span className="min-w-0">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              Müşteri İlişkisi
+            </span>
+            <strong className="block text-xs text-foreground">
+              {relationship.statusLabel}
+            </strong>
+          </span>
+        </div>
+        <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold", relationshipStatusBadgeClass(relationship.status))}>
+          {relationship.repeatLabel}
+        </span>
+      </div>
+
+      <div className="mt-2 grid grid-cols-3 gap-1.5">
+        <RelationshipMiniMetric
+          label="Güven"
+          value={relationship.relationshipScoreLabel}
+        />
+        <RelationshipMiniMetric
+          label="Geçmiş"
+          value={`${relationship.completedOrderCount} iş`}
+        />
+        <RelationshipMiniMetric
+          label="RPT"
+          value={relationship.repeatWeightLabel}
+        />
+      </div>
+
+      <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
+        {relationship.lateOrderCount > 0
+          ? `${relationship.lateOrderCount} gecikmeli teslim, toplam ${relationship.totalLateDays} gün güven kaybı yarattı.`
+          : "Zamanında teslim geçmişi tekrar sipariş ihtimalini güçlendiriyor."}
+      </p>
+    </div>
+  );
+}
+
+function RelationshipMiniMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <span className="min-w-0 rounded-md border border-border bg-card/50 px-2 py-1">
+      <span className="block text-[10px] text-muted-foreground">{label}</span>
+      <strong className="block truncate text-xs text-foreground">{value}</strong>
+    </span>
   );
 }
 
@@ -1065,19 +1286,47 @@ function OfferTypeBadge({ offer }: { offer: OrderOfferView }) {
   );
 }
 
-function getOfferFilterCount(offers: OrderOfferView[], filter: OfferFilter) {
-  if (filter === "ALL") return offers.length;
-  if (filter === "COLLECTION") return offers.filter((offer) => offer.isCollection).length;
-
-  return offers.filter((offer) => offer.offerType === filter).length;
+function getMarketFilter(filter: MarketFilter) {
+  return marketFilters.find((item) => item.value === filter) ?? marketFilters[0];
 }
 
-function getTierFilterCount(offers: OrderOfferView[], filter: TierFilter) {
-  if (filter === "ALL") return offers.length;
+function getMarketFilterCount(offers: OrderOfferView[], filter: MarketFilter) {
+  return offers.filter((offer) => matchesMarketFilter(offer, filter)).length;
+}
 
-  return offers.filter((offer) =>
-    offer.items.some((item) => item.productTier === filter),
-  ).length;
+function matchesMarketFilter(offer: OrderOfferView, filter: MarketFilter) {
+  switch (filter) {
+    case "NORMAL_CORE":
+      return (
+        offer.offerType === "NORMAL" &&
+        hasOnlyProductTiers(offer, ["BASIC", "STANDARD"])
+      );
+    case "OPPORTUNITY_CORE":
+      return (
+        offer.offerType === "OPPORTUNITY" &&
+        hasOnlyProductTiers(offer, ["BASIC", "STANDARD"])
+      );
+    case "REPEAT":
+      return offer.offerType === "REPEAT";
+    case "EXPRESS":
+      return offer.offerType === "EXPRESS";
+    case "PREMIUM":
+      return hasOnlyProductTiers(offer, ["PREMIUM"]);
+    case "LUXURY":
+      return hasOnlyProductTiers(offer, ["LUXURY"]);
+    default:
+      return false;
+  }
+}
+
+function hasOnlyProductTiers(
+  offer: OrderOfferView,
+  allowedTiers: Array<OrderOfferItemView["productTier"]>,
+) {
+  if (offer.items.length === 0) return false;
+  const allowed = new Set(allowedTiers);
+
+  return offer.items.every((item) => allowed.has(item.productTier));
 }
 
 function capacityStateBadgeClass(state: OrderOfferCapacityState) {
@@ -1117,6 +1366,38 @@ function capacityStateBarClass(state: OrderOfferCapacityState) {
   };
 
   return classes[state];
+}
+
+function relationshipStatusIconClass(
+  status: NonNullable<OrderOfferView["customerRelationship"]>["status"],
+) {
+  const classes: Record<
+    NonNullable<OrderOfferView["customerRelationship"]>["status"],
+    string
+  > = {
+    at_risk: "border-orange-300/30 bg-orange-400/10 text-orange-100",
+    new: "border-sky-300/30 bg-sky-400/10 text-sky-100",
+    trusted: "border-emerald-300/30 bg-emerald-400/10 text-emerald-100",
+    warm: "border-cyan-300/30 bg-cyan-400/10 text-cyan-100",
+  };
+
+  return classes[status];
+}
+
+function relationshipStatusBadgeClass(
+  status: NonNullable<OrderOfferView["customerRelationship"]>["status"],
+) {
+  const classes: Record<
+    NonNullable<OrderOfferView["customerRelationship"]>["status"],
+    string
+  > = {
+    at_risk: "border-orange-400/45 bg-orange-400/10 text-orange-200",
+    new: "border-sky-400/45 bg-sky-400/10 text-sky-200",
+    trusted: "border-emerald-400/45 bg-emerald-400/10 text-emerald-200",
+    warm: "border-cyan-400/45 bg-cyan-400/10 text-cyan-200",
+  };
+
+  return classes[status];
 }
 
 function badgeStyle(color: string, selected: boolean): CSSProperties {

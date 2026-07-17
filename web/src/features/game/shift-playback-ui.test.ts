@@ -31,6 +31,10 @@ test("departman kartları kontrollü CountUp hedefi ve final kesinliği kullanı
   assert.match(card, /value=\{value\}/);
   assert.match(card, /value=\{efficiency\}/);
   assert.match(card, /immediate=\{isFinal\}/);
+  assert.match(card, /ActiveProductPreview/);
+  assert.match(card, /getActiveProductPreview/);
+  assert.doesNotMatch(card, /Başlangıç|Kalan/);
+  assert.doesNotMatch(card, /fadeOutProgress/);
   assert.match(card, /efficiencyBps: number/);
   assert.doesNotMatch(card, /%\\{efficiency\\}/);
   assert.match(hud, /department\.performance\.efficiencyBps \* progress/);

@@ -24,6 +24,7 @@ export type OrderOfferView = {
   id: string;
   offerNo: string;
   customerName: string;
+  customerRelationship: OrderOfferCustomerRelationshipView | null;
   segmentLabel: string;
   volumeLabel: string;
   offerType: MarketOrderOfferType;
@@ -53,6 +54,19 @@ export type OrderOfferView = {
   deliveryRiskLabel: string;
   capacityPlan: OrderOfferCapacityPlanView;
   items: OrderOfferItemView[];
+};
+
+export type OrderOfferCustomerRelationshipView = {
+  completedOrderCount: number;
+  lateOrderCount: number;
+  relationshipScoreBps: number;
+  relationshipScoreLabel: string;
+  repeatEligible: boolean;
+  repeatLabel: string;
+  repeatWeightLabel: string;
+  status: "new" | "trusted" | "warm" | "at_risk";
+  statusLabel: string;
+  totalLateDays: number;
 };
 
 export type OrderOfferCapacityState =

@@ -239,6 +239,11 @@ function getEventVisualClass(event: ShiftPlaybackTimelineEvent) {
   if (event.eventKey.startsWith("penalty.")) {
     return "border-red-300/35 bg-red-400/15 text-red-100";
   }
+  if (event.eventKey.startsWith("customer.relationship_")) {
+    return event.eventKey === "customer.relationship_gained"
+      ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-100"
+      : "border-orange-300/35 bg-orange-400/15 text-orange-100";
+  }
   if (event.eventKey === "shift.started") {
     return "border-sky-300/35 bg-sky-400/15 text-sky-100";
   }
@@ -284,7 +289,7 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
     case "shift.completed":
       return "Gün tamamlandı";
     case "xp.shift_completed":
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} vardiya XP`;
+      return `+${formatNumber(Number(payload.amountXp ?? 0))} günlük vardiya XP`;
     case "xp.order_completed":
       return `+${formatNumber(Number(payload.amountXp ?? 0))} sipariş XP`;
     case "xp.on_time_delivery":
@@ -305,6 +310,10 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
       return "Sipariş sevk edildi";
     case "payment.customer_received":
       return "Müşteri ödemesi alındı";
+    case "customer.relationship_gained":
+      return "Müşteri güveni güçlendi";
+    case "customer.relationship_lost":
+      return "Müşteri güveni zayıfladı";
     case "penalty.order_late_paid":
       return "Gecikme cezası ödendi";
     case "penalty.order_late_partial":
@@ -356,6 +365,10 @@ function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
       return `${payload.orderNo ?? "Sipariş"} Premium zorluk bonusu verdi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
     case "xp.luxury_order":
       return `${payload.orderNo ?? "Sipariş"} Luxury zorluk bonusu verdi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    case "customer.relationship_gained":
+      return `${payload.orderCode ?? "Sipariş"} teslim performansı müşterinin tekrar sipariş ihtimalini artırdı.`;
+    case "customer.relationship_lost":
+      return `${payload.orderCode ?? "Sipariş"} gecikmesi müşterinin tekrar sipariş ihtimalini düşürdü.`;
     case "penalty.order_late_paid":
       return `${payload.orderNo ?? "Sipariş"} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} gecikme cezası kasadan çıktı.`;
     case "penalty.order_late_partial":

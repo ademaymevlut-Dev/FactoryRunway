@@ -4,10 +4,12 @@ import {
   FinanceSourceType,
   LeasingContractStatus,
   ProductImageVariant,
+  ProductImageView,
   XpReason,
   type Prisma,
   type PrismaClient,
 } from "@/generated/prisma/client";
+import { readCustomerRelationshipImpactFromMetadata } from "@/lib/customer-relationship";
 
 import type {
   ShiftPlayback,
@@ -28,7 +30,11 @@ type ProductLineResultRow = {
     id: string;
     key: string;
     name: string;
-    images: Array<{ url: string }>;
+    images: Array<{
+      url: string;
+      variant: ProductImageVariant;
+      view: ProductImageView;
+    }>;
   } | null;
   productionOrder: {
     id: string;
@@ -91,10 +97,14 @@ export async function getShiftProductResults(input: {
           key: true,
           name: true,
           images: {
-            where: { variant: ProductImageVariant.CARD },
+            where: {
+              variant: {
+                in: [ProductImageVariant.THUMBNAIL, ProductImageVariant.CARD],
+              },
+            },
             orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
-            take: 1,
-            select: { url: true },
+            take: 4,
+            select: { url: true, variant: true, view: true },
           },
         },
       },
@@ -278,6 +288,7 @@ export async function getShiftTimelineEvents(input: {
         orderBy: [{ shippedDay: "asc" }, { createdAt: "asc" }],
         select: {
           id: true,
+          metadata: true,
           orderNo: true,
           shippedQuantity: true,
           items: {
@@ -447,6 +458,9 @@ export async function getShiftTimelineEvents(input: {
   }
 
   for (const order of shippedOrders) {
+    const customerRelationshipImpact =
+      readCustomerRelationshipImpactFromMetadata(order.metadata);
+
     add({
       category: "SHIPPING",
       eventKey: "shipping.order_shipped",
@@ -461,6 +475,28 @@ export async function getShiftTimelineEvents(input: {
       sourceId: order.id,
       sourceType: "CUSTOMER_ORDER",
     });
+
+    if (customerRelationshipImpact) {
+      add({
+        category: "SYSTEM",
+        eventKey:
+          customerRelationshipImpact.trustChangeBps >= 0
+            ? "customer.relationship_gained"
+            : "customer.relationship_lost",
+        id: `customer-relationship:${order.id}`,
+        minute: 503,
+        payload: {
+          orderCode: order.orderNo,
+          trustChangeBps: customerRelationshipImpact.trustChangeBps,
+        },
+        severity:
+          customerRelationshipImpact.trustChangeBps >= 0
+            ? "SUCCESS"
+            : "WARNING",
+        sourceId: order.id,
+        sourceType: "CUSTOMER_ORDER",
+      });
+    }
   }
 
   for (const transaction of financeTransactions) {
@@ -603,7 +639,7 @@ function getOrCreateProductGroup(
       null,
     orderId: result.productionOrder?.id ?? null,
     productId: product.id,
-    productImageUrl: product.images[0]?.url ?? null,
+    productImageUrl: getProductImageUrl(product.images),
     productName: product.name || toTitle(product.key),
     totalProcessedQuantity: 0,
   };
@@ -611,6 +647,27 @@ function getOrCreateProductGroup(
   groups.set(key, group);
 
   return group;
+}
+
+function getProductImageUrl(
+  images: NonNullable<ProductLineResultRow["product"]>["images"],
+) {
+  const frontThumbnail = images.find(
+    (image) =>
+      image.view === ProductImageView.FRONT &&
+      image.variant === ProductImageVariant.THUMBNAIL,
+  );
+  const frontCard = images.find(
+    (image) =>
+      image.view === ProductImageView.FRONT &&
+      image.variant === ProductImageVariant.CARD,
+  );
+  const thumbnail = images.find(
+    (image) => image.variant === ProductImageVariant.THUMBNAIL,
+  );
+  const card = images.find((image) => image.variant === ProductImageVariant.CARD);
+
+  return frontThumbnail?.url ?? frontCard?.url ?? thumbnail?.url ?? card?.url ?? null;
 }
 
 function financeTransactionToEvent(

@@ -13,6 +13,7 @@ import {
   ArrowRight,
   Factory,
   Gauge,
+  Maximize2,
   Ruler,
   Sparkles,
   Users,
@@ -22,6 +23,14 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
 import type { FactoryMapItem } from "@/features/game/types";
@@ -100,32 +109,27 @@ export function UpgradeProductionLinePanel({
 
   return (
     <div className="flex min-h-0 flex-col gap-4">
-      <section className="relative min-h-[250px] overflow-hidden rounded-lg border border-white/10 bg-black/25">
-        {line.imageUrl ? (
-          <Image
-            alt={`${line.title} üretim hattı`}
-            className="object-contain p-5"
-            fill
-            priority
-            sizes="420px"
-            src={line.imageUrl}
-          />
-        ) : (
-          <div className="grid h-[250px] place-items-center text-muted-foreground">
-            <Factory size={56} />
-          </div>
-        )}
-        <div className="absolute inset-x-3 bottom-3 rounded-lg border border-white/10 bg-background/80 p-3 backdrop-blur">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-                {line.departmentName}
-              </p>
-              <h3 className="mt-1 text-lg font-semibold text-white">
-                {line.title}
-              </h3>
+      <section className="rounded-lg border border-white/10 bg-background/35 p-3">
+        <div className="grid gap-3 sm:grid-cols-[128px_minmax(0,1fr)]">
+          <LineImagePreview line={line} />
+          <div className="min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                  {line.departmentName}
+                </p>
+                <h3 className="mt-1 truncate text-base font-semibold text-white">
+                  {line.title}
+                </h3>
+              </div>
+              <Badge className="shrink-0" variant="outline">{line.code}</Badge>
             </div>
-            <Badge variant="outline">{line.code}</Badge>
+            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+              <CompactDatum label="Standart" value={gradeLabels[line.grade]} />
+              <CompactDatum label="Kapasite" value={`${formatNumber(line.dailyPointCapacity)} puan`} />
+              <CompactDatum label="Personel" value={`${line.assignedStaff}/${line.idealStaff}`} />
+              <CompactDatum label="Alan" value={`${formatNumber(line.areaM2)} m²`} />
+            </div>
           </div>
         </div>
       </section>
@@ -278,6 +282,74 @@ export function UpgradeProductionLinePanel({
   );
 }
 
+function LineImagePreview({ line }: { line: ProductionLineMapItem }) {
+  const previewImageUrl = line.imageUrl ?? line.detailImageUrl;
+  const detailImageUrl = line.detailImageUrl ?? line.imageUrl;
+  const imageAlt = `${line.title} üretim hattı`;
+
+  if (!previewImageUrl) {
+    return (
+      <div className="grid h-28 rounded-lg border border-white/10 bg-black/25 text-muted-foreground sm:h-full">
+        <Factory className="m-auto" size={38} />
+      </div>
+    );
+  }
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <button
+          aria-label={`${line.title} görselini büyüt`}
+          className="group relative h-28 overflow-hidden rounded-lg border border-white/10 bg-black/25 outline-none transition hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-full"
+          type="button"
+        >
+          <Image
+            alt={imageAlt}
+            className="object-contain p-2.5 transition-transform duration-200 group-hover:scale-[1.03]"
+            fill
+            priority
+            sizes="128px"
+            src={previewImageUrl}
+          />
+          <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-white/15 bg-background/80 px-2 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur">
+            <Maximize2 size={12} />
+            Büyüt
+          </span>
+        </button>
+      </DialogTrigger>
+      <DialogContent
+        className="max-w-[calc(100vw-1.5rem)] gap-4 rounded-lg border-white/10 bg-background/95 p-4 sm:max-w-[min(1180px,calc(100vw-4rem))]"
+      >
+        <DialogHeader className="pr-10">
+          <DialogTitle>{line.title}</DialogTitle>
+          <DialogDescription>
+            {line.departmentName} · {line.code}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="relative h-[min(74vh,760px)] min-h-[320px] w-full overflow-hidden rounded-lg border border-white/10 bg-black/30">
+          <Image
+            alt={imageAlt}
+            className="object-contain p-3"
+            fill
+            priority
+            sizes="(min-width: 1180px) 1120px, calc(100vw - 4rem)"
+            src={detailImageUrl ?? previewImageUrl}
+          />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CompactDatum({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-white/10 bg-card/55 px-2 py-1.5">
+      <dt className="truncate text-[10px] text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 truncate text-xs font-semibold text-white">{value}</dd>
+    </div>
+  );
+}
+
 function GradePill({
   grade,
   muted = false,
@@ -395,6 +467,10 @@ function formatSignedMoney(valueCents: number, currencyCode: CurrencyCode) {
 
 function formatSignedNumber(value: number) {
   return `${value > 0 ? "+" : ""}${new Intl.NumberFormat("tr-TR").format(value)}`;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("tr-TR").format(value);
 }
 
 function formatSignedPercentBps(valueBps: number) {

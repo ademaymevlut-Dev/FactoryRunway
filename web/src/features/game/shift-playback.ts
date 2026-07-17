@@ -4,7 +4,7 @@ import type {
   ShiftQuantityPoint,
 } from "./types";
 
-export const SHIFT_PLAYBACK_DURATION_SECONDS = 25;
+export const SHIFT_PLAYBACK_DURATION_SECONDS = 20;
 export const SHIFT_PLAYBACK_GAME_MINUTES = 540;
 export const SHIFT_PLAYBACK_GAME_START_MINUTE = 8 * 60;
 
