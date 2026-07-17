@@ -23,11 +23,16 @@ type SimulationInput = Parameters<typeof buildDailyLineResults>[0];
 type SimulationLine = SimulationInput["lines"][number];
 type SimulationQueueItem = SimulationInput["queue"][number];
 
-function buildLine(id: string, dailyPointCapacity: number): SimulationLine {
+function buildLine(
+  id: string,
+  dailyPointCapacity: number,
+  eventPenaltyBps = 10_000,
+): SimulationLine {
   return {
     assignedStaffQuantity: 10,
     conditionBps: 10_000,
     departmentId: "sewing",
+    eventPenaltyBps,
     id,
     lineNumber: Number(id.replace(/\D/g, "")) || 1,
     productionLineTemplate: { dailyPointCapacity },
@@ -216,6 +221,29 @@ test("otomatik planın allocation kapsamına almadığı WIP üretilmez", () => 
   assert.equal(results.length, 1);
   assert.equal(results[0]?.producedQuantity, 0);
   assert.equal(results[0]?.routeProgress, null);
+});
+
+test("chaos event penalty hat kapasitesini ve üretilen adedi düşürür", () => {
+  const results = buildDailyLineResults({
+    allocationQuantityByLineAndRouteProgressId: new Map([
+      ["line-1", new Map([["order", allocation("order", 10)]])],
+    ]),
+    lines: [buildLine("line-1", 100, 8_000)],
+    queue: [
+      buildQueueItem({
+        id: "order",
+        inputReadyQuantity: 10,
+        plannedQuantity: 10,
+        workloadPointsPerUnit: 10,
+      }),
+    ],
+  });
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0]?.eventPenaltyBps, 8_000);
+  assert.equal(results[0]?.effectivePointCapacity, 80);
+  assert.equal(results[0]?.producedQuantity, 8);
+  assert.equal(results[0]?.usedPoints, 80);
 });
 
 test("staff coverage requirement ve assignment toplamından hesaplanır", () => {

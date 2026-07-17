@@ -129,25 +129,42 @@ function getDockPanelKey(item: GameDockItem): GamePanelKey {
 
 function DockIcon({ isActive, item }: { isActive: boolean; item: GameDockItem }) {
   const iconUrl = `/game-icons/dock/${item.iconKey}.svg`;
+  const iconMaskStyle = {
+    WebkitMaskImage: `url("${iconUrl}")`,
+    WebkitMaskPosition: "center",
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskSize: "contain",
+    maskImage: `url("${iconUrl}")`,
+    maskPosition: "center",
+    maskRepeat: "no-repeat",
+    maskSize: "contain",
+  };
 
   return (
     <span
       aria-hidden="true"
       className={cn(
-        "relative block size-7 shrink-0 bg-current transition-all duration-200 group-hover/dock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)] sm:size-8",
+        "relative isolate block size-7 shrink-0 overflow-hidden transition-all duration-200 group-hover/dock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)] sm:size-8",
         isActive && "drop-shadow-[0_0_15px_rgba(165,243,252,0.95)]",
       )}
-      style={{
-        WebkitMaskImage: `url("${iconUrl}")`,
-        WebkitMaskPosition: "center",
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskSize: "contain",
-        maskImage: `url("${iconUrl}")`,
-        maskPosition: "center",
-        maskRepeat: "no-repeat",
-        maskSize: "contain",
-      }}
-    />
+    >
+      <span
+        className="absolute inset-0 bg-current opacity-95"
+        style={iconMaskStyle}
+      />
+      <span
+        className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.76)_0%,rgba(136,224,255,0.5)_24%,rgba(0,109,143,0.82)_56%,rgba(1,28,40,0.3)_100%)] opacity-70 mix-blend-screen"
+        style={iconMaskStyle}
+      />
+      <span
+        className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.92)_0%,rgba(255,255,255,0.34)_22%,transparent_48%)] opacity-65"
+        style={iconMaskStyle}
+      />
+      <span
+        className="absolute inset-0 bg-[linear-gradient(180deg,transparent_0%,transparent_58%,rgba(0,0,0,0.24)_100%)] opacity-50"
+        style={iconMaskStyle}
+      />
+    </span>
   );
 }
 

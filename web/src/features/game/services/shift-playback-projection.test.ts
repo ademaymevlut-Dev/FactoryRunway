@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  ChaosEventType,
+  ChaosScope,
+  ChaosSeverity,
   FinanceCategory,
   FinanceDirection,
   ProductImageVariant,
@@ -134,6 +137,52 @@ test("departman performansı aynı departmandaki çoklu hatları aggregate eder"
   });
 });
 
+test("departman kapasite kaybı nominal hat kapasitesine göre hesaplanır", async () => {
+  const prisma = {
+    shiftLineResult: {
+      findMany: async () => [
+        buildPerformanceLineResult({
+          departmentId: "cutting",
+          effectivePointCapacity: 5_000,
+          factoryProductionLineId: "cutting-line-1",
+          inputReadyQuantity: 500,
+          plannedPointCapacity: 5_000,
+          templateDailyPointCapacity: 10_000,
+          unusedPoints: 0,
+          usedPoints: 5_000,
+          workloadPointsPerUnit: 10,
+        }),
+        buildPerformanceLineResult({
+          departmentId: "cutting",
+          effectivePointCapacity: 4_240,
+          factoryProductionLineId: "cutting-line-1",
+          inputReadyQuantity: 424,
+          plannedPointCapacity: 4_240,
+          templateDailyPointCapacity: 10_000,
+          unusedPoints: 0,
+          usedPoints: 4_240,
+          workloadPointsPerUnit: 10,
+        }),
+      ],
+    },
+  } as never;
+
+  const performance = await getShiftDepartmentPerformance({
+    prisma,
+    shiftId: "shift-1",
+  });
+
+  assert.deepEqual(performance.get("cutting"), {
+    capacityLossBps: 760,
+    effectiveCapacityPoints: 9_240,
+    efficiencyBps: 10_000,
+    nominalCapacityPoints: 10_000,
+    queueLoadPoints: 9_240,
+    unusedPoints: 0,
+    usedPoints: 9_240,
+  });
+});
+
 test("günlük event projection kronolojik dakika ve sequence sırasını korur", async () => {
   const prisma = {
     customerOrder: {
@@ -180,6 +229,31 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
           referenceKey: "LATE_DELIVERY_PENALTY:order-1",
           sourceId: "order-1",
           sourceType: "CUSTOMER_ORDER",
+        },
+      ],
+    },
+    factoryChaosEvent: {
+      findMany: async () => [
+        {
+          affectedStaffCount: 1,
+          department: {
+            key: "sewing",
+            translations: [{ name: "Dikim" }],
+          },
+          eventType: ChaosEventType.STAFF_ABSENCE,
+          factoryProductionLine: {
+            lineNumber: 2,
+            department: {
+              key: "sewing",
+              translations: [{ name: "Dikim" }],
+            },
+          },
+          id: "chaos-1",
+          messageKey: "chaos.staff_absence.minor",
+          metadata: { targetMinute: 72 },
+          penaltyBps: 9500,
+          scope: ChaosScope.PRODUCTION_LINE,
+          severity: ChaosSeverity.MINOR,
         },
       ],
     },
@@ -245,6 +319,29 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
   );
   assert.equal(events[0]?.eventKey, "shift.started");
   assert.equal(events.at(-1)?.eventKey, "shift.completed");
+  assert.deepEqual(
+    events.find((event) => event.eventKey === "chaos.staff_absence.minor"),
+    {
+      category: "STAFF",
+      eventKey: "chaos.staff_absence.minor",
+      gameDay: 12,
+      id: "chaos:chaos-1",
+      minute: 72,
+      payload: {
+        affectedStaffCount: 1,
+        capacityLossBps: 500,
+        departmentName: "Dikim",
+        eventType: "STAFF_ABSENCE",
+        lineLabel: "Hat 2",
+        penaltyBps: 9500,
+        scope: "PRODUCTION_LINE",
+      },
+      sequence: 2,
+      severity: "WARNING",
+      sourceId: "chaos-1",
+      sourceType: "FACTORY_CHAOS_EVENT",
+    },
+  );
   assert.ok(events.some((event) => event.eventKey === "shipping.order_shipped"));
   assert.deepEqual(
     events.find((event) => event.eventKey === "customer.relationship_gained")
@@ -327,11 +424,20 @@ function buildLineResult(input: {
 function buildPerformanceLineResult(input: {
   departmentId: string;
   effectivePointCapacity: number;
+  factoryProductionLineId?: string;
   inputReadyQuantity: number;
   plannedPointCapacity: number;
+  templateDailyPointCapacity?: number;
   unusedPoints: number;
   usedPoints: number;
   workloadPointsPerUnit: number;
 }) {
-  return input;
+  return {
+    ...input,
+    factoryProductionLineId:
+      input.factoryProductionLineId ??
+      `${input.departmentId}-${input.plannedPointCapacity}`,
+    templateDailyPointCapacity:
+      input.templateDailyPointCapacity ?? input.plannedPointCapacity,
+  };
 }

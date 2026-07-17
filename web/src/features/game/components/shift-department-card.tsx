@@ -26,20 +26,20 @@ type ActiveProductPreviewState = {
 
 export function ShiftDepartmentCard({
   department,
-  efficiencyBps,
   isFinal,
   producedQuantity,
   productResults,
   queueEnteredQuantity,
   shiftMinute,
+  throughputBps,
 }: {
   department: ShiftDepartmentPlayback;
-  efficiencyBps: number;
   isFinal: boolean;
   producedQuantity: number;
   productResults: ShiftDepartmentProductResult[];
   queueEnteredQuantity: number;
   shiftMinute: number;
+  throughputBps: number;
 }) {
   const activeProductPreview = isFinal
     ? null
@@ -74,8 +74,8 @@ export function ShiftDepartmentCard({
           />
         </div>
         <DepartmentPerformance
-          efficiencyBps={efficiencyBps}
           isFinal={isFinal}
+          throughputBps={throughputBps}
         />
       </div>
 
@@ -270,13 +270,13 @@ function getActiveProductPreview({
 }
 
 function DepartmentPerformance({
-  efficiencyBps,
   isFinal,
+  throughputBps,
 }: {
-  efficiencyBps: number;
   isFinal: boolean;
+  throughputBps: number;
 }) {
-  const efficiency = Math.round(efficiencyBps / 100);
+  const efficiency = Math.round(throughputBps / 100);
   const colorClass =
     efficiency >= 90
       ? "text-emerald-300"
@@ -288,7 +288,7 @@ function DepartmentPerformance({
 
   return (
     <div
-      aria-label={`Departman efficiency yüzde ${efficiency}`}
+      aria-label={`Departman randımanı yüzde ${efficiency}`}
       className="flex min-w-[56px] items-center justify-end"
     >
       <span

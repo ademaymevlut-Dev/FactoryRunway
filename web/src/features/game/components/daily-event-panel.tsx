@@ -12,6 +12,8 @@ import {
   ReceiptText,
   Sparkles,
   Truck,
+  User,
+  Wrench,
   X,
 } from "lucide-react";
 
@@ -226,6 +228,8 @@ function EventIcon({ event }: { event: ShiftPlaybackTimelineEvent }) {
   }
   if (event.category === "SHIPPING") return <Truck className="size-4" />;
   if (event.category === "OUTSOURCING") return <Boxes className="size-4" />;
+  if (event.category === "STAFF") return <User className="size-4" />;
+  if (event.category === "MACHINE") return <Wrench className="size-4" />;
   if (event.severity === "SUCCESS") return <CheckCircle2 className="size-4" />;
   if (event.category === "PRODUCTION") return <PackageCheck className="size-4" />;
 
@@ -262,6 +266,15 @@ function getEventVisualClass(event: ShiftPlaybackTimelineEvent) {
   if (event.category === "SHIPPING") {
     return "border-cyan-300/35 bg-cyan-400/15 text-cyan-100";
   }
+  if (event.category === "STAFF") {
+    return "border-orange-300/35 bg-orange-400/15 text-orange-100";
+  }
+  if (event.category === "MACHINE") {
+    return "border-slate-200/35 bg-slate-300/15 text-slate-100";
+  }
+  if (event.eventKey.startsWith("chaos.")) {
+    return "border-amber-300/35 bg-amber-400/15 text-amber-100";
+  }
   if (event.severity === "WARNING") {
     return "border-orange-300/35 bg-orange-400/15 text-orange-100";
   }
@@ -284,6 +297,27 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
   }
 
   switch (event.eventKey) {
+    case "chaos.staff_absence.small":
+    case "chaos.staff_absence.minor":
+    case "chaos.staff_absence":
+      return "Personel eksikliği";
+    case "chaos.staff_absence.regular":
+      return "Departmanda personel eksikliği";
+    case "chaos.staff.flu_wave":
+    case "chaos.flu_wave":
+      return "Grip dalgası üretimi yavaşlattı";
+    case "chaos.machine.minor_issue":
+    case "chaos.machine_breakdown":
+      return "Makine ritmi düştü";
+    case "chaos.power.flicker":
+    case "chaos.power_issue":
+      return "Kısa elektrik dalgalanması";
+    case "chaos.material.delay":
+    case "chaos.material_delay":
+      return "Malzeme akışı yavaşladı";
+    case "chaos.weather.bad_weather":
+    case "chaos.bad_weather":
+      return "Hava koşulları akışı etkiledi";
     case "shift.started":
       return "Vardiya başladı";
     case "shift.completed":
@@ -339,6 +373,9 @@ function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
     case "outsource.payment_paid":
       return "Fason ödeme yapıldı";
     default:
+      if (event.eventKey.startsWith("chaos.")) {
+        return "Operasyon ritmi etkilendi";
+      }
       return event.eventKey;
   }
 }
@@ -348,6 +385,10 @@ function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
 
   if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
     return `+${formatNumber(Number(payload.amountXp ?? 0))} XP ile yeni seviye açıldı. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+  }
+
+  if (event.eventKey.startsWith("chaos.")) {
+    return renderChaosDescription(event);
   }
 
   switch (event.eventKey) {
@@ -401,6 +442,52 @@ function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
   }
 
   return "Günlük vardiya zaman çizelgesine işlendi.";
+}
+
+function renderChaosDescription(event: ShiftPlaybackTimelineEvent) {
+  const payload = event.payload;
+  const target = getChaosTargetLabel(payload);
+  const capacityLoss = formatBpsPercent(Number(payload.capacityLossBps ?? 0));
+
+  if (event.category === "STAFF") {
+    const affectedStaffCount = Number(payload.affectedStaffCount ?? 0);
+    const staffPart =
+      affectedStaffCount > 0
+        ? ` ${formatNumber(affectedStaffCount)} personel etkilendi.`
+        : "";
+
+    return `${target} personel akışı zayıfladı.${staffPart} Kapasite etkisi: -${capacityLoss}.`;
+  }
+
+  if (event.category === "MACHINE") {
+    return `${target} kısa makine ayarı nedeniyle yavaşladı. Kapasite etkisi: -${capacityLoss}.`;
+  }
+
+  return `${target} operasyon akışı yavaşladı. Kapasite etkisi: -${capacityLoss}.`;
+}
+
+function getChaosTargetLabel(
+  payload: ShiftPlaybackTimelineEvent["payload"],
+) {
+  const departmentName =
+    typeof payload.departmentName === "string" ? payload.departmentName : null;
+  const lineLabel = typeof payload.lineLabel === "string" ? payload.lineLabel : null;
+
+  if (departmentName && lineLabel) return `${departmentName} / ${lineLabel}`;
+  if (departmentName) return departmentName;
+  if (lineLabel) return lineLabel;
+
+  return "Fabrika genelinde";
+}
+
+function formatBpsPercent(value: number) {
+  const percent = Number.isFinite(value) ? value / 100 : 0;
+
+  return new Intl.NumberFormat("tr-TR", {
+    maximumFractionDigits: percent >= 10 ? 0 : 1,
+    minimumFractionDigits: 0,
+    style: "percent",
+  }).format(percent / 100);
 }
 
 function formatFinanceCategory(value: unknown) {

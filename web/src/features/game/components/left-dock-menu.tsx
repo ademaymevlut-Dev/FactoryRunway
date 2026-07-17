@@ -8,7 +8,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -61,10 +60,18 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
       aria-label="Hızlı oyun menüsü"
       className="pointer-events-none absolute left-4 top-1/2 z-30 -translate-y-1/2"
     >
-      <div className="pointer-events-auto relative isolate flex flex-col gap-2 rounded-[24px] border border-white/10 bg-[#232429]/45 p-2.5 shadow-[0_18px_42px_rgba(0,0,0,0.30),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+      <div className="pointer-events-auto relative isolate flex flex-col items-center gap-1.5 overflow-visible rounded-[28px] border border-white/10 bg-[#232429]/80 px-2.5 py-2.5 shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl">
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-5 left-0 w-px bg-gradient-to-b from-transparent via-primary/60 to-transparent shadow-[0_0_14px_hsl(var(--primary)/0.55)]"
+          className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
+        />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-8 right-0 w-px bg-gradient-to-b from-transparent via-primary/80 to-transparent shadow-[0_0_22px_hsl(var(--primary)/0.9)]"
+        />
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-10 -right-4 -z-10 w-8 rounded-full bg-primary/25 blur-2xl"
         />
         {leftDockItems.map((item) => {
           const Icon = item.icon;
@@ -74,11 +81,14 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
           return (
             <Tooltip key={item.key}>
               <TooltipTrigger asChild>
-                <Button
+                <button
                   aria-label={item.tooltip}
                   className={cn(
-                    "group/leftdock relative h-[68px] w-[68px] flex-col gap-1.5 overflow-visible rounded-xl border border-primary/25 bg-primary px-1.5 py-2 text-white shadow-[0_10px_22px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.16)] transition-all duration-200 hover:-translate-y-0.5 hover:border-white/25 hover:bg-primary hover:text-white hover:shadow-[0_0_22px_hsl(var(--primary)/0.44),inset_0_0_18px_rgba(255,255,255,0.12)] active:scale-95",
-                    isActive && "border-white/35 shadow-[0_0_22px_hsl(var(--primary)/0.48),inset_0_0_18px_rgba(255,255,255,0.14)]",
+                    "group/leftdock relative isolate flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 px-1.5 py-2 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-[68px] sm:w-[74px]",
+                    "hover:-translate-y-1 hover:border-[#006d8f]/60 hover:text-primary hover:shadow-[0_0_22px_rgba(0,109,143,0.36),inset_0_0_24px_hsl(var(--primary)/0.28)]",
+                    "active:scale-95",
+                    isActive &&
+                      "h-16 w-16 -translate-y-1 scale-[1.04] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)] sm:h-[78px] sm:w-[88px]",
                   )}
                   data-map-control="true"
                   onClick={() => {
@@ -91,16 +101,32 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                     setSelectedDockDepartmentIds([]);
                     openPanel(item.key);
                   }}
-                  size="sm"
                   type="button"
-                  variant="default"
                 >
                   <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 -left-10 w-7 rotate-12 bg-white/35 opacity-0 blur-[1px] transition-all duration-500 group-hover/leftdock:left-[118%] group-hover/leftdock:opacity-100"
+                    className={cn(
+                      "pointer-events-none absolute -inset-3 -z-10 rounded-[24px] bg-primary/0 opacity-0 blur-2xl transition-all duration-200",
+                      "group-hover/leftdock:bg-primary/30 group-hover/leftdock:opacity-100",
+                      isActive && "bg-primary/40 opacity-100",
+                    )}
                   />
-                  <Icon className="relative z-10 size-5" />
-                  <span className="relative z-10 max-w-[58px] truncate text-[11px] font-semibold leading-none text-white">
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
+                  />
+                  <LeftDockIcon
+                    icon={Icon}
+                    id={item.key}
+                    isActive={isActive}
+                  />
+                  <span
+                    className={cn(
+                      "relative z-10 max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200",
+                      "group-hover/leftdock:text-primary group-hover/leftdock:drop-shadow-[0_0_7px_rgba(165,243,252,0.6)]",
+                      isActive && "text-primary drop-shadow-[0_0_9px_rgba(165,243,252,0.85)]",
+                    )}
+                  >
                     {item.label}
                   </span>
                   {badgeCount > 0 ? (
@@ -113,7 +139,13 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                       {badgeCount > 9 ? "9+" : badgeCount}
                     </span>
                   ) : null}
-                </Button>
+                  {isActive ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute -right-1 top-1/2 h-9 w-1 -translate-y-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)]"
+                    />
+                  ) : null}
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right">
                 {item.tooltip}
@@ -131,5 +163,69 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
         </style>
       </div>
     </nav>
+  );
+}
+
+function LeftDockIcon({
+  icon: Icon,
+  id,
+  isActive,
+}: {
+  icon: LucideIcon;
+  id: string;
+  isActive: boolean;
+}) {
+  const gradientId = `left-dock-icon-gradient-${id}`;
+  const shineId = `left-dock-icon-shine-${id}`;
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "relative z-10 grid size-6 place-items-center text-primary transition-all duration-200 group-hover/leftdock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)]",
+        isActive && "drop-shadow-[0_0_15px_rgba(165,243,252,0.95)]",
+      )}
+    >
+      <svg aria-hidden="true" className="absolute size-0">
+        <defs>
+          <linearGradient
+            id={gradientId}
+            x1="15%"
+            x2="86%"
+            y1="2%"
+            y2="94%"
+          >
+            <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
+            <stop offset="26%" stopColor="rgba(136,224,255,0.82)" />
+            <stop offset="58%" stopColor="rgb(0,109,143)" />
+            <stop offset="100%" stopColor="rgba(1,28,40,0.7)" />
+          </linearGradient>
+          <radialGradient cx="30%" cy="18%" id={shineId} r="62%">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.98)" />
+            <stop offset="34%" stopColor="rgba(255,255,255,0.42)" />
+            <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+          </radialGradient>
+        </defs>
+      </svg>
+      <Icon
+        className="absolute inset-0 size-6 text-primary opacity-95"
+        strokeWidth={2.35}
+      />
+      <Icon
+        className="absolute inset-0 size-6 opacity-80 mix-blend-screen"
+        color={`url(#${gradientId})`}
+        strokeWidth={2.35}
+      />
+      <Icon
+        className="absolute inset-0 size-6 opacity-75 mix-blend-screen"
+        color={`url(#${shineId})`}
+        strokeWidth={1.8}
+      />
+      <Icon
+        className="absolute inset-0 size-6 translate-y-px opacity-35"
+        color="rgba(0,0,0,0.44)"
+        strokeWidth={2.35}
+      />
+    </span>
   );
 }

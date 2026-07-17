@@ -41,6 +41,7 @@ import { cn } from "@/lib/utils"
 
 import { startOutsourceJobAction } from "../actions/start-outsource-job-action"
 import { updateDepartmentWorkloadPriorityAction } from "../actions/update-department-workload-priority-action"
+import styles from "./department-queue-panel.module.css"
 import type {
   GameDepartmentQueueView,
   GameProductionQueuesView,
@@ -559,8 +560,13 @@ function DepartmentQueueCard({
         )}
       >
         <div className="flex items-center gap-1 lg:block">
-          <SortableItemHandle className="size-7 text-muted-foreground hover:bg-muted hover:text-foreground">
-            <GripVertical size={15} />
+          <SortableItemHandle
+            className={cn(
+              "size-7 text-muted-foreground hover:bg-muted hover:text-primary",
+              styles.dragHandleHint,
+            )}
+          >
+            <GripVertical className={styles.dragHandleIcon} size={15} />
           </SortableItemHandle>
           <span className="text-[11px] font-semibold tabular-nums text-muted-foreground lg:mt-1 lg:block lg:text-center">
             {index + 1}

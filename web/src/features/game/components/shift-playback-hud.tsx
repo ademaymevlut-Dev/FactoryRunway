@@ -125,12 +125,14 @@ export function ShiftPlaybackHud() {
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {activeShiftPlayback.departmentResults.map((department) => (
               <ShiftDepartmentCard
-                department={department}
-                efficiencyBps={
+                throughputBps={
                   isFinal
-                    ? department.performance.efficiencyBps
-                    : Math.round(department.performance.efficiencyBps * progress)
+                    ? getDepartmentThroughputBps(department)
+                    : Math.round(
+                        getDepartmentThroughputBps(department) * progress,
+                      )
                 }
+                department={department}
                 isFinal={isFinal}
                 key={department.departmentId}
                 producedQuantity={getShiftQuantityAtMinute(
@@ -152,6 +154,22 @@ export function ShiftPlaybackHud() {
         </div>
       </div>
     </aside>
+  );
+}
+
+function getDepartmentThroughputBps(
+  department: ShiftPlayback["departmentResults"][number],
+) {
+  const nominalCapacity = Math.max(0, department.performance.nominalCapacityPoints);
+
+  if (nominalCapacity <= 0) return 0;
+
+  return Math.max(
+    0,
+    Math.min(
+      10_000,
+      Math.round((department.performance.usedPoints * 10_000) / nominalCapacity),
+    ),
   );
 }
 

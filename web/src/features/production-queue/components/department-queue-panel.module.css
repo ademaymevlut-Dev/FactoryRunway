@@ -1,0 +1,49 @@
+.dragHandleHint {
+  animation: queueDragHandleGlow 2.8s ease-in-out infinite;
+}
+
+.dragHandleIcon {
+  animation: queueDragGripColor 2.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes queueDragGripColor {
+  0%,
+  100% {
+    color: var(--muted-foreground);
+    filter: drop-shadow(0 0 0 transparent);
+    transform: translate3d(0, 0, 0);
+  }
+
+  42% {
+    color: var(--primary);
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--primary) 58%, transparent));
+    transform: translate3d(0, -1px, 0);
+  }
+
+  58% {
+    color: var(--primary);
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--primary) 48%, transparent));
+    transform: translate3d(0, 1px, 0);
+  }
+}
+
+@keyframes queueDragHandleGlow {
+  0%,
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+
+  50% {
+    background: color-mix(in srgb, var(--primary) 9%, transparent);
+    box-shadow: 0 0 16px color-mix(in srgb, var(--primary) 16%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dragHandleHint,
+  .dragHandleIcon {
+    animation: none;
+  }
+}

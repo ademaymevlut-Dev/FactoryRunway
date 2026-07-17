@@ -1,4 +1,7 @@
 import {
+  ChaosEventType,
+  ChaosScope,
+  ChaosSeverity,
   FinanceCategory,
   FinanceDueStatus,
   FinanceSourceType,
@@ -18,6 +21,13 @@ import type {
 } from "../types";
 
 type ProjectionClient = Prisma.TransactionClient | PrismaClient;
+
+type TimelineEventDraft = Omit<
+  ShiftPlaybackTimelineEvent,
+  "gameDay" | "id" | "sequence"
+> & {
+  id?: string;
+};
 
 type ProductLineResultRow = {
   departmentId: string;
@@ -62,6 +72,28 @@ type XpTransactionRow = {
   reason: XpReason;
   sourceId: string | null;
   sourceType: string | null;
+};
+
+type ChaosEventRow = {
+  affectedStaffCount: number | null;
+  department: {
+    key: string;
+    translations: Array<{ name: string }>;
+  } | null;
+  eventType: ChaosEventType;
+  factoryProductionLine: {
+    lineNumber: number;
+    department: {
+      key: string;
+      translations: Array<{ name: string }>;
+    };
+  } | null;
+  id: string;
+  messageKey: string | null;
+  metadata: Prisma.JsonValue | null;
+  penaltyBps: number;
+  scope: ChaosScope;
+  severity: ChaosSeverity;
 };
 
 export async function getShiftProductResults(input: {
@@ -166,8 +198,9 @@ export async function getShiftDepartmentPerformance(input: {
     select: {
       departmentId: true,
       effectivePointCapacity: true,
+      factoryProductionLineId: true,
       inputReadyQuantity: true,
-      plannedPointCapacity: true,
+      templateDailyPointCapacity: true,
       unusedPoints: true,
       usedPoints: true,
       workloadPointsPerUnit: true,
@@ -177,11 +210,14 @@ export async function getShiftDepartmentPerformance(input: {
     string,
     ShiftPlayback["departmentResults"][number]["performance"]
   >();
+  const nominalLineIdsByDepartmentId = new Map<string, Set<string>>();
 
   for (const result of lineResults) {
     const current =
       performanceByDepartmentId.get(result.departmentId) ??
       createEmptyDepartmentPerformance();
+    const nominalLineIds =
+      nominalLineIdsByDepartmentId.get(result.departmentId) ?? new Set<string>();
     const queueLoadPoints =
       Math.max(0, result.inputReadyQuantity) *
       Math.max(0, result.workloadPointsPerUnit ?? 0);
@@ -190,12 +226,19 @@ export async function getShiftDepartmentPerformance(input: {
       0,
       result.effectivePointCapacity,
     );
-    current.nominalCapacityPoints += Math.max(0, result.plannedPointCapacity);
+    if (!nominalLineIds.has(result.factoryProductionLineId)) {
+      current.nominalCapacityPoints += Math.max(
+        0,
+        result.templateDailyPointCapacity,
+      );
+      nominalLineIds.add(result.factoryProductionLineId);
+    }
     current.queueLoadPoints += queueLoadPoints;
     current.unusedPoints += Math.max(0, result.unusedPoints);
     current.usedPoints += Math.max(0, result.usedPoints);
 
     performanceByDepartmentId.set(result.departmentId, current);
+    nominalLineIdsByDepartmentId.set(result.departmentId, nominalLineIds);
   }
 
   for (const performance of performanceByDepartmentId.values()) {
@@ -240,6 +283,7 @@ export async function getShiftTimelineEvents(input: {
     shippedOrders,
     outsourceJobs,
     completedLeasingContracts,
+    chaosEvents,
     xpTransactions,
   ] =
     await Promise.all([
@@ -338,6 +382,47 @@ export async function getShiftTimelineEvents(input: {
           totalCostCents: true,
         },
       }),
+      input.prisma.factoryChaosEvent.findMany({
+        where: {
+          factoryId: input.factoryId,
+          gameDay: input.gameDay,
+          shiftSimulationId: input.shift.shiftId,
+        },
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: {
+          affectedStaffCount: true,
+          department: {
+            select: {
+              key: true,
+              translations: {
+                where: { locale: "tr" },
+                select: { name: true },
+              },
+            },
+          },
+          eventType: true,
+          factoryProductionLine: {
+            select: {
+              lineNumber: true,
+              department: {
+                select: {
+                  key: true,
+                  translations: {
+                    where: { locale: "tr" },
+                    select: { name: true },
+                  },
+                },
+              },
+            },
+          },
+          id: true,
+          messageKey: true,
+          metadata: true,
+          penaltyBps: true,
+          scope: true,
+          severity: true,
+        },
+      }),
       input.prisma.factoryXpTransaction.findMany({
         where: {
           factoryId: input.factoryId,
@@ -376,11 +461,7 @@ export async function getShiftTimelineEvents(input: {
 
   const events: ShiftPlaybackTimelineEvent[] = [];
   let sequence = 0;
-  const add = (
-    event: Omit<ShiftPlaybackTimelineEvent, "gameDay" | "id" | "sequence"> & {
-      id?: string;
-    },
-  ) => {
+  const add = (event: TimelineEventDraft) => {
     sequence += 1;
     events.push({
       gameDay: input.gameDay,
@@ -402,6 +483,10 @@ export async function getShiftTimelineEvents(input: {
     sourceId: input.shift.shiftId,
     sourceType: "SHIFT_SIMULATION",
   });
+
+  for (const chaosEvent of chaosEvents) {
+    add(chaosEventToTimelineEvent(chaosEvent));
+  }
 
   for (const department of input.shift.departmentResults) {
     const sourceId = `${input.shift.shiftId}:${department.departmentId}`;
@@ -670,9 +755,124 @@ function getProductImageUrl(
   return frontThumbnail?.url ?? frontCard?.url ?? thumbnail?.url ?? card?.url ?? null;
 }
 
+function chaosEventToTimelineEvent(chaosEvent: ChaosEventRow): TimelineEventDraft & {
+  id: string;
+} {
+  const departmentName = getChaosDepartmentName(chaosEvent);
+  const lineLabel = chaosEvent.factoryProductionLine
+    ? `Hat ${chaosEvent.factoryProductionLine.lineNumber}`
+    : null;
+
+  return {
+    category: chaosEventTypeToTimelineCategory(chaosEvent.eventType),
+    eventKey: chaosEvent.messageKey ?? chaosEventTypeToEventKey(chaosEvent.eventType),
+    id: `chaos:${chaosEvent.id}`,
+    minute: getChaosEventMinute(chaosEvent),
+    payload: {
+      affectedStaffCount: chaosEvent.affectedStaffCount,
+      capacityLossBps: Math.max(0, 10_000 - chaosEvent.penaltyBps),
+      departmentName,
+      eventType: chaosEvent.eventType,
+      lineLabel,
+      penaltyBps: chaosEvent.penaltyBps,
+      scope: chaosEvent.scope,
+    },
+    severity: chaosSeverityToTimelineSeverity(chaosEvent.severity),
+    sourceId: chaosEvent.id,
+    sourceType: "FACTORY_CHAOS_EVENT",
+  };
+}
+
+function getChaosDepartmentName(chaosEvent: ChaosEventRow) {
+  const department =
+    chaosEvent.department ?? chaosEvent.factoryProductionLine?.department ?? null;
+
+  if (!department) return null;
+
+  return department.translations[0]?.name ?? toTitle(department.key);
+}
+
+function getChaosEventMinute(chaosEvent: ChaosEventRow) {
+  const metadata = isJsonRecord(chaosEvent.metadata) ? chaosEvent.metadata : {};
+  const targetMinute =
+    typeof metadata.targetMinute === "number" && Number.isFinite(metadata.targetMinute)
+      ? Math.round(metadata.targetMinute)
+      : chaosEventTypeToDefaultMinute(chaosEvent.eventType);
+
+  return Math.min(520, Math.max(5, targetMinute));
+}
+
+function chaosEventTypeToTimelineCategory(
+  eventType: ChaosEventType,
+): ShiftPlaybackTimelineEvent["category"] {
+  switch (eventType) {
+    case ChaosEventType.MACHINE_BREAKDOWN:
+      return "MACHINE";
+    case ChaosEventType.POWER_ISSUE:
+    case ChaosEventType.MATERIAL_DELAY:
+      return "SYSTEM";
+    case ChaosEventType.STAFF_ABSENCE:
+    case ChaosEventType.FLU_WAVE:
+    case ChaosEventType.BAD_WEATHER:
+    default:
+      return "STAFF";
+  }
+}
+
+function chaosSeverityToTimelineSeverity(
+  severity: ChaosSeverity,
+): ShiftPlaybackTimelineEvent["severity"] {
+  switch (severity) {
+    case ChaosSeverity.MAJOR:
+      return "CRITICAL";
+    case ChaosSeverity.MINOR:
+    case ChaosSeverity.MODERATE:
+    default:
+      return "WARNING";
+  }
+}
+
+function chaosEventTypeToDefaultMinute(eventType: ChaosEventType) {
+  switch (eventType) {
+    case ChaosEventType.BAD_WEATHER:
+      return 35;
+    case ChaosEventType.FLU_WAVE:
+      return 55;
+    case ChaosEventType.STAFF_ABSENCE:
+      return 70;
+    case ChaosEventType.MATERIAL_DELAY:
+      return 110;
+    case ChaosEventType.MACHINE_BREAKDOWN:
+      return 150;
+    case ChaosEventType.POWER_ISSUE:
+      return 210;
+    default:
+      return 90;
+  }
+}
+
+function chaosEventTypeToEventKey(eventType: ChaosEventType) {
+  switch (eventType) {
+    case ChaosEventType.STAFF_ABSENCE:
+      return "chaos.staff_absence";
+    case ChaosEventType.MACHINE_BREAKDOWN:
+      return "chaos.machine_breakdown";
+    case ChaosEventType.FLU_WAVE:
+      return "chaos.flu_wave";
+    case ChaosEventType.BAD_WEATHER:
+      return "chaos.bad_weather";
+    case ChaosEventType.POWER_ISSUE:
+      return "chaos.power_issue";
+    case ChaosEventType.MATERIAL_DELAY:
+      return "chaos.material_delay";
+    default:
+      return "chaos.event";
+  }
+}
+
 function financeTransactionToEvent(
   transaction: FinanceTransactionRow,
-): Omit<ShiftPlaybackTimelineEvent, "gameDay" | "id" | "sequence"> & {
+): TimelineEventDraft & {
   id: string;
 } | null {
   const metadata = isJsonRecord(transaction.metadata) ? transaction.metadata : {};
@@ -771,7 +971,7 @@ function financeTransactionToEvent(
 
 function xpTransactionToEvent(
   transaction: XpTransactionRow,
-): Omit<ShiftPlaybackTimelineEvent, "gameDay" | "id" | "sequence"> & {
+): TimelineEventDraft & {
   id: string;
 } {
   const metadata = isJsonRecord(transaction.metadata) ? transaction.metadata : {};

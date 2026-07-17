@@ -35,9 +35,11 @@ test("departman kartları kontrollü CountUp hedefi ve final kesinliği kullanı
   assert.match(card, /getActiveProductPreview/);
   assert.doesNotMatch(card, /Başlangıç|Kalan/);
   assert.doesNotMatch(card, /fadeOutProgress/);
-  assert.match(card, /efficiencyBps: number/);
+  assert.match(card, /throughputBps: number/);
   assert.doesNotMatch(card, /%\\{efficiency\\}/);
-  assert.match(hud, /department\.performance\.efficiencyBps \* progress/);
+  assert.match(hud, /getDepartmentThroughputBps\(department\) \* progress/);
+  assert.match(hud, /department\.performance\.usedPoints \* 10_000/);
+  assert.match(hud, /department\.performance\.nominalCapacityPoints/);
   assert.match(countUp, /useReducedMotion/);
   assert.match(countUp, /springValue\.jump\(target\)/);
 });
@@ -70,4 +72,11 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.match(panel, /xp\.shift_completed/);
   assert.match(panel, /formatFinanceCategory\(payload\.category\)/);
   assert.match(panel, /getEventVisualClass/);
+  assert.match(panel, /User,/);
+  assert.match(panel, /Wrench,/);
+  assert.match(panel, /event\.category === "STAFF"/);
+  assert.match(panel, /event\.category === "MACHINE"/);
+  assert.match(panel, /chaos\.staff_absence\.minor/);
+  assert.match(panel, /chaos\.machine\.minor_issue/);
+  assert.match(panel, /renderChaosDescription/);
 });

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed:customers": "tsx prisma/seed-customers.ts",
+    "seed:chaos-events": "tsx prisma/seed-chaos-event-configs.ts",
     "seed:market-rules": "tsx prisma/seed-market-offer-rules.ts",
     "seed:leasing-offers": "node --import tsx --env-file=.env.local prisma/seed-production-line-leasing-offers.ts",
     "seed:player-levels": "tsx prisma/seed-player-level-configs.ts",

@@ -13,7 +13,26 @@ test("üst HUD nakitten sonra XP metriğini üretir", () => {
 
   assert.ok(cashIndex >= 0);
   assert.ok(xpIndex > cashIndex);
+  assert.match(snapshot, /label: "Tecrübe"/);
   assert.match(snapshot, /value: `\$\{formatNumber\(factory\.currentXp\)\} XP`/);
+});
+
+test("üst HUD gün metriğini oyun ayı ve yılı ile gösterir", () => {
+  const snapshot = readSource("./services/game-snapshot.ts");
+
+  assert.match(snapshot, /value: formatNumber\(factory\.currentDay\)/);
+  assert.match(snapshot, /subLabel: formatGameMonthYearLabel\(factory\.currentDay\)/);
+  assert.match(snapshot, /getFinancePeriod\(\{ currentDay \}\)/);
+  assert.match(snapshot, /"Mayıs"/);
+  assert.match(snapshot, /\$\{monthName\} - \$\{period\.yearIndex\}\. Yıl/);
+
+  const statusBar = readSource("./components/top-status-bar.tsx");
+
+  assert.match(statusBar, /metric\.id === "day" \|\| numericValue === null/);
+  assert.match(statusBar, /\{displayValue\}/);
+  assert.match(statusBar, /isDayMetric/);
+  assert.match(statusBar, /\{metric\.subLabel\}/);
+  assert.match(statusBar, /text-primary/);
 });
 
 test("üst HUD metrik değişimlerini ve level artışını inline animasyonla gösterir", () => {

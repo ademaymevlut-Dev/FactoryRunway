@@ -27,6 +27,10 @@ import {
   markAutomaticProductionPlanExecuted,
 } from "./automatic-production-allocation";
 import {
+  buildLineEventPenaltyBpsMap,
+  generateFactoryChaosEvents,
+} from "./chaos-events";
+import {
   calculateEffectiveLinePointCapacity,
   getLineStaffCoverageBps,
 } from "./production-capacity";
@@ -69,6 +73,7 @@ type ProductionLineForSimulation = {
   lineNumber: number;
   sortOrder: number;
   conditionBps: number;
+  eventPenaltyBps: number;
   assignedStaffQuantity: number;
   requiredStaffQuantity: number;
   productionLineTemplate: {
@@ -126,6 +131,7 @@ type DailyLineResult = {
   blockedReason: string | null;
   conditionBps: number;
   departmentId: string;
+  eventPenaltyBps: number;
   effectivePointCapacity: number;
   inputReadyQuantity: number;
   line: ProductionLineForSimulation;
@@ -320,13 +326,14 @@ export async function simulateFactoryDay(input: {
       },
     },
   }).then((items) => items.filter((item) => getAvailableQuantity(item) > 0));
-  const simulationLines = factory.productionLines.map((line) => ({
+  let simulationLines = factory.productionLines.map((line) => ({
     assignedStaffQuantity: line.staffAssignments.reduce(
       (total, assignment) => total + assignment.quantity,
       0,
     ),
     conditionBps: line.conditionBps,
     departmentId: line.departmentId,
+    eventPenaltyBps: 10_000,
     id: line.id,
     lineNumber: line.lineNumber,
     productionLineTemplate: {
@@ -340,6 +347,35 @@ export async function simulateFactoryDay(input: {
       ),
     sortOrder: line.sortOrder,
   }));
+  const totalStaffCount = await getTotalActiveStaffCount({
+    factoryId: factory.id,
+    prisma,
+  });
+
+  const chaosGeneration = await generateFactoryChaosEvents({
+    factoryId: factory.id,
+    gameDay: simulatedGameDay,
+    prisma,
+    productionLines: simulationLines.map((line) => ({
+      departmentId: line.departmentId,
+      id: line.id,
+    })),
+    sectorId: factory.sectorId,
+    shiftSimulationId: shiftSimulation.id,
+    totalStaffCount,
+  });
+  const eventPenaltyBpsByLineId = buildLineEventPenaltyBpsMap({
+    events: chaosGeneration.events,
+    productionLines: simulationLines.map((line) => ({
+      departmentId: line.departmentId,
+      id: line.id,
+    })),
+  });
+  simulationLines = simulationLines.map((line) => ({
+    ...line,
+    eventPenaltyBps: eventPenaltyBpsByLineId.get(line.id) ?? 10_000,
+  }));
+
   const automaticPlan = await createLockedAutomaticProductionPlan({
     factoryId: factory.id,
     gameDay: simulatedGameDay,
@@ -756,6 +792,7 @@ function simulateLineAllocation({
     blockedReason: null,
     conditionBps: line.conditionBps,
     departmentId: line.departmentId,
+    eventPenaltyBps: line.eventPenaltyBps,
     effectivePointCapacity,
     inputReadyQuantity: availableQuantity,
     line,
@@ -789,6 +826,7 @@ function buildIdleLineResult(line: ProductionLineForSimulation): DailyLineResult
     blockedReason: null,
     conditionBps: line.conditionBps,
     departmentId: line.departmentId,
+    eventPenaltyBps: line.eventPenaltyBps,
     effectivePointCapacity,
     inputReadyQuantity: 0,
     line,
@@ -850,6 +888,7 @@ function buildShiftLineResults({
     blockedReason: result.blockedReason,
     conditionBps: result.conditionBps,
     departmentId: result.departmentId,
+    eventPenaltyBps: result.eventPenaltyBps,
     effectivePointCapacity: result.effectivePointCapacity,
     factoryId,
     factoryProductionLineId: result.line.id,
@@ -1534,8 +1573,24 @@ function getEffectivePointCapacity(line: ProductionLineForSimulation) {
   return calculateEffectiveLinePointCapacity({
     conditionBps: line.conditionBps,
     dailyPointCapacity: line.productionLineTemplate.dailyPointCapacity,
+    eventPenaltyBps: line.eventPenaltyBps,
     staffCoverageBps: getLineStaffCoverageBps(line),
   });
+}
+
+async function getTotalActiveStaffCount(input: {
+  factoryId: string;
+  prisma: DaySimulationClient;
+}) {
+  const result = await input.prisma.factoryStaffAssignment.aggregate({
+    _sum: { quantity: true },
+    where: {
+      factoryId: input.factoryId,
+      status: "ACTIVE",
+    },
+  });
+
+  return result._sum.quantity ?? 0;
 }
 
 export function buildAllocationMap(

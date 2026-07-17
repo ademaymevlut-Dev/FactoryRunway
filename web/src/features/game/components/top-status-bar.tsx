@@ -314,6 +314,11 @@ function AnimatedMetric({
     numericValue !== null &&
     metric.id !== "day" &&
     Boolean(transition.change);
+  const displayValue =
+    metric.id === "day" || numericValue === null
+      ? metric.value
+      : formatNumber(transition.displayValue);
+  const isDayMetric = metric.id === "day";
 
   return (
     <MetricFrame
@@ -321,11 +326,16 @@ function AnimatedMetric({
       icon={icon}
       label={metric.label}
     >
-      <strong className="block truncate font-mono text-sm font-semibold leading-tight tabular-nums text-white">
-        {numericValue === null
-          ? metric.value
-          : formatNumber(transition.displayValue)}
+      <strong
+        className="block truncate font-mono text-sm font-semibold leading-tight tabular-nums text-white"
+      >
+        {displayValue}
       </strong>
+      {isDayMetric ? (
+        <span className="mt-0.5 block truncate text-[10px] font-semibold leading-tight text-primary">
+          {metric.subLabel}
+        </span>
+      ) : null}
     </MetricFrame>
   );
 }

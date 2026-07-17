@@ -18,6 +18,7 @@ import {
 import { getOrderMarketView } from "@/features/orders/services/order-market-view";
 import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
 import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
+import { getFinancePeriod } from "@/features/finance/services/finance-period";
 import { getPrisma } from "@/lib/db";
 import {
   buildFactoryLevelProgress,
@@ -1370,7 +1371,7 @@ function buildMetrics({
     },
     {
       id: "xp",
-      label: "XP",
+      label: "Tecrübe",
       value: `${formatNumber(factory.currentXp)} XP`,
       subLabel:
         factory.levelProgress.nextLevel === null
@@ -1381,8 +1382,8 @@ function buildMetrics({
     {
       id: "day",
       label: "Gün",
-      value: `${factory.currentDay}. Gün`,
-      subLabel: factory.operatingStageName,
+      value: formatNumber(factory.currentDay),
+      subLabel: formatGameMonthYearLabel(factory.currentDay),
       tone: "amber",
     },
     {
@@ -1589,6 +1590,30 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("tr-TR", {
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+const gameMonthNames = [
+  "Ocak",
+  "Şubat",
+  "Mart",
+  "Nisan",
+  "Mayıs",
+  "Haziran",
+  "Temmuz",
+  "Ağustos",
+  "Eylül",
+  "Ekim",
+  "Kasım",
+  "Aralık",
+] as const;
+
+function formatGameMonthYearLabel(currentDay: number) {
+  const period = getFinancePeriod({ currentDay });
+  const monthName =
+    gameMonthNames[Math.max(0, Math.min(11, period.monthInYear - 1))] ??
+    "Ocak";
+
+  return `${monthName} - ${period.yearIndex}. Yıl`;
 }
 
 function formatGrade(grade: ProductionGrade) {
