@@ -1,31 +1,17 @@
+import { calculateRouteProgressQuantities } from "@/features/game/services/route-progress-availability"
+
 export function calculateQueueQuantities(input: {
   completedQuantity: number
   inOutsourceQuantity: number
   inputReadyQuantity: number
   plannedQuantity: number
 }) {
-  const plannedQuantity = Math.max(0, input.plannedQuantity)
-  const completedQuantity = Math.min(
-    plannedQuantity,
-    Math.max(0, input.completedQuantity),
-  )
-  const inputReadyQuantity = Math.min(
-    plannedQuantity,
-    Math.max(completedQuantity, input.inputReadyQuantity),
-  )
-  const remainingQuantity = Math.max(0, plannedQuantity - completedQuantity)
-  const queueRemainingQuantity = Math.max(
-    0,
-    Math.min(
-      remainingQuantity,
-      inputReadyQuantity - completedQuantity - Math.max(0, input.inOutsourceQuantity),
-    ),
-  )
+  const quantities = calculateRouteProgressQuantities(input)
 
   return {
-    completedQuantity,
-    inputReadyQuantity,
-    queueRemainingQuantity,
-    remainingQuantity,
+    completedQuantity: quantities.completedQuantity,
+    inputReadyQuantity: quantities.inputReadyQuantity,
+    queueRemainingQuantity: quantities.internalAvailableQuantity,
+    remainingQuantity: quantities.remainingQuantity,
   }
 }

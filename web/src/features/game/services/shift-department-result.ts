@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { calculateRouteProgressQuantities } from "./route-progress-availability";
 
 export const SHIFT_GAME_DURATION_MINUTES = 540;
 
@@ -41,15 +42,7 @@ export function getAvailableQuantity(input: {
   inputReadyQuantity: number;
   plannedQuantity: number;
 }) {
-  return Math.max(
-    0,
-    Math.min(
-      input.plannedQuantity - input.completedQuantity,
-      input.inputReadyQuantity -
-        input.completedQuantity -
-        input.inOutsourceQuantity,
-    ),
-  );
+  return calculateRouteProgressQuantities(input).internalAvailableQuantity;
 }
 
 export function addDepartmentQueueEntry(

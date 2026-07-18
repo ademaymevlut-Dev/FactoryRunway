@@ -116,6 +116,9 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
       return (
         <DepartmentQueuePanel
           departmentKeys={dockItem?.departmentKeys ?? []}
+          investmentDepartmentIds={snapshot.investment.departments
+            .filter((department) => department.templates.length > 0)
+            .map((department) => department.id)}
           queues={snapshot.productionQueues}
         />
       );
@@ -128,6 +131,9 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     render: ({ snapshot }) => (
       <DepartmentQueuePanel
         departmentKeys={["cutting"]}
+        investmentDepartmentIds={snapshot.investment.departments
+          .filter((department) => department.templates.length > 0)
+          .map((department) => department.id)}
         queues={snapshot.productionQueues}
       />
     ),

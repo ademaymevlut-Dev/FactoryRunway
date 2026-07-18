@@ -8,7 +8,6 @@ import {
   Prisma,
   ProductionOrderStatus,
   ProductionPlanStatus,
-  RouteProcessingMode,
   RouteProgressStatus,
   ShiftSimulationStatus,
 } from "@/generated/prisma/client";
@@ -103,11 +102,11 @@ export async function updateDepartmentWorkloadPriorityAction(
                 departmentId: department.id,
                 factoryId: factory.id,
                 id: { in: orderedRouteProgressIds },
-                processingMode: RouteProcessingMode.INTERNAL,
                 status: {
                   in: [
                     RouteProgressStatus.READY,
                     RouteProgressStatus.IN_PROGRESS,
+                    RouteProgressStatus.WAITING_OUTSOURCE,
                   ],
                 },
               },

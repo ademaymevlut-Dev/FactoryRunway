@@ -12,6 +12,7 @@ import {
   calculateEffectiveLinePointCapacity,
   getLineStaffCoverageBps,
 } from "@/features/game/services/production-capacity"
+import { calculateRouteProgressQuantities } from "@/features/game/services/route-progress-availability"
 import type { AutomaticAllocationLine } from "@/features/game/services/production-allocation-math"
 import { getPrisma } from "@/lib/db"
 
@@ -327,7 +328,12 @@ export async function getProductionQueuesView(input: {
       inputReadyQuantity: getReconciledInputReadyQuantity(progress),
     }
 
-    if (getAvailableQuantity(reconciledProgress) <= 0) continue
+    if (
+      calculateRouteProgressQuantities(reconciledProgress)
+        .internalAvailableQuantity <= 0
+    ) {
+      continue
+    }
 
     const current = progressByDepartmentId.get(reconciledProgress.departmentId) ?? []
     current.push(reconciledProgress)
@@ -499,13 +505,14 @@ function toDepartmentQueue(input: {
   })
   const items =
     input.capacity.activeLineCount > 0
+      ? allItems
+      : []
+  const outsourceCandidates =
+    input.capacity.activeLineCount === 0
       ? allItems.filter(
-          (item) => item.processingMode === RouteProcessingMode.INTERNAL,
+          (item) => item.canOutsource && item.outsourceOptions.length > 0,
         )
       : []
-  const outsourceCandidates = allItems.filter(
-    (item) => item.canOutsource && item.outsourceOptions.length > 0,
-  )
   const totalOrderQuantity = allItems.reduce(
     (total, item) => total + item.orderQuantity,
     0,
@@ -673,6 +680,7 @@ function toOutsourceOptionView(input: {
     costMultiplierBps: input.config.costMultiplierBps,
     costPerUnitCents,
     costPerUnitLabel: `${formatMoney(costPerUnitCents, input.currencyCode)} / adet`,
+    currencyCode: input.currencyCode,
     delayRiskBps: input.config.delayRiskBps,
     description: presentation.description,
     id: input.config.id,
@@ -798,21 +806,6 @@ function getReconciledInputReadyQuantity(
     progress.completedQuantity,
     progress.inputReadyQuantity,
     Math.min(progress.plannedQuantity, upstreamCompletedQuantity),
-  )
-}
-
-function getAvailableQuantity(input: {
-  completedQuantity: number
-  inOutsourceQuantity: number
-  inputReadyQuantity: number
-  plannedQuantity: number
-}) {
-  return Math.max(
-    0,
-    Math.min(
-      input.plannedQuantity - input.completedQuantity,
-      input.inputReadyQuantity - input.completedQuantity - input.inOutsourceQuantity,
-    ),
   )
 }
 

@@ -1,242 +1,116 @@
-"use server"
+"use server";
 
-import { revalidatePath } from "next/cache"
-import { redirect } from "next/navigation"
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { OutsourceOptionType } from "@/generated/prisma/client";
+import { USER_ROLES } from "@/lib/auth/roles";
+import { getCurrentUser } from "@/lib/auth/session";
+import { getPrisma } from "@/lib/db";
 
 import {
-  ContentStatus,
-  FactoryProductionLineStatus,
-  OutsourceOptionType,
-  ProductionOrderStatus,
-  RouteProcessingMode,
-  RouteProgressStatus,
-} from "@/generated/prisma/client"
-import { USER_ROLES } from "@/lib/auth/roles"
-import { getCurrentUser } from "@/lib/auth/session"
-import { getPrisma } from "@/lib/db"
+  startOutsourceJob,
+  type StartOutsourceJobResult as ServiceResult,
+} from "../services/start-outsource-job";
 
-import { calculateOutsourceUnitCostCents } from "../services/outsource-cost"
+export type StartOutsourceJobActionInput = {
+  optionType: OutsourceOptionType;
+  quantity: number;
+  requestId: string;
+  routeProgressId: string;
+};
 
 export type StartOutsourceJobResult =
-  | {
-      ok: true
-      message: string
-    }
-  | {
-      ok: false
-      message: string
-    }
+  | { message: string; ok: true }
+  | { message: string; ok: false };
 
 export async function startOutsourceJobAction(
-  routeProgressId: string,
-  optionType: OutsourceOptionType,
+  input: StartOutsourceJobActionInput,
 ): Promise<StartOutsourceJobResult> {
-  const auth = await getCurrentUser()
+  const auth = await getCurrentUser();
 
-  if (!auth) redirect("/")
+  if (!auth) redirect("/");
   if (auth.role === USER_ROLES.ADMIN || auth.role === USER_ROLES.SUPER_ADMIN) {
-    redirect("/admin")
+    redirect("/admin");
   }
 
-  const normalizedRouteProgressId = routeProgressId.trim()
+  const routeProgressId = readIdentifier(input.routeProgressId);
+  const requestId = readIdentifier(input.requestId);
 
-  if (!normalizedRouteProgressId) {
-    return { message: "Fasona gönderilecek üretim kaydı bulunamadı.", ok: false }
+  if (
+    !routeProgressId ||
+    !requestId ||
+    !Number.isSafeInteger(input.quantity) ||
+    input.quantity <= 0 ||
+    !Object.values(OutsourceOptionType).includes(input.optionType)
+  ) {
+    return { message: "Fason üretim isteği doğrulanamadı.", ok: false };
   }
 
-  const prisma = getPrisma()
-  const playerProfile = await prisma.playerProfile.findUnique({
-    where: { userId: auth.id },
-    select: {
-      factories: {
-        orderBy: { createdAt: "desc" },
-        select: { id: true },
-        take: 1,
-      },
-    },
-  })
-  const factoryId = playerProfile?.factories[0]?.id
+  const prisma = getPrisma();
+  const factory = await prisma.factory.findFirst({
+    where: { playerProfile: { userId: auth.id } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
 
-  if (!factoryId) redirect("/onboarding")
+  if (!factory) redirect("/onboarding");
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      const factory = await tx.factory.findUniqueOrThrow({
-        where: { id: factoryId },
-        select: {
-          currentDay: true,
-          sectorId: true,
-        },
-      })
-      const progress = await tx.productionOrderRouteProgress.findFirst({
-        where: {
-          factoryId,
-          id: normalizedRouteProgressId,
-          isRequired: true,
-          remainingQuantity: { gt: 0 },
-        },
-        select: {
-          canOutsource: true,
-          completedQuantity: true,
-          departmentId: true,
-          inOutsourceQuantity: true,
-          inputReadyQuantity: true,
-          outsourceReadyDay: true,
-          plannedQuantity: true,
-          processingMode: true,
-          productionOrderId: true,
-          status: true,
-          workloadPointsPerUnit: true,
-          department: {
-            select: {
-              supportsOutsource: true,
-            },
-          },
-          productionOrder: {
-            select: {
-              productId: true,
-              productionNo: true,
-            },
-          },
-        },
-      })
+    const result = await startOutsourceJob({
+      job: {
+        factoryId: factory.id,
+        optionType: input.optionType,
+        quantity: input.quantity,
+        requestId,
+        routeProgressId,
+      },
+      prisma,
+      userId: auth.id,
+    });
 
-      if (!progress || !progress.canOutsource || !progress.department.supportsOutsource) {
-        throw new Error("Bu üretim aşaması fasona gönderilemez.")
-      }
+    if (!result.ok) return toActionFailure(result);
 
-      const availableQuantity = Math.max(
-        0,
-        Math.min(
-          progress.plannedQuantity - progress.completedQuantity,
-          progress.inputReadyQuantity -
-            progress.completedQuantity -
-            progress.inOutsourceQuantity,
-        ),
-      )
-
-      if (availableQuantity <= 0) {
-        throw new Error("Fasona gönderilmeye hazır adet bulunmuyor.")
-      }
-
-      const [config, activeLineCount] = await Promise.all([
-        tx.outsourceOptionConfig.findFirst({
-          where: {
-            departmentId: progress.departmentId,
-            optionType,
-            sectorId: factory.sectorId,
-            status: ContentStatus.ACTIVE,
-            baseCostPer1000PointsCents: { gt: 0 },
-          },
-          select: {
-            baseCostPer1000PointsCents: true,
-            costMultiplierBps: true,
-            delayRiskBps: true,
-            leadTimeDays: true,
-            qualityRiskBps: true,
-          },
-        }),
-        tx.factoryProductionLine.count({
-          where: {
-            departmentId: progress.departmentId,
-            factoryId,
-            status: {
-              in: [
-                FactoryProductionLineStatus.IDLE,
-                FactoryProductionLineStatus.RUNNING,
-              ],
-            },
-          },
-        }),
-      ])
-
-      if (!config) {
-        throw new Error("Seçilen fason teklifi aktif veya fiyatlı değil.")
-      }
-
-      const costPerUnitCents = calculateOutsourceUnitCostCents({
-        costMultiplierBps: config.costMultiplierBps,
-        costPer1000Points: config.baseCostPer1000PointsCents,
-        workloadPointsPerUnit: progress.workloadPointsPerUnit,
-      })
-      const totalCostCents =
-        BigInt(costPerUnitCents) * BigInt(availableQuantity)
-
-      const readyDay = factory.currentDay + config.leadTimeDays
-      const progressUpdate = await tx.productionOrderRouteProgress.updateMany({
-        where: {
-          completedQuantity: progress.completedQuantity,
-          id: normalizedRouteProgressId,
-          inOutsourceQuantity: progress.inOutsourceQuantity,
-          inputReadyQuantity: progress.inputReadyQuantity,
-        },
-        data: {
-          inOutsourceQuantity: { increment: availableQuantity },
-          outsourceReadyDay:
-            progress.outsourceReadyDay === null
-              ? readyDay
-              : Math.min(progress.outsourceReadyDay, readyDay),
-          processingMode:
-            activeLineCount === 0
-              ? RouteProcessingMode.OUTSOURCE
-              : progress.processingMode,
-          status: RouteProgressStatus.WAITING_OUTSOURCE,
-        },
-      })
-
-      if (progressUpdate.count !== 1) {
-        throw new Error("Üretim kaydı değişti; fason teklifini yeniden seçin.")
-      }
-
-      await tx.productionOutsourceJob.create({
-        data: {
-          costPerUnitCents,
-          delayRiskBps: config.delayRiskBps,
-          departmentId: progress.departmentId,
-          factoryId,
-          optionType,
-          productId: progress.productionOrder.productId,
-          productionOrderId: progress.productionOrderId,
-          productionOrderRouteProgressId: normalizedRouteProgressId,
-          qualityRiskBps: config.qualityRiskBps,
-          quantity: availableQuantity,
-          readyDay,
-          sentDay: factory.currentDay,
-          totalCostCents,
-          metadata: {
-            baseCostPer1000PointsCents: config.baseCostPer1000PointsCents,
-            costMultiplierBps: config.costMultiplierBps,
-            source: "department-queue",
-            workloadPointsPerUnit: progress.workloadPointsPerUnit,
-          },
-        },
-      })
-      await tx.productionOrder.update({
-        where: { id: progress.productionOrderId },
-        data: {
-          status:
-            activeLineCount === 0
-              ? ProductionOrderStatus.WAITING_OUTSOURCE
-              : ProductionOrderStatus.IN_PROGRESS,
-        },
-      })
-
-      return { availableQuantity, readyDay }
-    })
-
-    revalidatePath("/game")
+    revalidatePath("/game");
 
     return {
-      message: `${result.availableQuantity.toLocaleString("tr-TR")} adet fasona gönderildi. ${result.readyDay}. gün kapanışında dönecek.`,
+      message: result.alreadyStarted
+        ? `${formatNumber(result.quantity)} adetlik fason gönderimi zaten başlatılmıştı.`
+        : `${formatNumber(result.quantity)} adet fasona gönderildi. ${result.readyDay}. gün kapanışında dönecek.`,
       ok: true,
-    }
+    };
   } catch (error) {
-    return {
-      message:
-        error instanceof Error
-          ? error.message
-          : "Fason üretim başlatılamadı.",
-      ok: false,
-    }
+    console.error("Outsource production could not be started.", error);
+    return { message: "Fason üretim başlatılamadı.", ok: false };
   }
+}
+
+function toActionFailure(
+  result: Extract<ServiceResult, { ok: false }>,
+): StartOutsourceJobResult {
+  const messages = {
+    DUPLICATE_REQUEST: "Bu fason isteği başka bir işlem için kullanılmış.",
+    FACTORY_NOT_ACTIVE: "Fabrika aktif olmadığı için fason üretim başlatılamadı.",
+    FACTORY_NOT_FOUND: "Fabrika bulunamadı.",
+    INVALID_QUANTITY: "Fasona gönderilecek adet geçerli değil.",
+    OUTSOURCE_CONFIG_NOT_FOUND: "Seçilen fason teklifi aktif veya fiyatlı değil.",
+    PLAYBACK_ACTIVE: "Vardiya aktifken fason kararı değiştirilemez.",
+    PROGRESS_NOT_FOUND: "Fasona gönderilecek üretim kaydı bulunamadı.",
+    QUANTITY_CHANGED: "Hazır miktar değişti; fason miktarını yeniden seçin.",
+    ROUTE_NOT_OUTSOURCEABLE: "Bu üretim aşaması fasona gönderilemez.",
+  } satisfies Record<Extract<ServiceResult, { ok: false }>["code"], string>;
+
+  return { message: messages[result.code], ok: false };
+}
+
+function readIdentifier(value: string) {
+  const normalized = value.trim();
+
+  return normalized.length > 0 && normalized.length <= 200
+    ? normalized
+    : null;
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("tr-TR").format(value);
 }

@@ -337,6 +337,14 @@ test("kısmi fason varken iç hatta hazır kalan batch üretilebilir", () => {
     getRouteProgressStatus({ ...common, inputReadyQuantity: 40 }),
     RouteProgressStatus.WAITING_OUTSOURCE,
   );
+  assert.equal(
+    getRouteProgressStatus({
+      ...common,
+      inputReadyQuantity: 100,
+      processingMode: RouteProcessingMode.OUTSOURCE,
+    }),
+    RouteProgressStatus.READY,
+  );
 });
 
 test("factory ve simulatedGameDay için deterministik shift claim anahtarı üretir", () => {

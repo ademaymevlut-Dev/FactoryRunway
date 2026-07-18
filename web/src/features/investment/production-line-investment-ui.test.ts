@@ -26,6 +26,20 @@ test("yatırım paneli seçilen DepartmentGroup içindeki departmanları filtrel
   assert.match(panel, /GradeGlyph/);
   assert.match(panel, /gradeLabels\[template\.grade\]/);
   assert.doesNotMatch(panel, /template\.key/);
+  assert.match(panel, /department\.id === initialDepartmentId/);
+});
+
+test("üretim kuyruğu seçili dock departmanından yatırım ve miktarlı fason akışını açar", () => {
+  const panel = readSource(
+    "../production-queue/components/department-queue-panel.tsx",
+  );
+  const registry = readSource("../game/panels/panel-registry.tsx");
+
+  assert.match(panel, /openPanel\("investment", \{ departmentId: queue\.departmentId \}\)/);
+  assert.match(panel, /Yatırım Yap/);
+  assert.match(panel, /Fasona ayrılacak miktar/);
+  assert.match(panel, /quantity: selectedQuantity/);
+  assert.match(registry, /investmentDepartmentIds=/);
 });
 
 test("satın alma formu yalnızca güvenli kimlik alanlarını gönderir", () => {
@@ -53,7 +67,11 @@ test("ortak panel viewport içinde kendi body scroll alanını ve arka plan kili
   const overlay = readSource("../game/components/overlay-layer-manager.tsx");
 
   assert.match(registry, /max-h-\[calc\(100dvh-2rem\)\]/);
-  assert.match(registry, /min-h-0 flex-1 overscroll-contain overflow-y-auto/);
+  assert.match(registry, /"min-h-0 flex-1 overscroll-contain"/);
+  assert.match(
+    registry,
+    /layout === "center" \? "overflow-hidden" : "overflow-y-auto"/,
+  );
   assert.match(overlay, /document\.body\.style\.overflow = "hidden"/);
 });
 

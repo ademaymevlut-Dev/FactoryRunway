@@ -53,6 +53,7 @@ import {
   buildShiftDepartmentResultRows,
   getAvailableQuantity,
 } from "./shift-department-result";
+import { getRouteProgressStatus as resolveRouteProgressStatus } from "./route-progress-availability";
 
 export { getAvailableQuantity } from "./shift-department-result";
 
@@ -248,12 +249,12 @@ export async function simulateFactoryDay(input: {
       factoryId,
       inputReadyQuantity: { gt: 0 },
       isRequired: true,
-      processingMode: RouteProcessingMode.INTERNAL,
       remainingQuantity: { gt: 0 },
       status: {
         in: [
           RouteProgressStatus.READY,
           RouteProgressStatus.IN_PROGRESS,
+          RouteProgressStatus.WAITING_OUTSOURCE,
         ],
       },
       productionOrder: {
@@ -1411,36 +1412,9 @@ export function getRouteProgressStatus(input: {
   plannedQuantity: number;
   processingMode: RouteProcessingMode;
 }) {
-  if (!input.isRequired) return RouteProgressStatus.SKIPPED;
-  if (input.completedQuantity >= input.plannedQuantity) {
-    return RouteProgressStatus.COMPLETED;
-  }
+  void input.processingMode;
 
-  const availableQuantity = getAvailableQuantity(input);
-
-  if (availableQuantity <= 0) {
-    if (input.inOutsourceQuantity > 0) {
-      return RouteProgressStatus.WAITING_OUTSOURCE;
-    }
-
-    return input.completedQuantity > 0
-      ? RouteProgressStatus.IN_PROGRESS
-      : RouteProgressStatus.WAITING_INPUT;
-  }
-
-  if (input.processingMode === RouteProcessingMode.OUTSOURCE) {
-    return RouteProgressStatus.WAITING_OUTSOURCE;
-  }
-
-  if (input.activeDepartmentIds.has(input.departmentId)) {
-    return input.completedQuantity > 0
-      ? RouteProgressStatus.IN_PROGRESS
-      : RouteProgressStatus.READY;
-  }
-
-  return input.canOutsource
-    ? RouteProgressStatus.WAITING_OUTSOURCE
-    : RouteProgressStatus.BLOCKED;
+  return resolveRouteProgressStatus(input);
 }
 
 async function getNextQueuePriority({

@@ -164,8 +164,11 @@ export async function processShippedOrderXpRewards(input: {
               routeProgress: {
                 where: { isRequired: true },
                 select: {
+                  outsourceJobs: {
+                    select: { id: true },
+                    take: 1,
+                  },
                   plannedQuantity: true,
-                  processingMode: true,
                   setupPoints: true,
                   workloadPointsPerUnit: true,
                 },
@@ -317,8 +320,8 @@ function buildOrderRewardInput(order: {
     product: { tier: ProductTier };
     productionOrder: {
       routeProgress: Array<{
+        outsourceJobs: Array<{ id: string }>;
         plannedQuantity: number;
-        processingMode: string;
         setupPoints: number;
         workloadPointsPerUnit: number;
       }>;
@@ -338,7 +341,7 @@ function buildOrderRewardInput(order: {
         step.plannedQuantity * Math.max(1, step.workloadPointsPerUnit) +
         Math.max(0, step.setupPoints);
 
-      if (step.processingMode === "OUTSOURCE") {
+      if (step.outsourceJobs.length > 0) {
         outsourcedStepCount += 1;
       }
     }

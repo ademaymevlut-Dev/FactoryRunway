@@ -18,14 +18,25 @@ export function ProductionLineInvestmentPanel({
 }) {
   const { isShiftPlaybackActive } = useGameUiStore();
   const availableDepartments = useMemo(
-    () =>
-      snapshot.investment.departments.filter(
-        (department) =>
-          department.departmentGroupId === sectionId ||
-          (!department.departmentGroupId &&
-            sectionId === `department:${department.id}`),
-      ),
-    [sectionId, snapshot.investment.departments],
+    () => {
+      if (sectionId) {
+        return snapshot.investment.departments.filter(
+          (department) =>
+            department.departmentGroupId === sectionId ||
+            (!department.departmentGroupId &&
+              sectionId === `department:${department.id}`),
+        );
+      }
+
+      if (initialDepartmentId) {
+        return snapshot.investment.departments.filter(
+          (department) => department.id === initialDepartmentId,
+        );
+      }
+
+      return snapshot.investment.departments;
+    },
+    [initialDepartmentId, sectionId, snapshot.investment.departments],
   );
   const [selectedDepartmentId, setSelectedDepartmentId] = useState(
     () =>

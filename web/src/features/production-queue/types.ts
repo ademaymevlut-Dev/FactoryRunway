@@ -1,4 +1,5 @@
 import type {
+  CurrencyCode,
   OutsourceJobStatus,
   OutsourceOptionType,
   ProductTier,
@@ -19,6 +20,7 @@ export type ProductionOutsourceOptionView = {
   costMultiplierBps: number
   costPerUnitCents: number
   costPerUnitLabel: string
+  currencyCode: CurrencyCode
   totalCostCents: string
   totalCostLabel: string
   returnDay: number

@@ -6,6 +6,7 @@ import {
   Factory,
   GripVertical,
   PackageCheck,
+  Plus,
   PackageOpen,
   Printer,
   Scissors,
@@ -52,9 +53,11 @@ import type {
 
 export function DepartmentQueuePanel({
   departmentKeys,
+  investmentDepartmentIds,
   queues,
 }: {
   departmentKeys: string[]
+  investmentDepartmentIds: string[]
   queues: GameProductionQueuesView
 }) {
   const visibleQueues = useMemo(() => {
@@ -95,6 +98,7 @@ export function DepartmentQueuePanel({
         />
       ) : null}
       <DepartmentQueue
+        canInvest={investmentDepartmentIds.includes(activeQueue.departmentId)}
         key={getQueueRevision(activeQueue)}
         queue={activeQueue}
       />
@@ -132,8 +136,14 @@ function DepartmentTabs({
   )
 }
 
-function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
-  const { isShiftPlaybackActive } = useGameUiStore()
+function DepartmentQueue({
+  canInvest,
+  queue,
+}: {
+  canInvest: boolean
+  queue: GameDepartmentQueueView
+}) {
+  const { isShiftPlaybackActive, openPanel } = useGameUiStore()
   const [items, setItems] = useState<ProductionQueueItem[]>(queue.items)
   const [message, setMessage] = useState<string | null>(null)
   const [isPriorityPending, startPriorityTransition] = useTransition()
@@ -182,8 +192,13 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
   return (
     <>
       <DepartmentQueueHeader
+        canInvest={canInvest}
+        isPlaybackActive={isShiftPlaybackActive}
         isPending={isPriorityPending}
         message={message}
+        onInvest={() =>
+          openPanel("investment", { departmentId: queue.departmentId })
+        }
         plannedTotalQuantity={plannedTotalQuantity}
         queue={queue}
       />
@@ -216,8 +231,10 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
                       >
                         <DepartmentQueueCard
                           completedColumnLabel={queue.completedColumnLabel}
+                          disabled={isShiftPlaybackActive || isPriorityPending}
                           index={index}
                           item={item}
+                          onMessage={setMessage}
                           plannedQuantity={
                             plannedQuantityByItemId.get(item.routeProgressId) ?? 0
                           }
@@ -230,6 +247,7 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
 
               {queue.outsourceCandidates.length > 0 ? (
                 <OutsourceCandidates
+                  disabled={isShiftPlaybackActive}
                   items={queue.outsourceCandidates}
                   onMessage={setMessage}
                 />
@@ -247,13 +265,19 @@ function DepartmentQueue({ queue }: { queue: GameDepartmentQueueView }) {
 }
 
 function DepartmentQueueHeader({
+  canInvest,
+  isPlaybackActive,
   isPending,
   message,
+  onInvest,
   plannedTotalQuantity,
   queue,
 }: {
+  canInvest: boolean
+  isPlaybackActive: boolean
   isPending: boolean
   message: string | null
+  onInvest: () => void
   plannedTotalQuantity: number
   queue: GameDepartmentQueueView
 }) {
@@ -278,6 +302,19 @@ function DepartmentQueueHeader({
           >
             {queue.summary.queueCount} iş
           </Badge>
+          {canInvest ? (
+            <Button
+              className="h-7 gap-1.5 px-2.5 text-[11px]"
+              disabled={isPlaybackActive}
+              onClick={onInvest}
+              size="sm"
+              type="button"
+              variant="default"
+            >
+              <Plus size={14} />
+              Yatırım Yap
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -352,9 +389,11 @@ function QueueSectionTitle({ count, label }: { count: number; label: string }) {
 }
 
 function OutsourceCandidates({
+  disabled,
   items,
   onMessage,
 }: {
+  disabled: boolean
   items: ProductionQueueItem[]
   onMessage: (message: string | null) => void
 }) {
@@ -379,7 +418,11 @@ function OutsourceCandidates({
                 {item.productName} · {item.productionNo} · {item.availableQuantityLabel}
               </p>
             </div>
-            <OutsourceOfferDialog item={item} onMessage={onMessage} />
+            <OutsourceOfferDialog
+              disabled={disabled}
+              item={item}
+              onMessage={onMessage}
+            />
           </div>
         ))}
       </div>
@@ -388,24 +431,50 @@ function OutsourceCandidates({
 }
 
 function OutsourceOfferDialog({
+  compact = false,
+  disabled,
   item,
   onMessage,
 }: {
+  compact?: boolean
+  disabled: boolean
   item: ProductionQueueItem
   onMessage: (message: string | null) => void
 }) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
+  const [quantityValue, setQuantityValue] = useState(
+    String(item.availableQuantity),
+  )
   const [isPending, startTransition] = useTransition()
+  const parsedQuantity = Number(quantityValue)
+  const selectedQuantity =
+    Number.isSafeInteger(parsedQuantity) &&
+    parsedQuantity > 0 &&
+    parsedQuantity <= item.availableQuantity
+      ? parsedQuantity
+      : 0
+  const internalQuantity = item.availableQuantity - selectedQuantity
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen)
+
+    if (nextOpen) setQuantityValue(String(item.availableQuantity))
+  }
 
   function handleSelect(option: ProductionOutsourceOptionView) {
+    if (selectedQuantity <= 0) return
+
     onMessage(`${option.label} fason teklifi işleniyor...`)
+    const requestId = crypto.randomUUID()
 
     startTransition(async () => {
-      const result = await startOutsourceJobAction(
-        item.routeProgressId,
-        option.optionType,
-      )
+      const result = await startOutsourceJobAction({
+        optionType: option.optionType,
+        quantity: selectedQuantity,
+        requestId,
+        routeProgressId: item.routeProgressId,
+      })
 
       onMessage(result.message)
 
@@ -417,11 +486,17 @@ function OutsourceOfferDialog({
   }
 
   return (
-    <Dialog onOpenChange={setOpen} open={open}>
+    <Dialog onOpenChange={handleOpenChange} open={open}>
       <DialogTrigger asChild>
-        <Button size="sm" type="button" variant="outline">
-          <Send />
-          Teklifler
+        <Button
+          className={compact ? "h-6 gap-1 px-1.5 text-[10px]" : undefined}
+          disabled={disabled}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Send size={compact ? 12 : 14} />
+          {compact ? "Fason" : "Teklifler"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-[min(620px,calc(100vw-2rem))] gap-3 rounded-lg p-4 sm:max-w-[620px]">
@@ -431,6 +506,45 @@ function OutsourceOfferDialog({
             {item.orderNo} · {item.productName} · {item.availableQuantityLabel}
           </DialogDescription>
         </DialogHeader>
+        <div className="grid gap-2 rounded-lg border border-border bg-card/45 p-3 sm:grid-cols-[minmax(0,1fr)_160px] sm:items-end">
+          <div>
+            <label
+              className="text-[11px] font-semibold text-foreground"
+              htmlFor={`outsource-quantity-${item.routeProgressId}`}
+            >
+              Fasona ayrılacak miktar
+            </label>
+            <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
+              En fazla {item.availableQuantityLabel}. Kalan miktar iç hat
+              kuyruğunda üretime devam eder.
+            </p>
+          </div>
+          <input
+            className="h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm text-foreground shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
+            disabled={isPending || disabled}
+            id={`outsource-quantity-${item.routeProgressId}`}
+            inputMode="numeric"
+            max={item.availableQuantity}
+            min={1}
+            onChange={(event) => setQuantityValue(event.target.value)}
+            step={1}
+            type="number"
+            value={quantityValue}
+          />
+        </div>
+        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+          <Badge variant="outline">
+            Fason: {formatNumber(selectedQuantity)} adet
+          </Badge>
+          <Badge variant="outline">
+            İç hatta kalır: {formatNumber(Math.max(0, internalQuantity))} adet
+          </Badge>
+          {selectedQuantity <= 0 ? (
+            <span className="self-center text-red-200">
+              1 ile {formatNumber(item.availableQuantity)} arasında adet girin.
+            </span>
+          ) : null}
+        </div>
         <div className="grid gap-2 sm:grid-cols-3">
           {item.outsourceOptions.map((option) => (
             <Button
@@ -440,7 +554,7 @@ function OutsourceOfferDialog({
                 option.tone === "info" && "border-cyan-300/35 bg-cyan-400/10",
                 option.tone === "success" && "border-emerald-300/35 bg-emerald-400/10",
               )}
-              disabled={isPending}
+              disabled={isPending || disabled || selectedQuantity <= 0}
               key={option.id}
               onClick={() => handleSelect(option)}
               type="button"
@@ -457,7 +571,10 @@ function OutsourceOfferDialog({
                   {option.description}
                 </span>
                 <span className="mt-1 text-xs font-semibold tabular-nums text-foreground">
-                  {option.totalCostLabel}
+                  {formatMoney(
+                    BigInt(option.costPerUnitCents) * BigInt(selectedQuantity),
+                    option.currencyCode,
+                  )}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
                   {option.costPerUnitLabel}
@@ -535,13 +652,17 @@ function QueueHeader({
 
 function DepartmentQueueCard({
   completedColumnLabel,
+  disabled,
   index,
   item,
+  onMessage,
   plannedQuantity,
 }: {
   completedColumnLabel: string
+  disabled: boolean
   index: number
   item: ProductionQueueItem
+  onMessage: (message: string | null) => void
   plannedQuantity: number
 }) {
   return (
@@ -586,6 +707,20 @@ function DepartmentQueueCard({
             >
               {item.productTier}
             </Badge>
+            <Badge
+              className="h-5 shrink-0 rounded-md border-emerald-300/30 px-1.5 text-[10px] text-emerald-100"
+              variant="outline"
+            >
+              İç Hat
+            </Badge>
+            {item.outsourceOptions.length > 0 ? (
+              <OutsourceOfferDialog
+                compact
+                disabled={disabled}
+                item={item}
+                onMessage={onMessage}
+              />
+            ) : null}
           </div>
           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {item.productName} · {item.productCode}
@@ -758,4 +893,16 @@ function formatNumber(value: number) {
   return new Intl.NumberFormat("tr-TR", {
     maximumFractionDigits: 0,
   }).format(value)
+}
+
+function formatMoney(
+  valueCents: bigint,
+  currencyCode: ProductionOutsourceOptionView["currencyCode"],
+) {
+  return new Intl.NumberFormat("tr-TR", {
+    currency: currencyCode,
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+    style: "currency",
+  }).format(Number(valueCents) / 100)
 }
