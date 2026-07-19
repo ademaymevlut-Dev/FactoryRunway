@@ -1,0 +1,1532 @@
+.guideShell {
+  --guide-cyan: #49d7ff;
+  --guide-cyan-rgb: 73, 215, 255;
+  --guide-amber: #f2b84b;
+  --guide-amber-rgb: 242, 184, 75;
+  position: relative;
+  min-height: 100vh;
+  overflow-x: clip;
+  background: #2a312f;
+  color: var(--foreground);
+}
+
+.mapBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.mapBackdrop :global(.factory-map-landscape) {
+  inset: -8%;
+  transform: scale(1.08);
+}
+
+.mapVeil {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(27, 34, 33, 0.12), rgba(20, 25, 25, 0.6) 78%),
+    linear-gradient(180deg, rgba(16, 21, 21, 0.42), rgba(22, 28, 27, 0.18) 35%, rgba(13, 18, 18, 0.58));
+  backdrop-filter: saturate(0.72) brightness(0.72);
+}
+
+.mapVeil::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  opacity: 0.11;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(255, 255, 255, 0.025) 0 1px,
+    transparent 1px 4px
+  );
+}
+
+.utilityBar {
+  position: fixed;
+  top: 7.2rem;
+  left: max(1.5rem, calc((100vw - 1500px) / 2));
+  z-index: 29;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.backLink,
+.playerChip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.25rem;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--background) 88%, transparent);
+  box-shadow: 0 12px 28px rgba(7, 12, 12, 0.22);
+  backdrop-filter: blur(14px);
+}
+
+.backLink {
+  gap: 0.5rem;
+  padding: 0 0.8rem;
+  color: white;
+  font-size: 0.76rem;
+  font-weight: 750;
+  transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.backLink:hover {
+  border-color: rgba(var(--guide-cyan-rgb), 0.48);
+  color: var(--guide-cyan);
+  transform: translateX(-2px);
+}
+
+.playerChip {
+  gap: 0.45rem;
+  padding: 0 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 650;
+}
+
+.playerChip span:first-child {
+  max-width: 12rem;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.88);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionRail {
+  position: fixed;
+  top: 50%;
+  right: 1.2rem;
+  z-index: 28;
+  display: grid;
+  gap: 0.42rem;
+  width: 7.7rem;
+  padding-left: 1.1rem;
+  transform: translateY(-42%);
+}
+
+.sectionTrack {
+  position: absolute;
+  top: 1.15rem;
+  bottom: 1.15rem;
+  left: 0.22rem;
+  width: 1px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.sectionTrack span {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(var(--guide-cyan), rgba(var(--guide-cyan-rgb), 0.18));
+  box-shadow: 0 0 12px rgba(var(--guide-cyan-rgb), 0.72);
+  transform-origin: top center;
+  transition: transform 320ms ease;
+}
+
+.sectionRail button {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr;
+  align-items: center;
+  gap: 0.45rem;
+  min-height: 2rem;
+  padding: 0.28rem 0.38rem;
+  border-radius: 0.5rem;
+  color: rgba(255, 255, 255, 0.46);
+  text-align: left;
+  transition: color 180ms ease, background 180ms ease;
+}
+
+.sectionRail button > span {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.sectionRail button strong {
+  font-size: 0.67rem;
+  font-weight: 650;
+}
+
+.sectionRail button:hover,
+.sectionRail .activeRailItem {
+  background: rgba(13, 23, 24, 0.62);
+  color: white;
+}
+
+.sectionRail .activeRailItem > span {
+  color: var(--guide-cyan);
+  text-shadow: 0 0 12px rgba(var(--guide-cyan-rgb), 0.6);
+}
+
+.heroSection,
+.storySection,
+.checklistSection {
+  position: relative;
+  z-index: 2;
+}
+
+.heroSection {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(34rem, 1.1fr);
+  align-items: center;
+  gap: clamp(2rem, 6vw, 7rem);
+  min-height: 100vh;
+  padding: 10.5rem max(8rem, calc((100vw - 1440px) / 2 + 3rem)) 4rem
+    max(3rem, calc((100vw - 1440px) / 2 + 3rem));
+}
+
+.heroCopy {
+  max-width: 43rem;
+}
+
+.eyebrow {
+  color: var(--guide-cyan);
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+}
+
+.heroCopy h1 {
+  max-width: 42rem;
+  margin-top: 1rem;
+  color: white;
+  font-size: clamp(2.55rem, 4vw, 4.75rem);
+  font-weight: 760;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+  text-wrap: balance;
+}
+
+.heroCopy h1 span {
+  display: block;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.heroDescription {
+  max-width: 38rem;
+  margin-top: 1.5rem;
+  color: rgba(222, 231, 229, 0.72);
+  font-size: clamp(0.9rem, 1.15vw, 1.05rem);
+  line-height: 1.75;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.heroActions > span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+}
+
+.primaryAction {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 2.65rem;
+  padding: 0 1rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.48);
+  border-radius: 0.7rem;
+  background: rgba(0, 109, 143, 0.92);
+  color: white;
+  box-shadow:
+    0 12px 30px rgba(0, 79, 107, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  font-size: 0.78rem;
+  font-weight: 760;
+  transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+
+.primaryAction:hover {
+  background: #087fa5;
+  box-shadow: 0 16px 34px rgba(0, 79, 107, 0.38);
+  transform: translateY(-1px);
+}
+
+.routeChoiceGrid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  max-width: 43rem;
+}
+
+.routeChoiceGrid::before {
+  position: absolute;
+  top: 50%;
+  right: 96%;
+  width: 11vw;
+  height: 1px;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(var(--guide-cyan-rgb), 0.55));
+}
+
+.routeChoiceCard {
+  position: relative;
+  display: grid;
+  grid-template-rows: 15rem auto;
+  min-height: 28rem;
+  overflow: hidden;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.22);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--card) 90%, transparent);
+  box-shadow:
+    0 28px 70px rgba(7, 12, 12, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(15px);
+}
+
+.routeChoiceCard.amber {
+  border-color: rgba(var(--guide-amber-rgb), 0.27);
+}
+
+.routeChoiceImage {
+  position: relative;
+  margin: 1rem 1rem 0;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background:
+    radial-gradient(circle at 50% 58%, rgba(var(--guide-cyan-rgb), 0.16), transparent 54%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+}
+
+.amber .routeChoiceImage {
+  background:
+    radial-gradient(circle at 50% 58%, rgba(var(--guide-amber-rgb), 0.16), transparent 54%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+}
+
+.routeChoiceImage img {
+  object-fit: contain;
+  padding: 0.8rem;
+  filter: drop-shadow(0 18px 20px rgba(0, 0, 0, 0.34));
+}
+
+.routeChoiceCard > div:last-child {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 1.15rem 1.2rem;
+}
+
+.routeChoiceCard p {
+  color: var(--guide-cyan);
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.routeChoiceCard.amber p {
+  color: var(--guide-amber);
+}
+
+.routeChoiceCard strong {
+  margin-top: 0.5rem;
+  color: white;
+  font-size: 0.94rem;
+  line-height: 1.35;
+}
+
+.routeChoiceCard > div:last-child > span {
+  margin-top: 0.65rem;
+  color: var(--muted-foreground);
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.storySection {
+  min-height: 100vh;
+}
+
+.sceneStage {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 9rem max(8.5rem, calc((100vw - 1600px) / 2 + 3rem)) 1.5rem
+    max(1.5rem, calc((100vw - 1600px) / 2 + 1.5rem));
+}
+
+.sceneHeading {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr);
+  align-items: end;
+  gap: 2rem;
+  width: min(100%, 1540px);
+  margin: 0 auto 0.65rem;
+  padding: 0 0.5rem;
+}
+
+.sceneHeading h2 {
+  max-width: 52rem;
+  margin-top: 0.5rem;
+  color: white;
+  font-size: clamp(1.55rem, 2.4vw, 2.75rem);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.sceneHeading > p {
+  max-width: 39rem;
+  justify-self: end;
+  color: rgba(229, 235, 233, 0.62);
+  font-size: 0.79rem;
+  line-height: 1.6;
+}
+
+.storySection.amber .eyebrow {
+  color: var(--guide-amber);
+}
+
+.flowBoard {
+  position: relative;
+  width: min(100%, 1540px);
+  height: min(60vh, 600px);
+  min-height: 450px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.15rem;
+  background:
+    linear-gradient(180deg, rgba(17, 24, 24, 0.58), rgba(21, 28, 27, 0.78)),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 8.5%);
+  box-shadow:
+    0 35px 85px rgba(4, 8, 8, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+}
+
+.flowBoard::before {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  content: "";
+  opacity: 0.6;
+  background:
+    radial-gradient(circle at 15% 50%, rgba(var(--guide-cyan-rgb), 0.08), transparent 24%),
+    radial-gradient(circle at 85% 50%, rgba(var(--guide-cyan-rgb), 0.05), transparent 24%);
+  pointer-events: none;
+}
+
+.routeSvg {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.routeBase,
+.routeActive,
+.blockedRoute {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+}
+
+.routeBase {
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-dasharray: 6 8;
+  stroke-width: 2;
+}
+
+.routeActive {
+  stroke: var(--guide-cyan);
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  stroke-linecap: round;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 7px rgba(var(--guide-cyan-rgb), 0.72));
+}
+
+.storySection.amber .routeActive {
+  stroke: var(--guide-amber);
+  filter: drop-shadow(0 0 7px rgba(var(--guide-amber-rgb), 0.72));
+}
+
+.routeArrow {
+  fill: var(--guide-cyan);
+}
+
+.storySection.amber .routeArrow {
+  fill: var(--guide-amber);
+}
+
+.blockedRoute {
+  stroke: rgba(255, 111, 126, 0.48);
+  stroke-dasharray: 9 10;
+  stroke-width: 2;
+}
+
+.stopMarker circle {
+  fill: rgba(85, 25, 32, 0.94);
+  stroke: rgba(255, 116, 131, 0.78);
+  stroke-width: 2;
+}
+
+.stopMarker path {
+  fill: none;
+  stroke: white;
+  stroke-linecap: round;
+  stroke-width: 4;
+}
+
+.travelerHalo {
+  fill: rgba(var(--guide-cyan-rgb), 0.13);
+  stroke: rgba(var(--guide-cyan-rgb), 0.42);
+  stroke-width: 2;
+}
+
+.travelerCore {
+  fill: #effcff;
+  stroke: var(--guide-cyan);
+  stroke-width: 3;
+}
+
+.storySection.amber .travelerHalo {
+  fill: rgba(var(--guide-amber-rgb), 0.13);
+  stroke: rgba(var(--guide-amber-rgb), 0.46);
+}
+
+.storySection.amber .travelerCore {
+  stroke: var(--guide-amber);
+}
+
+.flowCard {
+  position: absolute;
+  top: var(--flow-y);
+  left: var(--flow-x);
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  width: clamp(10.4rem, 14.1vw, 13.4rem);
+  height: 21rem;
+  margin-top: -10.5rem;
+  overflow: hidden;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.2);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  box-shadow:
+    0 22px 48px rgba(3, 7, 7, 0.34),
+    0 0 0 1px rgba(255, 255, 255, 0.025) inset;
+  transform: translateX(-50%);
+  transform-origin: center;
+  backdrop-filter: blur(14px);
+}
+
+.flowCard.amber {
+  border-color: rgba(var(--guide-amber-rgb), 0.34);
+  box-shadow:
+    0 22px 48px rgba(3, 7, 7, 0.34),
+    0 0 30px rgba(var(--guide-amber-rgb), 0.08);
+}
+
+.flowCard.hasDurationNote {
+  height: 22.75rem;
+}
+
+.flowCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-height: 3.5rem;
+  padding: 0.65rem 0.7rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.flowCardHeader > span {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.34);
+  border-radius: 0.5rem;
+  background: rgba(var(--guide-cyan-rgb), 0.08);
+  color: var(--guide-cyan);
+  font-family: var(--font-mono);
+  font-size: 0.61rem;
+  font-weight: 750;
+}
+
+.flowCard.amber .flowCardHeader > span {
+  border-color: rgba(var(--guide-amber-rgb), 0.38);
+  background: rgba(var(--guide-amber-rgb), 0.09);
+  color: var(--guide-amber);
+}
+
+.flowCardHeader p {
+  color: var(--muted-foreground);
+  font-size: 0.51rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.flowCardHeader h3 {
+  margin-top: 0.17rem;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 720;
+}
+
+.departmentImage {
+  position: relative;
+  height: clamp(7.5rem, 15vh, 9.4rem);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.departmentImage img {
+  object-fit: cover;
+  object-position: center 42%;
+  transition: transform 500ms ease;
+}
+
+.flowCard:hover .departmentImage img {
+  transform: scale(1.035);
+}
+
+.departmentShade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 45%, rgba(15, 20, 20, 0.82));
+}
+
+.flowDescription {
+  min-height: 3.2rem;
+  padding: 0.65rem 0.72rem 0.42rem;
+  color: rgba(229, 235, 233, 0.62);
+  font-size: clamp(0.58rem, 0.63vw, 0.68rem);
+  line-height: 1.45;
+}
+
+.productOutput {
+  position: relative;
+  display: grid;
+  grid-template-columns: 3.25rem 1fr;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 4.25rem;
+  margin: auto 0.55rem 0.55rem;
+  padding: 0.45rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.15);
+  border-radius: 0.65rem;
+  background:
+    radial-gradient(circle at 18% 50%, rgba(var(--guide-cyan-rgb), 0.12), transparent 35%),
+    rgba(255, 255, 255, 0.035);
+  color: inherit;
+  cursor: zoom-in;
+  font: inherit;
+  text-align: left;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.productOutput:hover,
+.productOutput:focus-visible {
+  border-color: rgba(var(--guide-cyan-rgb), 0.48);
+  background-color: rgba(var(--guide-cyan-rgb), 0.08);
+  box-shadow: 0 0 0 1px rgba(var(--guide-cyan-rgb), 0.08), 0 9px 24px rgba(0, 0, 0, 0.2);
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.flowCard.amber .productOutput:hover,
+.flowCard.amber .productOutput:focus-visible {
+  border-color: rgba(var(--guide-amber-rgb), 0.5);
+  background-color: rgba(var(--guide-amber-rgb), 0.08);
+}
+
+.flowCard.amber .productOutput {
+  border-color: rgba(var(--guide-amber-rgb), 0.2);
+  background:
+    radial-gradient(circle at 18% 50%, rgba(var(--guide-amber-rgb), 0.14), transparent 35%),
+    rgba(255, 255, 255, 0.035);
+}
+
+.productOutput > div {
+  position: relative;
+  height: 3.1rem;
+}
+
+.productOutput img {
+  object-fit: contain;
+  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.32));
+}
+
+.productOutput > span {
+  min-width: 0;
+}
+
+.productOutput small,
+.productOutput strong {
+  display: block;
+}
+
+.productExpandIcon {
+  position: absolute;
+  right: 0.45rem;
+  top: 0.42rem;
+  color: rgba(255, 255, 255, 0.38);
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.productOutput:hover .productExpandIcon,
+.productOutput:focus-visible .productExpandIcon {
+  color: var(--guide-cyan);
+  transform: scale(1.08);
+}
+
+.flowCard.amber .productOutput:hover .productExpandIcon,
+.flowCard.amber .productOutput:focus-visible .productExpandIcon {
+  color: var(--guide-amber);
+}
+
+.flowDurationNote {
+  margin: -0.05rem 0.7rem 0.62rem;
+  color: var(--primary);
+  font-size: 0.58rem;
+  font-weight: 750;
+  line-height: 1.4;
+}
+
+.productPreviewDialog.productPreviewDialog {
+  --guide-cyan: #49d7ff;
+  --guide-cyan-rgb: 73, 215, 255;
+  max-height: calc(100vh - 2rem);
+  max-width: min(36rem, calc(100vw - 2rem));
+  gap: 1rem;
+  overflow: hidden;
+  padding: 1.1rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.25);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(var(--guide-cyan-rgb), 0.11), transparent 44%),
+    color-mix(in srgb, var(--popover) 96%, transparent);
+  box-shadow: 0 34px 90px rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(22px);
+}
+
+.productPreviewHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.productPreviewHeader [data-slot="dialog-description"] {
+  color: var(--primary);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.productPreviewHeader [data-slot="dialog-title"] {
+  margin-top: 0.28rem;
+  color: white;
+  font-size: 1.08rem;
+  font-weight: 720;
+}
+
+.productPreviewHeader button {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(255, 255, 255, 0.7);
+  transition: border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+.productPreviewHeader button:hover,
+.productPreviewHeader button:focus-visible {
+  border-color: rgba(var(--guide-cyan-rgb), 0.48);
+  color: var(--guide-cyan);
+  outline: none;
+  transform: rotate(4deg);
+}
+
+.productPreviewImage {
+  position: relative;
+  height: min(58vh, 31rem);
+  min-height: 18rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 0.9rem;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+    rgba(0, 0, 0, 0.16);
+  background-size: 22px 22px;
+}
+
+.productPreviewImage img {
+  object-fit: contain;
+  padding: 1rem;
+  filter: drop-shadow(0 24px 24px rgba(0, 0, 0, 0.38));
+}
+
+.productPreviewHint {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.productOutput small {
+  color: var(--guide-cyan);
+  font-size: 0.48rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.flowCard.amber .productOutput small {
+  color: var(--guide-amber);
+}
+
+.productOutput strong {
+  margin-top: 0.18rem;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 0.58rem;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+}
+
+.outsourceWaitMessage {
+  position: absolute;
+  right: 31.5%;
+  bottom: 1rem;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  max-width: 21rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid rgba(255, 117, 132, 0.28);
+  border-radius: 0.7rem;
+  background: rgba(63, 23, 29, 0.76);
+  color: rgba(255, 229, 232, 0.78);
+  box-shadow: 0 14px 34px rgba(17, 7, 8, 0.32);
+  backdrop-filter: blur(12px);
+}
+
+.outsourceWaitMessage > svg {
+  flex: none;
+  color: #ff8391;
+}
+
+.outsourceWaitMessage span {
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.outsourceWaitMessage strong {
+  color: white;
+}
+
+.bottleneckBoard {
+  position: relative;
+  width: min(100%, 1400px);
+  height: min(59vh, 590px);
+  min-height: 450px;
+  margin: 0 auto;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.15rem;
+  background:
+    radial-gradient(circle at 54% 48%, rgba(255, 104, 121, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(17, 24, 24, 0.6), rgba(21, 28, 27, 0.8));
+  box-shadow: 0 35px 85px rgba(4, 8, 8, 0.34);
+  backdrop-filter: blur(12px);
+}
+
+.bottleneckSvg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.bottleneckSvg path {
+  fill: none;
+  stroke: rgba(var(--guide-cyan-rgb), 0.44);
+  stroke-dasharray: 7 8;
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+.bottleneckStation {
+  position: absolute;
+  top: 27%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 11.8rem;
+  min-height: 13rem;
+  padding: 1rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.2);
+  border-radius: 0.9rem;
+  background: color-mix(in srgb, var(--card) 94%, transparent);
+  box-shadow: 0 22px 45px rgba(4, 8, 8, 0.32);
+  text-align: center;
+}
+
+.bottleneckStation.left {
+  left: 3.5%;
+}
+
+.bottleneckStation.center {
+  left: 55.5%;
+}
+
+.bottleneckStation.right {
+  right: 3.5%;
+}
+
+.bottleneckStation.danger {
+  border-color: rgba(255, 104, 121, 0.36);
+  box-shadow:
+    0 22px 45px rgba(4, 8, 8, 0.32),
+    0 0 32px rgba(255, 76, 99, 0.09);
+}
+
+.stationIcon {
+  display: grid;
+  place-items: center;
+  width: 2.8rem;
+  height: 2.8rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.25);
+  border-radius: 0.75rem;
+  background: rgba(var(--guide-cyan-rgb), 0.08);
+  color: var(--guide-cyan);
+}
+
+.danger .stationIcon {
+  border-color: rgba(255, 104, 121, 0.3);
+  background: rgba(255, 76, 99, 0.08);
+  color: #ff7f8f;
+}
+
+.bottleneckStation > small {
+  margin-top: 0.75rem;
+  color: var(--muted-foreground);
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+}
+
+.bottleneckStation h3 {
+  margin-top: 0.25rem;
+  color: white;
+  font-size: 1rem;
+}
+
+.bottleneckStation > strong {
+  margin-top: 0.65rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+}
+
+.stationStatus {
+  margin-top: 0.7rem;
+  padding: 0.22rem 0.48rem;
+  border-radius: 999px;
+  background: rgba(var(--guide-cyan-rgb), 0.08);
+  color: var(--guide-cyan);
+  font-size: 0.58rem;
+  font-weight: 750;
+}
+
+.danger .stationStatus {
+  background: rgba(255, 76, 99, 0.09);
+  color: #ff8c99;
+}
+
+.queueZone {
+  position: absolute;
+  top: 18%;
+  left: 19%;
+  z-index: 4;
+  width: 34%;
+  min-width: 23rem;
+  padding: 0.85rem;
+  border: 1px dashed rgba(255, 125, 140, 0.34);
+  border-radius: 0.85rem;
+  background: rgba(49, 26, 30, 0.42);
+}
+
+.queueZoneHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.queueZoneHeader span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(255, 213, 219, 0.72);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.queueZoneHeader strong {
+  color: #ff8694;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+}
+
+.queueStack {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin-top: 0.7rem;
+}
+
+.queueStack > div {
+  position: relative;
+  height: 5.1rem;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.queueStack img {
+  object-fit: contain;
+  padding: 0.35rem;
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, 0.32));
+}
+
+.queueStack span {
+  position: absolute;
+  right: 0.25rem;
+  bottom: 0.2rem;
+  color: rgba(255, 255, 255, 0.46);
+  font-family: var(--font-mono);
+  font-size: 0.5rem;
+}
+
+.queueZone > p {
+  margin-top: 0.65rem;
+  color: rgba(255, 221, 225, 0.64);
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+
+.capacityPanel {
+  position: absolute;
+  right: 20%;
+  bottom: 5%;
+  left: 20%;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem 1rem;
+  padding: 0.8rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 0.8rem;
+  background: rgba(15, 22, 22, 0.82);
+  box-shadow: 0 18px 42px rgba(4, 8, 8, 0.34);
+  backdrop-filter: blur(14px);
+}
+
+.capacityPanel > div {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.3rem 0.65rem;
+}
+
+.capacityPanel span,
+.capacityPanel strong {
+  font-size: 0.62rem;
+}
+
+.capacityPanel > div > span {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.capacityPanel strong {
+  color: white;
+  font-family: var(--font-mono);
+}
+
+.capacityPanel i {
+  grid-column: 1 / -1;
+  height: 0.3rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.capacityPanel i span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--guide-cyan);
+  box-shadow: 0 0 12px rgba(var(--guide-cyan-rgb), 0.54);
+}
+
+.dangerCapacity i span {
+  background: #ff6679;
+  box-shadow: 0 0 12px rgba(255, 76, 99, 0.48);
+}
+
+.capacityPanel > p {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.61rem;
+}
+
+.capacityPanel > p svg {
+  flex: none;
+  color: var(--guide-cyan);
+}
+
+.checklistSection {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 10.5rem max(9rem, calc((100vw - 1380px) / 2 + 3rem)) 4rem
+    max(3rem, calc((100vw - 1380px) / 2 + 3rem));
+}
+
+.checklistPanel {
+  width: min(100%, 1320px);
+  padding: clamp(1.25rem, 2.5vw, 2.5rem);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 1.15rem;
+  background: color-mix(in srgb, var(--background) 89%, transparent);
+  box-shadow:
+    0 36px 90px rgba(3, 7, 7, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(18px);
+}
+
+.checklistIntro {
+  display: grid;
+  grid-template-columns: 1fr minmax(20rem, 0.75fr);
+  align-items: end;
+  gap: 1rem 3rem;
+}
+
+.checklistIntro .eyebrow {
+  grid-column: 1 / -1;
+}
+
+.checklistIntro h2 {
+  color: white;
+  font-size: clamp(1.8rem, 3vw, 3.35rem);
+  font-weight: 720;
+  letter-spacing: -0.045em;
+  line-height: 1.02;
+}
+
+.checklistIntro > p:last-child {
+  color: rgba(228, 235, 233, 0.62);
+  font-size: 0.8rem;
+  line-height: 1.65;
+}
+
+.checklistGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.checklistGrid article {
+  position: relative;
+  min-height: 13.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.85rem;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.checkIcon {
+  display: grid;
+  place-items: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.24);
+  border-radius: 0.7rem;
+  background: rgba(var(--guide-cyan-rgb), 0.07);
+  color: var(--guide-cyan);
+}
+
+.checklistGrid small {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  color: rgba(255, 255, 255, 0.32);
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+}
+
+.checklistGrid h3 {
+  margin-top: 1rem;
+  color: white;
+  font-size: 0.9rem;
+}
+
+.checklistGrid p {
+  margin-top: 0.55rem;
+  color: var(--muted-foreground);
+  font-size: 0.69rem;
+  line-height: 1.55;
+}
+
+.checklistGrid article > svg {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  color: rgba(var(--guide-cyan-rgb), 0.56);
+}
+
+.finalCallout {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.9rem;
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border: 1px solid rgba(var(--guide-cyan-rgb), 0.17);
+  border-radius: 0.85rem;
+  background: rgba(var(--guide-cyan-rgb), 0.045);
+}
+
+.finalIcon {
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 0.7rem;
+  background: rgba(var(--guide-cyan-rgb), 0.1);
+  color: var(--guide-cyan);
+}
+
+.finalCallout strong,
+.finalCallout > div > span {
+  display: block;
+}
+
+.finalCallout strong {
+  color: white;
+  font-size: 0.78rem;
+}
+
+.finalCallout > div > span {
+  margin-top: 0.18rem;
+  color: var(--muted-foreground);
+  font-size: 0.65rem;
+}
+
+@media (max-width: 1279px) {
+  .sectionRail {
+    display: none;
+  }
+
+  .heroSection {
+    grid-template-columns: minmax(0, 0.85fr) minmax(30rem, 1.15fr);
+    padding-right: 2rem;
+    padding-left: 2rem;
+  }
+
+  .sceneStage {
+    padding-right: 1.5rem;
+  }
+
+  .flowCard {
+    width: clamp(9.8rem, 15.5vw, 12rem);
+  }
+
+  .flowCard.hasDurationNote {
+    height: auto;
+  }
+}
+
+@media (max-width: 1535px) {
+  .utilityBar {
+    top: auto;
+    bottom: 1rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .guideShell {
+    overflow-x: hidden;
+  }
+
+  .utilityBar {
+    top: auto;
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+    justify-content: space-between;
+  }
+
+  .playerChip {
+    display: none;
+  }
+
+  .heroSection {
+    grid-template-columns: 1fr;
+    padding: 10rem 1.25rem 4rem;
+  }
+
+  .heroCopy {
+    max-width: 48rem;
+  }
+
+  .routeChoiceGrid {
+    max-width: 48rem;
+  }
+
+  .sceneStage {
+    min-height: auto;
+    padding: 9rem 1.25rem 4rem;
+  }
+
+  .sceneHeading {
+    grid-template-columns: 1fr;
+    margin-bottom: 1.5rem;
+  }
+
+  .sceneHeading > p {
+    justify-self: start;
+  }
+
+  .flowBoard {
+    display: grid;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .routeSvg {
+    display: none;
+  }
+
+  .flowCard {
+    position: relative;
+    top: auto;
+    left: auto;
+    display: grid;
+    grid-template-columns: minmax(10rem, 0.75fr) minmax(0, 1.25fr);
+    width: 100%;
+    height: auto;
+    min-height: 13rem;
+    margin-top: 0;
+    transform: none;
+  }
+
+  .flowCardHeader,
+  .flowDescription,
+  .productOutput,
+  .flowDurationNote {
+    grid-column: 2;
+  }
+
+  .flowCardHeader {
+    grid-row: 1;
+  }
+
+  .departmentImage {
+    grid-row: 1 / span 3;
+    grid-column: 1;
+    height: 100%;
+  }
+
+  .flowDescription {
+    grid-row: 2;
+  }
+
+  .productOutput {
+    grid-row: 3;
+  }
+
+  .flowDurationNote {
+    grid-row: 4;
+  }
+
+  .outsourceWaitMessage {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    max-width: none;
+  }
+
+  .bottleneckBoard {
+    display: grid;
+    height: auto;
+    min-height: 0;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .bottleneckSvg {
+    display: none;
+  }
+
+  .bottleneckStation,
+  .bottleneckStation.left,
+  .bottleneckStation.center,
+  .bottleneckStation.right,
+  .queueZone,
+  .capacityPanel {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .bottleneckStation {
+    min-height: 11rem;
+  }
+
+  .queueZone {
+    order: 2;
+  }
+
+  .bottleneckStation.center {
+    order: 3;
+  }
+
+  .bottleneckStation.right {
+    order: 4;
+  }
+
+  .capacityPanel {
+    order: 5;
+  }
+
+  .checklistSection {
+    padding: 9rem 1.25rem 4rem;
+  }
+
+  .checklistGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .utilityBar {
+    top: auto;
+    bottom: 1rem;
+  }
+
+  .backLink {
+    background: rgba(15, 22, 22, 0.92);
+  }
+
+  .heroSection {
+    padding-top: 13rem;
+  }
+
+  .heroCopy h1 {
+    font-size: 2.45rem;
+  }
+
+  .heroActions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .routeChoiceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .routeChoiceCard {
+    grid-template-columns: 8.5rem 1fr;
+    grid-template-rows: 1fr;
+    min-height: 12rem;
+  }
+
+  .routeChoiceImage {
+    margin: 0.75rem 0 0.75rem 0.75rem;
+  }
+
+  .sceneStage {
+    padding-top: 12.5rem;
+  }
+
+  .flowCard {
+    display: flex;
+    min-height: 0;
+  }
+
+  .departmentImage {
+    height: 11rem;
+  }
+
+  .queueStack {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .capacityPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .capacityPanel > p {
+    grid-column: 1;
+  }
+
+  .checklistIntro {
+    grid-template-columns: 1fr;
+  }
+
+  .checklistGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .finalCallout {
+    grid-template-columns: auto 1fr;
+  }
+
+  .finalCallout .primaryAction {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guideShell *,
+  .guideShell *::before,
+  .guideShell *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

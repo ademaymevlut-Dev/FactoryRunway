@@ -1,5 +1,8 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowUpRight, BookOpenText } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -27,88 +30,119 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <nav
       aria-label="Departman menüsü"
-      className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex justify-center px-2 sm:px-4"
+      className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex items-end justify-center px-2 sm:px-4"
     >
-      <div className="pointer-events-auto relative isolate max-w-[calc(100vw-1rem)] overflow-visible rounded-[28px] border border-white/10 bg-[#232429]/80 px-2.5 py-2.5 shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl">
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/80 to-transparent shadow-[0_0_22px_hsl(var(--primary)/0.9)]"
-        />
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-10 -bottom-4 -z-10 h-8 rounded-full bg-primary/25 blur-2xl"
-        />
-        <div className="relative z-10 flex min-w-max items-end gap-1.5 sm:gap-2">
-          {snapshot.dock.items.map((item) => {
-            const panelKey = getDockPanelKey(item);
-            const isActive =
-              activePanel?.key === panelKey &&
-              activePanel.payload?.dockItemId === item.id;
+      <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] items-end gap-3">
+        <Link
+          aria-label="Oyun Rehberi"
+          className="group/guide relative isolate hidden h-[88px] w-[112px] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[24px] border border-primary/35 bg-[#232429]/85 text-primary shadow-[inset_0_0_30px_hsl(var(--primary)/0.16),0_18px_42px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-primary/65 hover:shadow-[0_0_28px_hsl(var(--primary)/0.34),0_22px_50px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 xl:flex"
+          data-map-control="true"
+          href="/help/gameplay"
+        >
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
+          />
+          <BookOpenText
+            className="drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)] transition-transform duration-200 group-hover/guide:scale-110"
+            size={27}
+          />
+          <strong className="text-[11px] leading-none">Oyun Rehberi</strong>
+          <span className="text-[9px] leading-none text-muted-foreground">Akışları incele</span>
+          <ArrowUpRight
+            className="absolute right-2.5 top-2.5 text-primary/60 transition-transform duration-200 group-hover/guide:-translate-y-0.5 group-hover/guide:translate-x-0.5"
+            size={14}
+          />
+        </Link>
 
-            return (
-              <Tooltip key={item.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    aria-label={item.label}
-                    className={cn(
-                      "group/dock relative isolate flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-[68px] sm:w-[74px]",
-                      "hover:-translate-y-1 hover:border-[#006d8f]/60 hover:text-primary hover:shadow-[0_0_22px_rgba(0,109,143,0.36),inset_0_0_24px_hsl(var(--primary)/0.28)]",
-                      "active:scale-95",
-                      isActive &&
-                        "h-16 w-16 -translate-y-1 scale-[1.04] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)] sm:h-[78px] sm:w-[88px]",
-                    )}
-                    data-map-control="true"
-                    onClick={() => {
-                      if (isActive) {
-                        closePanel();
-                        return;
+        <div className="relative isolate max-w-[calc(100vw-1rem)] overflow-visible rounded-[28px] border border-white/10 bg-[#232429]/80 px-2.5 py-2.5 shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-10 bottom-0 h-px bg-gradient-to-r from-transparent via-primary/80 to-transparent shadow-[0_0_22px_hsl(var(--primary)/0.9)]"
+          />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-10 -bottom-4 -z-10 h-8 rounded-full bg-primary/25 blur-2xl"
+          />
+          <div className="relative z-10 flex min-w-max items-end gap-1.5 sm:gap-2">
+            {snapshot.dock.items.map((item) => {
+              const panelKey = getDockPanelKey(item);
+              const isActive =
+                activePanel?.key === panelKey &&
+                activePanel.payload?.dockItemId === item.id;
+
+              return (
+                <Tooltip key={item.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      aria-label={item.label}
+                      className={cn(
+                        "group/dock relative isolate flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-[68px] sm:w-[74px]",
+                        "hover:-translate-y-1 hover:border-[#006d8f]/60 hover:text-primary hover:shadow-[0_0_22px_rgba(0,109,143,0.36),inset_0_0_24px_hsl(var(--primary)/0.28)]",
+                        "active:scale-95",
+                        isActive &&
+                          "h-16 w-16 -translate-y-1 scale-[1.04] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)] sm:h-[78px] sm:w-[88px]",
+                      )}
+                      data-map-control="true"
+                      onClick={() => {
+                        if (isActive) {
+                          closePanel();
+                          return;
+                        }
+
+                        setSelectedDockDepartmentIds(item.departmentIds);
+                        openPanel(panelKey, { dockItemId: item.id });
+                      }}
+                      onMouseEnter={() =>
+                        setHoveredDepartmentId(item.departmentIds[0] ?? null)
                       }
-
-                      setSelectedDockDepartmentIds(item.departmentIds);
-                      openPanel(panelKey, { dockItemId: item.id });
-                    }}
-                    onMouseEnter={() => setHoveredDepartmentId(item.departmentIds[0] ?? null)}
-                    onMouseLeave={() => setHoveredDepartmentId(null)}
-                    type="button"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={cn(
-                        "pointer-events-none absolute -inset-3 -z-10 rounded-[24px] bg-primary/0 opacity-0 blur-2xl transition-all duration-200",
-                        "group-hover/dock:bg-primary/30 group-hover/dock:opacity-100",
-                        isActive && "bg-primary/40 opacity-100",
-                      )}
-                    />
-                    <DockIcon isActive={isActive} item={item} />
-                    <span
-                      className={cn(
-                        "hidden max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200 sm:block",
-                        "group-hover/dock:text-primary group-hover/dock:drop-shadow-[0_0_7px_rgba(165,243,252,0.6)]",
-                        isActive && "text-primary drop-shadow-[0_0_9px_rgba(165,243,252,0.85)]",
-                      )}
+                      onMouseLeave={() => setHoveredDepartmentId(null)}
+                      type="button"
                     >
-                      {item.label}
-                    </span>
-                    <DockBadge badge={item.badge} />
-                    {isActive ? (
                       <span
                         aria-hidden="true"
-                        className="absolute -bottom-1 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)]"
+                        className={cn(
+                          "pointer-events-none absolute -inset-3 -z-10 rounded-[24px] bg-primary/0 opacity-0 blur-2xl transition-all duration-200",
+                          "group-hover/dock:bg-primary/30 group-hover/dock:opacity-100",
+                          isActive && "bg-primary/40 opacity-100",
+                        )}
                       />
+                      <DockIcon isActive={isActive} item={item} />
+                      <span
+                        className={cn(
+                          "hidden max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200 sm:block",
+                          "group-hover/dock:text-primary group-hover/dock:drop-shadow-[0_0_7px_rgba(165,243,252,0.6)]",
+                          isActive &&
+                            "text-primary drop-shadow-[0_0_9px_rgba(165,243,252,0.85)]",
+                        )}
+                      >
+                        {item.label}
+                      </span>
+                      <DockBadge badge={item.badge} />
+                      {isActive ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute -bottom-1 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)]"
+                        />
+                      ) : null}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <span>{item.label}</span>
+                    {item.badge ? (
+                      <span>
+                        · {item.badge.label}: {item.badge.count}
+                      </span>
                     ) : null}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <span>{item.label}</span>
-                  {item.badge ? <span>· {item.badge.label}: {item.badge.count}</span> : null}
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+          </div>
         </div>
       </div>
     </nav>

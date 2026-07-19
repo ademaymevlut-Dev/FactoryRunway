@@ -41,7 +41,13 @@ const metricIcons: Record<string, LucideIcon> = {
   xp: Zap,
 };
 
-export function TopStatusBar({ snapshot }: { snapshot: GameSnapshot }) {
+export function TopStatusBar({
+  position = "absolute",
+  snapshot,
+}: {
+  position?: "absolute" | "fixed";
+  snapshot: GameSnapshot;
+}) {
   const displayedSnapshot = useDelayedHudSnapshot(snapshot);
   const stagePulse = usePulseOnChange(
     displayedSnapshot.factory.operatingStageName,
@@ -49,7 +55,9 @@ export function TopStatusBar({ snapshot }: { snapshot: GameSnapshot }) {
   );
 
   return (
-    <header className="pointer-events-none absolute inset-x-0 top-0 z-30 px-4 pt-4 sm:px-6">
+    <header
+      className={`pointer-events-none inset-x-0 top-0 z-30 px-4 pt-4 sm:px-6 ${position}`}
+    >
       <div className="pointer-events-auto mx-auto flex max-w-[1500px] items-center gap-3 rounded-lg bg-background/88 p-3 shadow-2xl backdrop-blur">
         <div className="flex min-w-0 items-center gap-3 border-r border-card pr-4">
           <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
