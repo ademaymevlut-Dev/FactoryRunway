@@ -19,7 +19,7 @@ import { useGameUiStore } from "../store/game-ui-store";
 import type { GamePanelKey, GameSnapshot } from "../types";
 
 type LeftDockItem = {
-  key: GamePanelKey;
+  key: Extract<GamePanelKey, "orders" | "tasks" | "finance" | "reports">;
   label: string;
   tooltip: string;
   icon: LucideIcon;
@@ -76,7 +76,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
         {leftDockItems.map((item) => {
           const Icon = item.icon;
           const isActive = activePanel?.key === item.key;
-          const badgeCount = item.key === "orders" ? snapshot.orders.availableCount : 0;
+          const badge = snapshot.dock.badges[item.key];
 
           return (
             <Tooltip key={item.key}>
@@ -129,14 +129,25 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                   >
                     {item.label}
                   </span>
-                  {badgeCount > 0 ? (
+                  {badge ? (
                     <span
-                      className="absolute -right-1.5 -top-1.5 z-30 grid h-6 min-w-6 place-items-center rounded-full border border-white/45 bg-red-500 px-1 text-[10px] font-black leading-none text-white shadow-[0_0_16px_rgba(239,68,68,0.72)]"
+                      aria-label={`${badge.label}: ${badge.count}`}
+                      className={cn(
+                        "absolute -right-1.5 -top-1.5 z-30 grid h-6 min-w-6 place-items-center rounded-full border border-white/45 px-1 text-[10px] font-black leading-none text-white shadow-[0_0_16px_rgba(0,0,0,0.35)]",
+                        badge.tone === "danger" &&
+                          "bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.72)]",
+                        badge.tone === "warning" &&
+                          "bg-amber-500 shadow-[0_0_16px_rgba(245,158,11,0.72)]",
+                        badge.tone === "info" &&
+                          "bg-sky-500 shadow-[0_0_16px_rgba(14,165,233,0.72)]",
+                        badge.tone === "success" &&
+                          "bg-emerald-500 shadow-[0_0_16px_rgba(16,185,129,0.72)]",
+                      )}
                       style={{
                         animation: "orderBadgeScale 1.25s ease-in-out infinite",
                       }}
                     >
-                      {badgeCount > 9 ? "9+" : badgeCount}
+                      {badge.count > 9 ? "9+" : badge.count}
                     </span>
                   ) : null}
                   {isActive ? (

@@ -20,6 +20,7 @@ import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
+import { ensureFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
 import {
   buildFirstSimulationSchedule,
@@ -288,6 +289,12 @@ export async function completeFirstSimulationAction() {
         currentDay: nextFactoryDay,
         lastSimulatedAt: new Date(),
       },
+    });
+
+    await ensureFactoryTaskProgress({
+      currentDay: nextFactoryDay,
+      factoryId: factory.id,
+      tx,
     });
 
     await grantFactoryXp({

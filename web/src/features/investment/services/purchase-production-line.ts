@@ -19,6 +19,7 @@ import {
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
 import { recalculateFactoryOperatingStage } from "@/features/game/services/factory-operating-stage";
+import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 import { calculateProductionLineInvestmentPreview } from "./production-line-investment";
 import type {
   PurchaseProductionLineInput,
@@ -395,6 +396,18 @@ export async function purchaseProductionLine(input: {
         });
         const stage = await recalculateFactoryOperatingStage({
           factoryId: factory.id,
+          tx,
+        });
+        await advanceFactoryTaskProgress({
+          currentDay: factory.currentDay,
+          factoryId: factory.id,
+          event: {
+            objectiveType: "ACQUIRE_PRODUCTION_LINE",
+            metadata: {
+              acquisitionType: LineAcquisitionType.PURCHASED,
+              productionLineId,
+            },
+          },
           tx,
         });
         await grantFactoryXp({

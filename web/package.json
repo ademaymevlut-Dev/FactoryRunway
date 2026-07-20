@@ -12,7 +12,9 @@
     "seed:market-rules": "tsx prisma/seed-market-offer-rules.ts",
     "seed:leasing-offers": "node --import tsx --env-file=.env.local prisma/seed-production-line-leasing-offers.ts",
     "seed:player-levels": "tsx prisma/seed-player-level-configs.ts",
-    "seed:starting-staff": "tsx prisma/seed-staff-roles.ts && tsx prisma/seed-starting-staff.ts"
+    "seed:starting-staff": "tsx prisma/seed-staff-roles.ts && tsx prisma/seed-starting-staff.ts",
+    "seed:tasks": "tsx prisma/seed-task-definitions.ts",
+    "db:push": "prisma db push"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

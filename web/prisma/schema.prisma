@@ -360,6 +360,54 @@ enum XpReason {
   FINANCE_MONTH_PROFIT
   AWARD_CLAIM
   OUTSOURCE_COMPLETED
+  TASK_CLAIM
+}
+
+enum TaskType {
+  STORY
+  REPEATABLE
+  SCENARIO
+}
+
+enum TaskObjectiveType {
+  ACCEPT_ORDER
+  COMPLETE_SHIFT
+  SHIP_ON_TIME
+  PAYMENT_RECEIVED
+  CHANGE_PRIORITY
+  OPEN_INVESTMENT_PANEL
+  ACQUIRE_PRODUCTION_LINE
+  USE_NEW_PRODUCTION_LINE
+  COMPLETE_OUTSOURCE
+  MEET_STAGE_STAFF
+  CLOSE_PROFITABLE_FINANCE_PERIOD
+  COMPLETE_PREMIUM_ORDER
+  COMPLETE_EXPRESS_ORDER
+}
+
+enum TaskProgressStatus {
+  LOCKED
+  ACTIVE
+  COMPLETED
+  CLAIMED
+  EXPIRED
+  DISMISSED
+}
+
+enum TokenEntryType {
+  EARN
+  SPEND
+  REVERSAL
+}
+
+enum TokenTransactionReason {
+  TASK_REWARD
+  AWARD_REWARD
+  EVENT_REWARD
+  TOURNAMENT_ENTRY
+  COSMETIC_PURCHASE
+  REAL_MONEY_PURCHASE
+  REVERSAL
 }
 
 enum AwardCategory {
@@ -436,19 +484,21 @@ model User {
 }
 
 model PlayerProfile {
-  id              String    @id @default(cuid())
-  userId          String    @unique @map("user_id")
-  displayName     String    @map("display_name")
-  factoryName     String?   @map("factory_name")
-  preferredLocale String    @default("tr") @map("preferred_locale")
-  displayCurrency String    @default("EUR") @map("display_currency")
-  playerLevel     Int       @default(1) @map("player_level")
-  totalXp         BigInt    @default(0) @map("total_xp")
-  awarenessScore  Int       @default(0) @map("awareness_score")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  factories       Factory[]
+  id                String                   @id @default(cuid())
+  userId            String                   @unique @map("user_id")
+  displayName       String                   @map("display_name")
+  factoryName       String?                  @map("factory_name")
+  preferredLocale   String                   @default("tr") @map("preferred_locale")
+  displayCurrency   String                   @default("EUR") @map("display_currency")
+  playerLevel       Int                      @default(1) @map("player_level")
+  totalXp           BigInt                   @default(0) @map("total_xp")
+  awarenessScore    Int                      @default(0) @map("awareness_score")
+  createdAt         DateTime                 @default(now()) @map("created_at")
+  updatedAt         DateTime                 @updatedAt @map("updated_at")
+  user              User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  factories         Factory[]
+  tokenWallet       PlayerTokenWallet?
+  tokenTransactions PlayerTokenTransaction[]
 
   @@map("player_profiles")
 }
@@ -536,6 +586,7 @@ model Sector {
   outsourceOptions        OutsourceOptionConfig[]
   chaosEventConfigs       ChaosEventConfig[]
   playerLevelConfigs      PlayerLevelConfig[]
+  taskDefinitions         TaskDefinition[]
   awardDefinitions        AwardDefinition[]
   rankingSeasons          RankingSeason[]
 
@@ -1134,6 +1185,7 @@ model Factory {
   financeTransactions     FactoryFinanceTransaction[]
   financePeriodSnapshots  FactoryFinancePeriodSnapshot[]
   xpTransactions          FactoryXpTransaction[]
+  taskProgress            FactoryTaskProgress[]
   awardProgress           FactoryAwardProgress[]
   rankingSnapshots        FactoryRankingSnapshot[]
 
@@ -2217,6 +2269,113 @@ model FactoryXpTransaction {
   @@map("factory_xp_transactions")
 }
 
+model TaskDefinition {
+  id                  String                      @id @default(cuid())
+  sectorId            String?                     @map("sector_id")
+  scopeKey            String                      @map("scope_key")
+  key                 String
+  taskType            TaskType                    @default(STORY) @map("task_type")
+  chapterKey          String?                     @map("chapter_key")
+  sortOrder           Int                         @default(0) @map("sort_order")
+  prerequisiteTaskKey String?                     @map("prerequisite_task_key")
+  activationDay       Int?                        @map("activation_day")
+  objectiveType       TaskObjectiveType           @map("objective_type")
+  targetValue         Int                         @default(1) @map("target_value")
+  objectiveConfig     Json?                       @map("objective_config")
+  rewardXp            Int                         @default(0) @map("reward_xp")
+  rewardRunwayTokens  Int                         @default(0) @map("reward_runway_tokens")
+  rewardCashCents     BigInt?                     @map("reward_cash_cents")
+  status              ContentStatus               @default(ACTIVE)
+  metadata            Json?
+  createdAt           DateTime                    @default(now()) @map("created_at")
+  updatedAt           DateTime                    @updatedAt @map("updated_at")
+  sector              Sector?                     @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  translations        TaskDefinitionTranslation[]
+  factoryProgress     FactoryTaskProgress[]
+
+  @@unique([scopeKey, key])
+  @@index([sectorId, status, sortOrder])
+  @@index([taskType, status])
+  @@map("task_definitions")
+}
+
+model TaskDefinitionTranslation {
+  id                String         @id @default(cuid())
+  taskDefinitionId  String         @map("task_definition_id")
+  locale            String
+  title             String
+  description       String
+  completionMessage String?        @map("completion_message")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  taskDefinition    TaskDefinition @relation(fields: [taskDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([taskDefinitionId, locale])
+  @@index([locale])
+  @@map("task_definition_translations")
+}
+
+model FactoryTaskProgress {
+  id               String             @id @default(cuid())
+  factoryId        String             @map("factory_id")
+  taskDefinitionId String             @map("task_definition_id")
+  instanceKey      String             @default("STORY:default") @map("instance_key")
+  status           TaskProgressStatus @default(LOCKED)
+  currentValue     Int                @default(0) @map("current_value")
+  targetValue      Int                @default(1) @map("target_value")
+  startedDay       Int?               @map("started_day")
+  completedDay     Int?               @map("completed_day")
+  claimedDay       Int?               @map("claimed_day")
+  expiresDay       Int?               @map("expires_day")
+  rewardSnapshot   Json?              @map("reward_snapshot")
+  metadata         Json?
+  createdAt        DateTime           @default(now()) @map("created_at")
+  updatedAt        DateTime           @updatedAt @map("updated_at")
+  factory          Factory            @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  taskDefinition   TaskDefinition     @relation(fields: [taskDefinitionId], references: [id], onDelete: Restrict)
+
+  @@unique([factoryId, taskDefinitionId, instanceKey])
+  @@index([factoryId, status])
+  @@index([taskDefinitionId, status])
+  @@map("factory_task_progress")
+}
+
+model PlayerTokenWallet {
+  id              String                   @id @default(cuid())
+  playerProfileId String                   @unique @map("player_profile_id")
+  balance         Int                      @default(0)
+  version         Int                      @default(0)
+  createdAt       DateTime                 @default(now()) @map("created_at")
+  updatedAt       DateTime                 @updatedAt @map("updated_at")
+  playerProfile   PlayerProfile            @relation(fields: [playerProfileId], references: [id], onDelete: Cascade)
+  transactions    PlayerTokenTransaction[]
+
+  @@map("player_token_wallets")
+}
+
+model PlayerTokenTransaction {
+  id              String                 @id @default(cuid())
+  walletId        String                 @map("wallet_id")
+  playerProfileId String                 @map("player_profile_id")
+  amountDelta     Int                    @map("amount_delta")
+  balanceBefore   Int                    @map("balance_before")
+  balanceAfter    Int                    @map("balance_after")
+  entryType       TokenEntryType         @map("entry_type")
+  reason          TokenTransactionReason
+  sourceType      String?                @map("source_type")
+  sourceId        String?                @map("source_id")
+  referenceKey    String                 @unique @map("reference_key")
+  metadata        Json?
+  createdAt       DateTime               @default(now()) @map("created_at")
+  wallet          PlayerTokenWallet      @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  playerProfile   PlayerProfile          @relation(fields: [playerProfileId], references: [id], onDelete: Cascade)
+
+  @@index([playerProfileId, createdAt])
+  @@index([walletId, createdAt])
+  @@index([sourceType, sourceId])
+  @@map("player_token_transactions")
+}
+
 model AwardDefinition {
   id              String                       @id @default(cuid())
   sectorId        String?                      @map("sector_id")
@@ -2319,4 +2478,13 @@ model FactoryRankingSnapshot {
   @@index([rankingSeasonId, category, rankingScore])
   @@index([factoryId])
   @@map("factory_ranking_snapshots")
+}
+
+// Legacy Neon test table. Keep it in the Prisma schema so db push does not drop its existing rows.
+model playing_with_neon {
+  id    Int    @id @default(autoincrement())
+  name  String
+  value Float? @db.Real
+
+  @@map("playing_with_neon")
 }

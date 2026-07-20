@@ -28,6 +28,8 @@ type MapPan = {
   y: number;
 };
 
+type TasksView = "active" | "history";
+
 type GameUiStore = {
   activePanel: OpenPanelState | null;
   hoveredDepartmentId: string | null;
@@ -38,6 +40,7 @@ type GameUiStore = {
   activeShiftPlayback: ShiftPlayback | null;
   isShiftPlaybackActive: boolean;
   shiftPlaybackNowMs: number;
+  tasksView: TasksView;
   closePanel: () => void;
   openPanel: (
     key: GamePanelKey,
@@ -49,6 +52,7 @@ type GameUiStore = {
   setMapPan: (pan: MapPan) => void;
   setMapZoom: (zoom: number) => void;
   setActiveShiftPlayback: (playback: ShiftPlayback | null) => void;
+  setTasksView: (view: TasksView) => void;
 };
 
 const GameUiStoreContext = createContext<GameUiStore | null>(null);
@@ -66,6 +70,7 @@ export function GameUiProvider({
   const [mapZoom, setMapZoom] = useState(1);
   const [selectedDockDepartmentIds, setSelectedDockDepartmentIds] = useState<string[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [tasksView, setTasksView] = useState<TasksView>("active");
   const [activeShiftPlayback, setActiveShiftPlaybackState] =
     useState<ShiftPlayback | null>(initialShiftPlayback);
   const dismissedShiftId = useStoredString(DISMISSED_SHIFT_PLAYBACK_STORAGE_KEY);
@@ -151,7 +156,9 @@ export function GameUiProvider({
       setMapPan,
       setMapZoom,
       setSelectedDockDepartmentIds,
+      setTasksView,
       shiftPlaybackNowMs,
+      tasksView,
     }),
     [
       activePanel,
@@ -167,6 +174,7 @@ export function GameUiProvider({
       selectLine,
       setActiveShiftPlayback,
       shiftPlaybackNowMs,
+      tasksView,
     ],
   );
 

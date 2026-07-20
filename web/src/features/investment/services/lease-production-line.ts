@@ -18,6 +18,7 @@ import {
 } from "@/generated/prisma/client";
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { recalculateFactoryOperatingStage } from "@/features/game/services/factory-operating-stage";
+import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
 
 import type {
@@ -458,6 +459,18 @@ export async function leaseProductionLine(input: {
         });
         const stage = await recalculateFactoryOperatingStage({
           factoryId: factory.id,
+          tx,
+        });
+        await advanceFactoryTaskProgress({
+          currentDay: factory.currentDay,
+          factoryId: factory.id,
+          event: {
+            objectiveType: "ACQUIRE_PRODUCTION_LINE",
+            metadata: {
+              acquisitionType: LineAcquisitionType.LEASED,
+              productionLineId,
+            },
+          },
           tx,
         });
         await grantFactoryXp({

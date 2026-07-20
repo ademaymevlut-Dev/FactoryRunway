@@ -9,6 +9,7 @@ import type { OrderMarketView } from "@/features/orders/types";
 import type { GameProductionQueuesView } from "@/features/production-queue/types";
 import type { GameWarehouseView } from "@/features/warehouse/types";
 import type { ProductionLineInvestmentView } from "@/features/investment/types";
+import type { TasksSnapshot } from "@/features/tasks/types";
 
 export type GamePanelKey =
   | "orders"
@@ -263,8 +264,12 @@ export type GameSnapshot = {
   metrics: GameMetric[];
   notifications: GameNotification[];
   activeShiftPlayback: ShiftPlayback | null;
+  tasks: TasksSnapshot;
   dock: {
     items: GameDockItem[];
+    badges: Partial<
+      Record<"orders" | "tasks" | "finance" | "reports", GameDockBadge>
+    >;
   };
   orders: OrderMarketView;
   warehouse: GameWarehouseView;

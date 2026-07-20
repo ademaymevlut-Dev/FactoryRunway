@@ -177,6 +177,12 @@ function buildHarness(overrides?: {
           return { id: `xp-${local.xpTransactions.length}` };
         },
       },
+      taskDefinition: {
+        findMany: async () => [],
+      },
+      factoryTaskProgress: {
+        findMany: async () => [],
+      },
       productionLineTemplate: {
         findUnique: async () => ({
           areaM2: 160,

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  LineAcquisitionType,
   Prisma,
   RouteProcessingMode,
   RouteProgressStatus,
@@ -30,6 +31,7 @@ function buildLine(
 ): SimulationLine {
   return {
     assignedStaffQuantity: 10,
+    acquisitionType: LineAcquisitionType.STARTER,
     conditionBps: 10_000,
     departmentId: "sewing",
     eventPenaltyBps,

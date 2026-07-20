@@ -31,6 +31,7 @@ import type {
   ProductionLineInvestmentView,
 } from "@/features/investment/types";
 import { calculateProductionLineInvestmentPreview } from "@/features/investment/services/production-line-investment";
+import { buildTasksSnapshot } from "@/features/tasks/services/task-snapshot";
 import {
   calculateEffectiveLinePointCapacity,
   getLineStaffCoverageBps,
@@ -301,6 +302,8 @@ export async function getGameSnapshot(input: {
     investmentStages,
     factorySupportStaff,
     levelConfigs,
+    taskProgressRows,
+    tokenWallet,
   ] = await Promise.all([
     prisma.departmentGroup.findMany({
       where: {
@@ -612,6 +615,37 @@ export async function getGameSnapshot(input: {
         unlockKey: true,
       },
     }),
+    prisma.factoryTaskProgress.findMany({
+      where: { factoryId: factory.id },
+      orderBy: { taskDefinition: { sortOrder: "asc" } },
+      select: {
+        completedDay: true,
+        currentValue: true,
+        id: true,
+        rewardSnapshot: true,
+        status: true,
+        targetValue: true,
+        taskDefinition: {
+          select: {
+            key: true,
+            objectiveType: true,
+            rewardCashCents: true,
+            rewardRunwayTokens: true,
+            rewardXp: true,
+            sortOrder: true,
+            taskType: true,
+            translations: {
+              where: { locale: { in: [locale, "en"] } },
+              select: { description: true, locale: true, title: true },
+            },
+          },
+        },
+      },
+    }),
+    prisma.playerTokenWallet.findUnique({
+      where: { playerProfileId: playerProfile.id },
+      select: { balance: true },
+    }),
   ]);
 
   const sections = buildFactoryMapSections({
@@ -642,6 +676,10 @@ export async function getGameSnapshot(input: {
     routeProgressCounts,
     warehouseInboundCount: warehouse.summary.inboundTotal,
   });
+  const tasks = buildTasksSnapshot({
+    progressRows: taskProgressRows,
+    tokenBalance: tokenWallet?.balance ?? 0,
+  });
 
   return {
     player: {
@@ -668,12 +706,17 @@ export async function getGameSnapshot(input: {
       lateOrderCount,
       totals,
     }),
+    tasks,
     notifications: buildNotifications({
       activeProductionOrderCount,
       lateOrderCount,
     }),
     activeShiftPlayback,
     dock: {
+      badges: buildLeftDockBadges({
+        availableOrderCount: orderMarket.availableCount,
+        tasks,
+      }),
       items: dockItems,
     },
     orders: orderMarket,
@@ -852,6 +895,37 @@ function buildDockItems({
     })
     .filter((item): item is GameDockItem => item !== null)
     .sort((first, second) => first.sortOrder - second.sortOrder || first.label.localeCompare(second.label));
+}
+
+function buildLeftDockBadges(input: {
+  availableOrderCount: number;
+  tasks: GameSnapshot["tasks"];
+}): GameSnapshot["dock"]["badges"] {
+  const badges: GameSnapshot["dock"]["badges"] = {};
+
+  if (input.availableOrderCount > 0) {
+    badges.orders = {
+      count: input.availableOrderCount,
+      label: "Yeni sipariş",
+      tone: "danger",
+    };
+  }
+
+  if (input.tasks.summary.completedUnclaimedCount > 0) {
+    badges.tasks = {
+      count: input.tasks.summary.completedUnclaimedCount,
+      label: "Ödül bekliyor",
+      tone: "warning",
+    };
+  } else if (input.tasks.summary.activeCount > 0) {
+    badges.tasks = {
+      count: input.tasks.summary.activeCount,
+      label: "Aktif görev",
+      tone: "info",
+    };
+  }
+
+  return badges;
 }
 
 function buildRouteCountsByDepartmentId(routeProgressCounts: RouteProgressCountRecord[]) {

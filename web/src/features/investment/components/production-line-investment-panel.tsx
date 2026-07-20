@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { GameSnapshot } from "@/features/game/types";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
+import { recordTaskEventAction } from "@/features/tasks/actions/record-task-event-action";
 
 import { ProductionLineTemplatePurchaseCard } from "./production-line-template-purchase-card";
 
@@ -17,6 +18,14 @@ export function ProductionLineInvestmentPanel({
   snapshot: GameSnapshot;
 }) {
   const { isShiftPlaybackActive } = useGameUiStore();
+
+  useEffect(() => {
+    void recordTaskEventAction({
+      factoryId: snapshot.factory.id,
+      objectiveType: "OPEN_INVESTMENT_PANEL",
+    });
+  }, [snapshot.factory.id]);
+
   const availableDepartments = useMemo(
     () => {
       if (sectionId) {

@@ -2,6 +2,10 @@ import {
   CustomerOrderItemStatus,
   CustomerOrderStatus,
   FactoryProductionLineStatus,
+  FinanceCategory,
+  FinanceDirection,
+  FinanceSourceType,
+  LineAcquisitionType,
   OutsourceJobStatus,
   Prisma,
   ProductionOrderStatus,
@@ -22,6 +26,7 @@ import {
 } from "./financial-triggers";
 import { processLateDeliveryPenalties } from "./order-penalties";
 import { processShippedOrderXpRewards } from "./order-xp-rewards";
+import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 import {
   createLockedAutomaticProductionPlan,
   markAutomaticProductionPlanExecuted,
@@ -68,6 +73,7 @@ export type FactoryDaySimulationResult = {
 };
 
 type ProductionLineForSimulation = {
+  acquisitionType: LineAcquisitionType;
   id: string;
   departmentId: string;
   productionLineTemplateId: string;
@@ -183,6 +189,7 @@ export async function simulateFactoryDay(input: {
         orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
         select: {
           id: true,
+          acquisitionType: true,
           departmentId: true,
           productionLineTemplateId: true,
           lineNumber: true,
@@ -333,6 +340,7 @@ export async function simulateFactoryDay(input: {
       0,
     ),
     conditionBps: line.conditionBps,
+    acquisitionType: line.acquisitionType,
     departmentId: line.departmentId,
     eventPenaltyBps: 10_000,
     id: line.id,
@@ -479,6 +487,69 @@ export async function simulateFactoryDay(input: {
     factoryId: factory.id,
     prisma,
   });
+
+  const onTimeShipmentCount = shippingResult.shippedOrderIds.filter(
+    (orderId) => !shippingResult.lateOrderIds.includes(orderId),
+  ).length;
+  const customerPaymentCount = await prisma.factoryFinanceTransaction.count({
+    where: {
+      category: FinanceCategory.ORDER_REVENUE,
+      direction: FinanceDirection.INCOME,
+      factoryId: factory.id,
+      gameDay: simulatedGameDay,
+      sourceType: FinanceSourceType.CUSTOMER_ORDER,
+    },
+  });
+  const newLineProduced = lineResults.some(
+    (result) =>
+      result.producedQuantity > 0 &&
+      result.line.acquisitionType !== LineAcquisitionType.STARTER,
+  );
+  const stageState = newLineProduced
+    ? await prisma.factoryOperatingStageState.findUnique({
+        where: { factoryId: factory.id },
+        select: { requirementsMet: true },
+      })
+    : null;
+
+  await advanceFactoryTaskProgress({
+    currentDay: simulatedGameDay,
+    factoryId: factory.id,
+    event: { objectiveType: "COMPLETE_SHIFT" },
+    tx: prisma,
+  });
+  if (onTimeShipmentCount > 0) {
+    await advanceFactoryTaskProgress({
+      currentDay: simulatedGameDay,
+      factoryId: factory.id,
+      event: { amount: onTimeShipmentCount, objectiveType: "SHIP_ON_TIME" },
+      tx: prisma,
+    });
+  }
+  if (customerPaymentCount > 0) {
+    await advanceFactoryTaskProgress({
+      currentDay: simulatedGameDay,
+      factoryId: factory.id,
+      event: { amount: customerPaymentCount, objectiveType: "PAYMENT_RECEIVED" },
+      tx: prisma,
+    });
+  }
+  if (newLineProduced) {
+    await advanceFactoryTaskProgress({
+      currentDay: simulatedGameDay,
+      factoryId: factory.id,
+      event: { objectiveType: "USE_NEW_PRODUCTION_LINE" },
+      tx: prisma,
+    });
+    if (stageState?.requirementsMet) {
+      await advanceFactoryTaskProgress({
+        currentDay: simulatedGameDay,
+        factoryId: factory.id,
+        event: { objectiveType: "MEET_STAGE_STAFF" },
+        tx: prisma,
+      });
+    }
+  }
   const orderXpRewardResult = await processShippedOrderXpRewards({
     factoryDay: simulatedGameDay,
     factoryId: factory.id,
@@ -506,6 +577,22 @@ export async function simulateFactoryDay(input: {
     factoryId: factory.id,
     tx: prisma,
   });
+
+  if (financeClosingResult.closed) {
+    const financeSnapshot = await prisma.factoryFinancePeriodSnapshot.findUnique({
+      where: { id: financeClosingResult.snapshotId },
+      select: { netResultCents: true },
+    });
+
+    if (financeSnapshot && financeSnapshot.netResultCents > BigInt(0)) {
+      await advanceFactoryTaskProgress({
+        currentDay: simulatedGameDay,
+        factoryId: factory.id,
+        event: { objectiveType: "CLOSE_PROFITABLE_FINANCE_PERIOD" },
+        tx: prisma,
+      });
+    }
+  }
 
   const factoryAdvance = await prisma.factory.updateMany({
     where: {

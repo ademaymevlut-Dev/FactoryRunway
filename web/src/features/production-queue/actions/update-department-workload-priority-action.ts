@@ -19,6 +19,7 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
 export type UpdateDepartmentWorkloadPriorityResult =
   | { ok: true }
@@ -172,6 +173,13 @@ export async function updateDepartmentWorkloadPriorityAction(
             status: ProductionPlanStatus.DRAFT,
           },
           data: { status: ProductionPlanStatus.DIRTY },
+        });
+
+        await advanceFactoryTaskProgress({
+          currentDay: factory.currentDay,
+          factoryId: factory.id,
+          event: { objectiveType: "CHANGE_PRIORITY" },
+          tx,
         });
       },
       {

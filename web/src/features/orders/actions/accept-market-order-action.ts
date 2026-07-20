@@ -13,6 +13,7 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
 export async function acceptMarketOrderAction(formData: FormData) {
   const auth = await getCurrentUser();
@@ -220,6 +221,21 @@ export async function acceptMarketOrderAction(formData: FormData) {
         status: MarketOrderOfferStatus.ACCEPTED,
       },
     });
+
+    if (offer.offerType === "NORMAL") {
+      await advanceFactoryTaskProgress({
+        currentDay: factory.currentDay,
+        factoryId: factory.id,
+        event: {
+          objectiveType: "ACCEPT_ORDER",
+          metadata: {
+            offerType: offer.offerType,
+            orderId: customerOrder.id,
+          },
+        },
+        tx,
+      });
+    }
   });
 
   revalidatePath("/game");

@@ -16,6 +16,7 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { ensureFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
 export type StarterStaffRequirement = {
   id: string;
@@ -413,6 +414,12 @@ export async function completeFactoryOnboardingAction(input: {
           starterLines: starterTemplateKeys,
         },
       },
+    });
+
+    await ensureFactoryTaskProgress({
+      currentDay: simulationConfig?.startingDay ?? 1,
+      factoryId: factory.id,
+      tx,
     });
 
     await tx.playerProfile.update({

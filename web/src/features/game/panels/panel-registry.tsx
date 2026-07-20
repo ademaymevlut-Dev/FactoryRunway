@@ -1,7 +1,6 @@
 import {
   Boxes,
   Factory,
-  ListChecks,
   Users,
   X,
 } from "lucide-react";
@@ -17,6 +16,7 @@ import { WarehousePanel } from "@/features/warehouse/components/warehouse-panel"
 import { ProductionLineInvestmentPanel } from "@/features/investment/components/production-line-investment-panel";
 import { UpgradeProductionLinePanel } from "@/features/investment/components/upgrade-production-line-panel";
 import type { ProductionLineInvestmentTemplate } from "@/features/investment/types";
+import { TasksPanel } from "@/features/tasks/components/tasks-panel";
 import { cn } from "@/lib/utils";
 
 import type { FactoryMapItem, GamePanelKey, GameSnapshot } from "../types";
@@ -53,13 +53,13 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     ),
   },
   tasks: {
+    layout: "center",
+    size: "adaptive",
     title: "Görevler",
     render: ({ snapshot }) => (
-      <PanelScaffold
-        icon={<ListChecks size={18} />}
-        title="Görevler"
-        value={`${snapshot.notifications.length} not`}
-        body="Öncelikli aksiyonlar görev panelinde takip edilecek."
+      <TasksPanel
+        currencyCode={snapshot.factory.currencyCode}
+        tasks={snapshot.tasks}
       />
     ),
   },
