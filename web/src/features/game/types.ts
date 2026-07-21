@@ -220,6 +220,7 @@ export type FactoryMapSection = {
 
 export type GameDockBadge = {
   count: number;
+  icon?: "check";
   label: string;
   tone: "info" | "warning" | "danger" | "success";
 };

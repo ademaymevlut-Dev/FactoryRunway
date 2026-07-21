@@ -27,9 +27,11 @@ type PanelContext = {
   onClose: () => void;
 };
 
+type PanelLayout = "center" | "dock" | "side";
+
 type PanelDefinition = {
   backdrop?: boolean;
-  layout?: "center" | "side";
+  layout?: PanelLayout;
   size?: "adaptive" | "compact" | "wide";
   title: string;
   render: (context: PanelContext) => ReactNode;
@@ -53,8 +55,8 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     ),
   },
   tasks: {
-    layout: "center",
-    size: "adaptive",
+    layout: "dock",
+    size: "compact",
     title: "Görevler",
     render: ({ snapshot }) => (
       <TasksPanel
@@ -229,7 +231,7 @@ export function PanelChrome({
   title,
 }: {
   children: ReactNode;
-  layout?: "center" | "side";
+  layout?: PanelLayout;
   onClose: () => void;
   size?: "adaptive" | "compact" | "wide";
   title: string;
@@ -247,7 +249,10 @@ export function PanelChrome({
         layout === "center" &&
           size === "compact" &&
           "h-[min(760px,calc(100dvh-8rem))] w-[min(880px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(880px,calc(100vw-5rem))]",
-        layout !== "center" && "max-h-[calc(100dvh-8rem)] w-[min(420px,calc(100vw-2rem))] bg-card/95 p-4",
+        layout === "side" &&
+          "max-h-[calc(100dvh-8rem)] w-[min(420px,calc(100vw-2rem))] bg-card/95 p-4",
+        layout === "dock" &&
+          "max-h-[min(620px,calc(100dvh-7rem))] w-[min(400px,calc(100vw-7rem))] bg-background p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-8 motion-safe:duration-300",
       )}
     >
       <div className="mb-3 flex shrink-0 items-center justify-between gap-4">

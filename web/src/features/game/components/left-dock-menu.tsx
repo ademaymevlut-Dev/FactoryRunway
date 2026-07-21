@@ -3,6 +3,7 @@
 import {
   Banknote,
   BarChart3,
+  CheckCircle2,
   ClipboardList,
   ListChecks,
   type LucideIcon,
@@ -147,7 +148,11 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                         animation: "orderBadgeScale 1.25s ease-in-out infinite",
                       }}
                     >
-                      {badge.count > 9 ? "9+" : badge.count}
+                      {badge.icon === "check" ? (
+                        <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                      ) : (
+                        badge.count > 9 ? "9+" : badge.count
+                      )}
                     </span>
                   ) : null}
                   {isActive ? (

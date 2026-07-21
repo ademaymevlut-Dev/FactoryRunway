@@ -914,8 +914,9 @@ function buildLeftDockBadges(input: {
   if (input.tasks.summary.completedUnclaimedCount > 0) {
     badges.tasks = {
       count: input.tasks.summary.completedUnclaimedCount,
+      icon: "check",
       label: "Ödül bekliyor",
-      tone: "warning",
+      tone: "success",
     };
   } else if (input.tasks.summary.activeCount > 0) {
     badges.tasks = {

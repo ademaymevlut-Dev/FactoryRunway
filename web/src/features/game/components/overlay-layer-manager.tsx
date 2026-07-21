@@ -41,7 +41,9 @@ export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
                 ? "pointer-events-auto bg-background/55 backdrop-blur-[2px]"
                 : "pointer-events-none",
             )
-          : "pointer-events-none items-start justify-end px-4 pb-24 pt-28 sm:px-6",
+          : layout === "dock"
+            ? "pointer-events-none items-center justify-start px-4 py-24 pl-[6.75rem] sm:pl-[7.5rem]"
+            : "pointer-events-none items-start justify-end px-4 pb-24 pt-28 sm:px-6",
       )}
     >
       <PanelChrome layout={layout} onClose={closePanel} size={panel.size} title={panel.title}>
