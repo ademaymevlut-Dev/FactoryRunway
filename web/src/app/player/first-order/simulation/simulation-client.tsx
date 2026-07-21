@@ -17,6 +17,7 @@ import CountUp from "@/components/ui/CountUp";
 import { cn } from "@/lib/utils";
 
 import { completeFirstSimulationAction } from "./simulation-actions";
+import { FIRST_ORDER_SIMULATION_DURATION_SECONDS } from "./simulation-config";
 
 export type SimulationLineView = {
   id: string;
@@ -49,7 +50,6 @@ type HeaderMetricView = {
   isCounting: boolean;
 };
 
-const simulationDurationSeconds = 25;
 const dayCopy = [
   {
     eyebrow: "DAY 1",
@@ -102,7 +102,7 @@ export function FirstOrderSimulationClient({
       });
       setCompletedDays((current) => Math.min(3, current + 1));
       setRunningDay(null);
-    }, simulationDurationSeconds * 1000);
+    }, FIRST_ORDER_SIMULATION_DURATION_SECONDS * 1000);
 
     return () => clearTimeout(timeoutId);
   }, [runningDay, simulation.lines]);
@@ -261,7 +261,7 @@ function HeaderMetric({ metric }: { metric: HeaderMetricView }) {
         {metric.isCounting ? (
           <CountUp
             key={`${metric.label}-${metric.fromValue}-${metric.value}`}
-            duration={25}
+            duration={FIRST_ORDER_SIMULATION_DURATION_SECONDS}
             from={metric.fromValue}
             separator="."
             startWhen
@@ -335,7 +335,7 @@ function SimulationLineCard({
                     {isActive ? (
                       <CountUp
                         key={runKey}
-                        duration={25}
+                        duration={FIRST_ORDER_SIMULATION_DURATION_SECONDS}
                         from={0}
                         separator="."
                         startWhen={isActive}

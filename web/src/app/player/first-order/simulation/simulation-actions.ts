@@ -27,9 +27,8 @@ import {
   type FirstSimulationRouteStatus,
   type FirstSimulationStepInput,
 } from "./simulation-math";
+import { FIRST_ORDER_SIMULATION_DURATION_SECONDS } from "./simulation-config";
 import { FIRST_SIMULATION_SHIFT_XP } from "./reward-config";
-
-const FIRST_SIMULATION_DURATION_SECONDS = 25;
 
 export async function completeFirstSimulationAction() {
   const auth = await getCurrentUser();
@@ -130,7 +129,7 @@ export async function completeFirstSimulationAction() {
         },
         update: {
           status: ShiftSimulationStatus.COMPLETED,
-          simulationDurationSeconds: FIRST_SIMULATION_DURATION_SECONDS,
+          simulationDurationSeconds: FIRST_ORDER_SIMULATION_DURATION_SECONDS,
           completedAt: new Date(),
           idempotencyKey: `first-order:${tutorial.id}:day:${day.dayIndex + 1}`,
           totalAvailablePoints: day.totalAvailablePoints,
@@ -154,7 +153,7 @@ export async function completeFirstSimulationAction() {
           sectorId: factory.sectorId,
           gameDay: day.gameDay,
           status: ShiftSimulationStatus.COMPLETED,
-          simulationDurationSeconds: FIRST_SIMULATION_DURATION_SECONDS,
+          simulationDurationSeconds: FIRST_ORDER_SIMULATION_DURATION_SECONDS,
           completedAt: new Date(),
           idempotencyKey: `first-order:${tutorial.id}:day:${day.dayIndex + 1}`,
           totalAvailablePoints: day.totalAvailablePoints,
