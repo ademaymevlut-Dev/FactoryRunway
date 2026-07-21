@@ -1,5 +1,7 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
+
 import { Prisma, TaskObjectiveType } from "@/generated/prisma/client";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
@@ -38,6 +40,8 @@ export async function recordTaskEventAction(input: {
       }),
     { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
   );
+
+  revalidatePath("/game");
 
   return { ok: true };
 }

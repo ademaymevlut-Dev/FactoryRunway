@@ -88,7 +88,7 @@ export function TaskCard({
           </div>
         ) : null}
 
-        <div className="rounded-2xl border border-border/70 bg-background/45 p-3">
+        <div className="p-1">
           <p className="text-sm leading-6 text-muted-foreground">
             {task.description}
           </p>
@@ -104,27 +104,28 @@ export function TaskCard({
         </div>
         {isCompleted ? (
           <Button
-            className="w-full"
+            className="mx-auto"
             disabled={isPending || isSettling}
             onClick={() => onClaim(task)}
             type="button"
+            variant="secondary"
           >
             <Trophy size={16} />
             {isPending || isSettling ? "Alınıyor..." : "Ödülü al"}
           </Button>
         ) : canUseCta ? (
           <Button
-            className="w-full"
+            className="mx-auto"
             disabled={isPending}
             onClick={() => onCta(task)}
             type="button"
-            variant="outline"
+            variant="secondary"
           >
             {task.cta?.label}
             <ArrowRight size={16} />
           </Button>
         ) : (
-          <Button className="w-full" disabled type="button" variant="outline">
+          <Button className="mx-auto" disabled type="button" variant="secondary">
             Görev bekliyor
           </Button>
         )}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import type { GameSnapshot } from "@/features/game/types";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
@@ -17,14 +18,21 @@ export function ProductionLineInvestmentPanel({
   sectionId: string;
   snapshot: GameSnapshot;
 }) {
+  const router = useRouter();
   const { isShiftPlaybackActive } = useGameUiStore();
+  const recordedInvestmentReviewRef = useRef(false);
 
   useEffect(() => {
+    if (recordedInvestmentReviewRef.current) return;
+    recordedInvestmentReviewRef.current = true;
+
     void recordTaskEventAction({
       factoryId: snapshot.factory.id,
       objectiveType: "OPEN_INVESTMENT_PANEL",
+    }).then((result) => {
+      if (result.ok) router.refresh();
     });
-  }, [snapshot.factory.id]);
+  }, [router, snapshot.factory.id]);
 
   const availableDepartments = useMemo(
     () => {

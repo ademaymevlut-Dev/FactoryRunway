@@ -19,6 +19,7 @@ import { getOrderMarketView } from "@/features/orders/services/order-market-view
 import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
 import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
 import { getFinancePeriod } from "@/features/finance/services/finance-period";
+import { buildManagerRecommendations } from "@/features/manager/services/manager-recommendation-engine";
 import { getPrisma } from "@/lib/db";
 import {
   buildFactoryLevelProgress,
@@ -680,6 +681,33 @@ export async function getGameSnapshot(input: {
     progressRows: taskProgressRows,
     tokenBalance: tokenWallet?.balance ?? 0,
   });
+  const investment = buildProductionLineInvestmentView({
+    activeProductionLineCount: factory.productionLines.filter(
+      (line) => line.status !== FactoryProductionLineStatus.DISABLED,
+    ).length,
+    costConfig: investmentCostConfig,
+    currentStageId: factory.operatingStageState?.currentStage.id ?? null,
+    currencyCode: factory.currencyCode,
+    stages: investmentStages,
+    supportStaffByRoleId: new Map(
+      factorySupportStaff.map((assignment) => [
+        assignment.staffRoleId,
+        assignment.quantity,
+      ]),
+    ),
+    templates: investmentTemplates,
+  });
+  const managerRecommendations = buildManagerRecommendations({
+    activeOrderCount,
+    activeProductionOrderCount,
+    cashBalanceCents: factory.cashBalanceCents.toString(),
+    currentDay: factory.currentDay,
+    investment,
+    lateOrderCount,
+    mapSections: sections,
+    productionQueues,
+    tasks,
+  });
 
   return {
     player: {
@@ -711,6 +739,7 @@ export async function getGameSnapshot(input: {
       activeProductionOrderCount,
       lateOrderCount,
     }),
+    managerRecommendations,
     activeShiftPlayback,
     dock: {
       badges: buildLeftDockBadges({
@@ -722,22 +751,7 @@ export async function getGameSnapshot(input: {
     orders: orderMarket,
     warehouse,
     productionQueues,
-    investment: buildProductionLineInvestmentView({
-      activeProductionLineCount: factory.productionLines.filter(
-        (line) => line.status !== FactoryProductionLineStatus.DISABLED,
-      ).length,
-      costConfig: investmentCostConfig,
-      currentStageId: factory.operatingStageState?.currentStage.id ?? null,
-      currencyCode: factory.currencyCode,
-      stages: investmentStages,
-      supportStaffByRoleId: new Map(
-        factorySupportStaff.map((assignment) => [
-          assignment.staffRoleId,
-          assignment.quantity,
-        ]),
-      ),
-      templates: investmentTemplates,
-    }),
+    investment,
     map: {
       sections,
       totals,

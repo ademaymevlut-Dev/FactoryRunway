@@ -114,10 +114,16 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     title: "Üretim Kuyruğu",
     render: ({ payload, snapshot }) => {
       const dockItem = findDockItem(snapshot, String(payload?.dockItemId ?? ""));
+      const departmentKey = findDepartmentKey(
+        snapshot,
+        String(payload?.departmentId ?? ""),
+      );
 
       return (
         <DepartmentQueuePanel
-          departmentKeys={dockItem?.departmentKeys ?? []}
+          departmentKeys={
+            dockItem?.departmentKeys ?? (departmentKey ? [departmentKey] : [])
+          }
           investmentDepartmentIds={snapshot.investment.departments
             .filter((department) => department.templates.length > 0)
             .map((department) => department.id)}
@@ -353,4 +359,14 @@ function getNextGrade(
 
 function findDockItem(snapshot: GameSnapshot, dockItemId: string) {
   return snapshot.dock.items.find((item) => item.id === dockItemId) ?? null;
+}
+
+function findDepartmentKey(snapshot: GameSnapshot, departmentId: string) {
+  if (!departmentId) return null;
+
+  return (
+    snapshot.productionQueues.queues.find(
+      (queue) => queue.departmentId === departmentId,
+    )?.departmentKey ?? null
+  );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ManagerRecommendationCenter } from "@/features/manager/components/manager-recommendation-center";
 
 import type { GameSnapshot } from "../types";
 import { DailyEventPanel } from "./daily-event-panel";
@@ -23,6 +24,9 @@ export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }
           <FactoryMap snapshot={initialSnapshot} />
           <TopStatusBar snapshot={initialSnapshot} />
           <LeftDockMenu snapshot={initialSnapshot} />
+          <ManagerRecommendationCenter
+            recommendations={initialSnapshot.managerRecommendations}
+          />
           <NotificationCenter notifications={initialSnapshot.notifications} />
           <DockMenu snapshot={initialSnapshot} />
           <ShiftControlBar snapshot={initialSnapshot} />
