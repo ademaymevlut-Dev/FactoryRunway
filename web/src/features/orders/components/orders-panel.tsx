@@ -17,14 +17,17 @@ import {
   ChevronRight,
   Clock,
   Factory,
+  Gem,
   Hash,
   LockKeyhole,
   PackageCheck,
   Palette,
   Repeat2,
   Route,
+  Shirt,
   ShoppingBag,
-  TrendingUp,
+  StarCheck,
+  TagPlus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -60,28 +63,28 @@ const marketFilters: Array<{
   {
     description: "Kolay üretim, yüksek adet ve düşük XP kademeli seri üretim işleri.",
     hint: "LEVEL 1 · Seri üretim",
-    icon: ShoppingBag,
+    icon: Shirt,
     label: "Basic",
     value: "BASIC",
   },
   {
     description: "Baskı, nakış, boyama, yıkama veya fason süreçli ikinci kademe işler.",
     hint: "LEVEL 5 · Ek işlemli",
-    icon: Factory,
+    icon: TagPlus,
     label: "Standard",
     value: "STANDARD",
   },
   {
     description: "Daha yüksek üretim yükü, kalite beklentisi ve üçüncü kademe XP.",
     hint: "LEVEL 20 · Yüksek kalite",
-    icon: TrendingUp,
+    icon: StarCheck,
     label: "Premium",
     value: "PREMIUM",
   },
   {
     description: "Düşük adet, yüksek fiyat, yüksek kar ve en yüksek XP kademesi.",
     hint: "LEVEL 50 · Zirve grup",
-    icon: Factory,
+    icon: Gem,
     label: "Luxury",
     value: "LUXURY",
   },
@@ -320,32 +323,33 @@ function OrderSidebarPanel({
 }) {
   const selectedMarketFilter =
     selectedFilter === null ? null : getMarketFilter(selectedFilter);
+  const visibleOfferCount =
+    selectedFilter === null ? sourceOffers.length : offers.length;
 
   return (
     <aside className="flex min-h-0 flex-col rounded-lg border border-border bg-card/70 p-3">
       <div className="mb-3">
-        {selectedFilter ? (
-          <Button
-            className="mb-3 h-8 gap-1.5 px-2 text-xs"
-            onClick={onBack}
-            size="sm"
-            type="button"
-            variant="ghost"
-          >
-            <ArrowLeft size={14} />
-            Filtreyi değiştir
-          </Button>
-        ) : null}
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
           Sipariş Pazarı
         </p>
-        <h2 className="mt-2 text-2xl font-semibold leading-tight text-foreground">
-          {selectedMarketFilter?.label ?? "Filtre Seç"}
-        </h2>
+        {selectedMarketFilter ? (
+          <div className="mt-3 flex items-center gap-2">
+            <Button
+              aria-label="Filtreyi değiştir"
+              className="shrink-0"
+              onClick={onBack}
+              size="icon-sm"
+              type="button"
+            >
+              <ArrowLeft size={16} />
+            </Button>
+            <h2 className="min-w-0 truncate text-2xl font-semibold leading-tight text-foreground">
+              {selectedMarketFilter.label}
+            </h2>
+          </div>
+        ) : null}
         <p className="mt-2 text-sm text-muted-foreground">
-          {selectedMarketFilter
-            ? `${offers.length} açık teklif`
-            : `${sourceOffers.length} açık teklif`}
+          {visibleOfferCount} açık teklif
         </p>
       </div>
 

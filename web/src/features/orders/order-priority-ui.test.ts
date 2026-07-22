@@ -24,7 +24,8 @@ test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiket
   assert.match(panel, /LockedProductTierState/);
   assert.match(panel, /LEVEL \{minimumLevel\}/);
   assert.match(panel, /Luxury/);
-  assert.match(panel, /Filtreyi değiştir/);
+  assert.match(panel, /aria-label="Filtreyi değiştir"/);
+  assert.doesNotMatch(panel, /Filtre Seç/);
   assert.match(panel, /matchesMarketFilter/);
   assert.match(panel, /CustomerRelationshipCard/);
   assert.match(panel, /Müşteri İlişkisi/);
