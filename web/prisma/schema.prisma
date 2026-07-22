@@ -1511,6 +1511,7 @@ model VirtualCustomer {
   sectorId              String                       @map("sector_id")
   customerSegmentId     String                       @map("customer_segment_id")
   customerVolumeClassId String                       @map("customer_volume_class_id")
+  productTier           ProductTier                  @default(BASIC) @map("product_tier")
   key                   String
   name                  String
   countryCode           String?                      @map("country_code")
@@ -1532,6 +1533,7 @@ model VirtualCustomer {
   @@unique([sectorId, key])
   @@index([sectorId, customerSegmentId])
   @@index([sectorId, customerVolumeClassId])
+  @@index([sectorId, productTier, status])
   @@index([sectorId, status])
   @@index([minOperatingStageId])
   @@index([maxOperatingStageId])
@@ -1545,6 +1547,7 @@ model MarketOrderOffer {
   virtualCustomerId      String                 @map("virtual_customer_id")
   customerSegmentId      String                 @map("customer_segment_id")
   customerVolumeClassId  String                 @map("customer_volume_class_id")
+  productTier            ProductTier            @default(BASIC) @map("product_tier")
   offerType              MarketOrderOfferType   @default(NORMAL) @map("offer_type")
   offerNo                String                 @map("offer_no")
   offeredDay             Int                    @map("offered_day")
@@ -1576,6 +1579,7 @@ model MarketOrderOffer {
   @@unique([factoryId, offerNo])
   @@index([factoryId, status])
   @@index([factoryId, status, offerType])
+  @@index([factoryId, status, productTier])
   @@index([factoryId, expiresDay])
   @@index([virtualCustomerId])
   @@map("market_order_offers")

@@ -1,9 +1,13 @@
 "use client";
 
 import { Plus } from "lucide-react";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  PRODUCT_TIER_MIN_LEVEL,
+  type ProductTier,
+} from "@/features/orders/product-tier-rules";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +39,7 @@ export function ProductCreateDialog({
     createProductAction,
     initialAdminActionState,
   );
+  const [tier, setTier] = useState<ProductTier>("BASIC");
   const canCreateProduct = productTypes.some((productType) =>
     categories.some(
       (category) =>
@@ -86,10 +91,27 @@ export function ProductCreateDialog({
             <Field label="Ürün adı">
               <Input name="name" placeholder="Manama T-Shirt" required />
             </Field>
-            <Field label="Ürün seviyesi">
-              <Select defaultValue="BASIC" name="tier">
+            <Field label="Ürün grubu">
+              <Select
+                name="tier"
+                onChange={(event) => setTier(event.target.value as ProductTier)}
+                value={tier}
+              >
                 <Options values={enumOptions.tiers} />
               </Select>
+            </Field>
+            <Field
+              label="Gerekli oyuncu seviyesi"
+              hint={`${tier} grubu için minimum LEVEL ${PRODUCT_TIER_MIN_LEVEL[tier]}.`}
+            >
+              <Input
+                key={tier}
+                defaultValue={PRODUCT_TIER_MIN_LEVEL[tier]}
+                min={PRODUCT_TIER_MIN_LEVEL[tier]}
+                name="requiredPlayerLevel"
+                required
+                type="number"
+              />
             </Field>
             <Field label="Cinsiyet">
               <Select defaultValue="" name="gender">

@@ -14,11 +14,11 @@ test("sipariş XP hesabı workload ve zamanında teslim bonusunu birlikte hesapl
     totalWorkloadPoints: 120_000,
   });
 
-  assert.equal(reward.workloadXp, 120);
-  assert.equal(reward.orderCompletedXp, 170);
+  assert.equal(reward.workloadXp, 24);
+  assert.equal(reward.orderCompletedXp, 124);
   assert.equal(reward.onTimeBonusXp, 25);
   assert.equal(reward.tierBonusXp, 0);
-  assert.equal(reward.totalAwardXp, 195);
+  assert.equal(reward.totalAwardXp, 149);
 });
 
 test("geciken sipariş XP ödülünü azaltır ve zamanında teslim bonusunu kapatır", () => {
@@ -59,7 +59,28 @@ test("premium ve luxury siparişler ayrı zorluk bonus nedeni üretir", () => {
   });
 
   assert.equal(premiumReward.tierBonusReason, XpReason.PREMIUM_ORDER);
-  assert.equal(premiumReward.tierBonusXp, 90);
+  assert.equal(premiumReward.tierBonusXp, 300);
   assert.equal(luxuryReward.tierBonusReason, XpReason.LUXURY_ORDER);
-  assert.equal(luxuryReward.tierBonusXp, 180);
+  assert.equal(luxuryReward.tierBonusXp, 800);
+});
+
+test("aynı iş yükü ve teslim performansında XP ürün grubuyla kademeli artar", () => {
+  const rewards = [
+    ProductTier.BASIC,
+    ProductTier.STANDARD,
+    ProductTier.PREMIUM,
+    ProductTier.LUXURY,
+  ].map((tier) =>
+    calculateOrderXpReward({
+      itemCount: 2,
+      lateDays: 0,
+      outsourcedStepCount: 1,
+      tiers: [tier],
+      totalWorkloadPoints: 300_000,
+    }).totalAwardXp,
+  );
+
+  assert.ok(rewards[0] < rewards[1]);
+  assert.ok(rewards[1] < rewards[2]);
+  assert.ok(rewards[2] < rewards[3]);
 });

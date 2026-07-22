@@ -16,6 +16,7 @@ export type GamePanelKey =
   | "orders"
   | "production"
   | "tasks"
+  | "management"
   | "staff"
   | "finance"
   | "reports"
@@ -271,7 +272,10 @@ export type GameSnapshot = {
   dock: {
     items: GameDockItem[];
     badges: Partial<
-      Record<"orders" | "tasks" | "finance" | "reports", GameDockBadge>
+      Record<
+        "orders" | "tasks" | "management" | "finance" | "reports",
+        GameDockBadge
+      >
     >;
   };
   orders: OrderMarketView;

@@ -9,6 +9,10 @@ import {
   type ProductTier,
 } from "@/generated/prisma/enums";
 import { getPrisma } from "@/lib/db";
+import {
+  getEffectiveProductRequiredLevel,
+  isProductTierUnlocked,
+} from "../product-tier-rules";
 
 import type {
   OrderMarketView,
@@ -68,16 +72,20 @@ type CapacityRowInternal = OrderOfferCapacityPlanView["rows"][number] & {
 
 export async function getOrderMarketView(input: {
   currentDay: number;
+  currentLevel: number;
   factoryId: string;
   currencyCode: CurrencyCode;
 }): Promise<OrderMarketView> {
   const [offers, departmentCosts, activeOrders, capacityContext] = await Promise.all([
-    fetchMarketOffers(input.factoryId),
+    fetchMarketOffers(input.factoryId, input.currentDay),
     fetchFactoryDepartmentCosts(input.factoryId),
     fetchActiveProductionOrders(input.factoryId),
     fetchFactoryCapacityContext(input.factoryId),
   ]);
-  const offerViews = offers.map((offer) =>
+  const visibleOffers = offers.filter((offer) =>
+    isMarketOfferVisibleForLevel(offer, input.currentLevel),
+  );
+  const offerViews = visibleOffers.map((offer) =>
     toOrderOfferView({
       capacityContext,
       currencyCode: input.currencyCode,
@@ -90,6 +98,7 @@ export async function getOrderMarketView(input: {
   return {
     activeOrders: activeOrders.map(toActiveOrderPriorityView),
     availableCount: offerViews.length,
+    currentLevel: input.currentLevel,
     offers: offerViews,
   };
 }
@@ -231,16 +240,17 @@ async function fetchFactoryCapacityContext(factoryId: string) {
   };
 }
 
-async function fetchMarketOffers(factoryId: string) {
+async function fetchMarketOffers(factoryId: string, currentDay: number) {
   const prisma = getPrisma();
 
   return prisma.marketOrderOffer.findMany({
     where: {
       factoryId,
       status: MarketOrderOfferStatus.AVAILABLE,
+      expiresDay: { gte: currentDay },
     },
     orderBy: [{ expiresDay: "asc" }, { offeredDay: "desc" }, { offerNo: "asc" }],
-    take: 12,
+    take: 48,
     include: {
       customerSegment: {
         include: {
@@ -307,6 +317,31 @@ async function fetchMarketOffers(factoryId: string) {
       },
     },
   });
+}
+
+function isMarketOfferVisibleForLevel(
+  offer: MarketOfferRecord,
+  currentLevel: number,
+) {
+  if (offer.items.length === 0) return false;
+
+  const itemTiers = new Set(offer.items.map((item) => item.productTier));
+  const productTier = offer.items[0]?.productTier;
+
+  if (!productTier || itemTiers.size !== 1) return false;
+  if (offer.productTier !== productTier) return false;
+  if (offer.virtualCustomer.productTier !== productTier) return false;
+  if (!isProductTierUnlocked(productTier, currentLevel)) return false;
+
+  return offer.items.every(
+    (item) =>
+      item.product.status === ContentStatus.ACTIVE &&
+      item.product.tier === productTier &&
+      getEffectiveProductRequiredLevel({
+        requiredPlayerLevel: item.product.requiredPlayerLevel,
+        tier: item.product.tier,
+      }) <= currentLevel,
+  );
 }
 
 async function fetchFactoryDepartmentCosts(factoryId: string) {
@@ -400,6 +435,7 @@ function toOrderOfferView({
     customerRelationship: buildCustomerRelationshipView(offer.metadata),
     offerType: offer.offerType,
     offerTypeLabel: formatOfferType(offer.offerType),
+    productTier: offer.productTier,
     isCollection: offer.items.length > 1,
     segmentLabel: pickTranslation(
       offer.customerSegment.translations,

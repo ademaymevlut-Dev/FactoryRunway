@@ -16,6 +16,7 @@ import { WarehousePanel } from "@/features/warehouse/components/warehouse-panel"
 import { ProductionLineInvestmentPanel } from "@/features/investment/components/production-line-investment-panel";
 import { UpgradeProductionLinePanel } from "@/features/investment/components/upgrade-production-line-panel";
 import type { ProductionLineInvestmentTemplate } from "@/features/investment/types";
+import { ManagerRecommendationsPanel } from "@/features/manager/components/manager-recommendations-panel";
 import { TasksPanel } from "@/features/tasks/components/tasks-panel";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,16 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
       <TasksPanel
         currencyCode={snapshot.factory.currencyCode}
         tasks={snapshot.tasks}
+      />
+    ),
+  },
+  management: {
+    layout: "dock",
+    size: "compact",
+    title: "Yönetim",
+    render: ({ snapshot }) => (
+      <ManagerRecommendationsPanel
+        recommendations={snapshot.managerRecommendations}
       />
     ),
   },

@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Banknote,
-  BarChart3,
-  CheckCircle2,
-  ClipboardList,
-  ListChecks,
-  type LucideIcon,
-} from "lucide-react";
+import { CheckCircle2 } from "lucide-react";
 
 import {
   Tooltip,
@@ -19,11 +12,21 @@ import { cn } from "@/lib/utils";
 import { useGameUiStore } from "../store/game-ui-store";
 import type { GamePanelKey, GameSnapshot } from "../types";
 
+type LeftDockKey = Extract<
+  GamePanelKey,
+  "orders" | "tasks" | "management" | "finance" | "reports"
+>;
+
 type LeftDockItem = {
-  key: Extract<GamePanelKey, "orders" | "tasks" | "finance" | "reports">;
+  key: LeftDockKey;
   label: string;
   tooltip: string;
-  icon: LucideIcon;
+};
+
+type LeftDockIconPath = {
+  clipRule?: "evenodd";
+  d: string;
+  fillRule?: "evenodd";
 };
 
 const leftDockItems: LeftDockItem[] = [
@@ -31,30 +34,84 @@ const leftDockItems: LeftDockItem[] = [
     key: "orders",
     label: "Sipariş",
     tooltip: "Yeni Siparişler",
-    icon: ClipboardList,
   },
   {
     key: "tasks",
     label: "Görevler",
     tooltip: "Görevler",
-    icon: ListChecks,
+  },
+  {
+    key: "management",
+    label: "Yönetim",
+    tooltip: "Yönetim tavsiyeleri",
   },
   {
     key: "finance",
     label: "Finans",
     tooltip: "Finans",
-    icon: Banknote,
   },
   {
     key: "reports",
     label: "Reports",
     tooltip: "Raporlar",
-    icon: BarChart3,
   },
 ];
 
+const leftDockIconPaths: Record<LeftDockKey, LeftDockIconPath[]> = {
+  finance: [
+    {
+      clipRule: "evenodd",
+      d: "M12 14a3 3 0 0 1 3-3h4a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4a3 3 0 0 1-3-3Zm3-1a1 1 0 1 0 0 2h4v-2h-4Z",
+      fillRule: "evenodd",
+    },
+    {
+      clipRule: "evenodd",
+      d: "M12.293 3.293a1 1 0 0 1 1.414 0L16.414 6h-2.828l-1.293-1.293a1 1 0 0 1 0-1.414ZM12.414 6 9.707 3.293a1 1 0 0 0-1.414 0L5.586 6h6.828ZM4.586 7l-.056.055A2 2 0 0 0 3 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2h-4a5 5 0 0 1 0-10h4a2 2 0 0 0-1.53-1.945L17.414 7H4.586Z",
+      fillRule: "evenodd",
+    },
+  ],
+  management: [
+    {
+      clipRule: "evenodd",
+      d: "M7.05 4.05A7 7 0 0 1 19 9c0 2.407-1.197 3.874-2.186 5.084l-.04.048C15.77 15.362 15 16.34 15 18a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1c0-1.612-.77-2.613-1.78-3.875l-.045-.056C6.193 12.842 5 11.352 5 9a7 7 0 0 1 2.05-4.95ZM9 21a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2h-4a1 1 0 0 1-1-1Zm1.586-13.414A2 2 0 0 1 12 7a1 1 0 1 0 0-2 4 4 0 0 0-4 4 1 1 0 0 0 2 0 2 2 0 0 1 .586-1.414Z",
+      fillRule: "evenodd",
+    },
+  ],
+  orders: [
+    {
+      clipRule: "evenodd",
+      d: "M8 3a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1h2a2 2 0 0 1 2 2v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h2Zm6 1h-4v2H9a1 1 0 0 0 0 2h6a1 1 0 1 0 0-2h-1V4Zm-3 8a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1Zm-2-1a1 1 0 1 0 0 2h.01a1 1 0 1 0 0-2H9Zm2 5a1 1 0 0 1 1-1h3a1 1 0 1 1 0 2h-3a1 1 0 0 1-1-1Zm-2-1a1 1 0 1 0 0 2h.01a1 1 0 1 0 0-2H9Z",
+      fillRule: "evenodd",
+    },
+  ],
+  reports: [
+    {
+      d: "M13.5 2c-.178 0-.356.013-.492.022l-.074.005a1 1 0 0 0-.934.998V11a1 1 0 0 0 1 1h7.975a1 1 0 0 0 .998-.934l.005-.074A7.04 7.04 0 0 0 22 10.5 8.5 8.5 0 0 0 13.5 2Z",
+    },
+    {
+      d: "M11 6.025a1 1 0 0 0-1.065-.998 8.5 8.5 0 1 0 9.038 9.039A1 1 0 0 0 17.975 13H11V6.025Z",
+    },
+  ],
+  tasks: [
+    {
+      d: "M9 7V2.221a2 2 0 0 0-.5.365L4.586 6.5a2 2 0 0 0-.365.5H9Z",
+    },
+    {
+      clipRule: "evenodd",
+      d: "M11 7V2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9h5a2 2 0 0 0 2-2Zm4.707 5.707a1 1 0 0 0-1.414-1.414L11 14.586l-1.293-1.293a1 1 0 0 0-1.414 1.414l2 2a1 1 0 0 0 1.414 0l4-4Z",
+      fillRule: "evenodd",
+    },
+  ],
+};
+
 export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
-  const { activePanel, closePanel, openPanel, selectLine, setSelectedDockDepartmentIds } = useGameUiStore();
+  const {
+    activePanel,
+    closePanel,
+    openPanel,
+    selectLine,
+    setSelectedDockDepartmentIds,
+  } = useGameUiStore();
 
   return (
     <nav
@@ -75,7 +132,6 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
           className="pointer-events-none absolute inset-y-10 -right-4 -z-10 w-8 rounded-full bg-primary/25 blur-2xl"
         />
         {leftDockItems.map((item) => {
-          const Icon = item.icon;
           const isActive = activePanel?.key === item.key;
           const badge = snapshot.dock.badges[item.key];
 
@@ -117,9 +173,9 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                     className="pointer-events-none absolute inset-x-2 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"
                   />
                   <LeftDockIcon
-                    icon={Icon}
                     id={item.key}
                     isActive={isActive}
+                    paths={leftDockIconPaths[item.key]}
                   />
                   <span
                     className={cn(
@@ -183,13 +239,13 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
 }
 
 function LeftDockIcon({
-  icon: Icon,
   id,
   isActive,
+  paths,
 }: {
-  icon: LucideIcon;
   id: string;
   isActive: boolean;
+  paths: LeftDockIconPath[];
 }) {
   const gradientId = `left-dock-icon-gradient-${id}`;
   const shineId = `left-dock-icon-shine-${id}`;
@@ -223,25 +279,54 @@ function LeftDockIcon({
           </radialGradient>
         </defs>
       </svg>
-      <Icon
-        className="absolute inset-0 size-6 text-primary opacity-95"
-        strokeWidth={2.35}
-      />
-      <Icon
-        className="absolute inset-0 size-6 opacity-80 mix-blend-screen"
-        color={`url(#${gradientId})`}
-        strokeWidth={2.35}
-      />
-      <Icon
-        className="absolute inset-0 size-6 opacity-75 mix-blend-screen"
-        color={`url(#${shineId})`}
-        strokeWidth={1.8}
-      />
-      <Icon
+      <SolidDockIconSvg
         className="absolute inset-0 size-6 translate-y-px opacity-35"
-        color="rgba(0,0,0,0.44)"
-        strokeWidth={2.35}
+        fill="rgba(0,0,0,0.44)"
+        paths={paths}
+      />
+      <SolidDockIconSvg
+        className="absolute inset-0 size-6 text-primary opacity-95"
+        paths={paths}
+      />
+      <SolidDockIconSvg
+        className="absolute inset-0 size-6 opacity-80 mix-blend-screen"
+        fill={`url(#${gradientId})`}
+        paths={paths}
+      />
+      <SolidDockIconSvg
+        className="absolute inset-0 size-6 opacity-75 mix-blend-screen"
+        fill={`url(#${shineId})`}
+        paths={paths}
       />
     </span>
+  );
+}
+
+function SolidDockIconSvg({
+  className,
+  fill = "currentColor",
+  paths,
+}: {
+  className: string;
+  fill?: string;
+  paths: LeftDockIconPath[];
+}) {
+  return (
+    <svg
+      aria-hidden="true"
+      className={className}
+      fill={fill}
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      {paths.map((path) => (
+        <path
+          clipRule={path.clipRule}
+          d={path.d}
+          fillRule={path.fillRule}
+          key={path.d}
+        />
+      ))}
+    </svg>
   );
 }

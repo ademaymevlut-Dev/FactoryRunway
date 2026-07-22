@@ -6,7 +6,7 @@ function read(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8");
 }
 
-test("sipariş paneli production priority tabını kaldırıp doğrudan pazarı gösterir", () => {
+test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiketi yapar", () => {
   const panel = read("./components/orders-panel.tsx");
 
   assert.doesNotMatch(panel, /Üretim Önceliği/);
@@ -16,10 +16,13 @@ test("sipariş paneli production priority tabını kaldırıp doğrudan pazarı 
   assert.match(panel, /SelectedOrderDetail/);
   assert.match(panel, /OrderCostPanel/);
   assert.doesNotMatch(panel, /OrderMarketEntryPanel/);
-  assert.match(panel, /Normal Siparişler/);
-  assert.match(panel, /RPT Order/);
-  assert.match(panel, /Express Order/);
-  assert.match(panel, /Premium Products/);
+  assert.match(panel, /value: "BASIC"/);
+  assert.match(panel, /value: "STANDARD"/);
+  assert.match(panel, /value: "PREMIUM"/);
+  assert.match(panel, /value: "LUXURY"/);
+  assert.match(panel, /OfferTypeBadge/);
+  assert.match(panel, /LockedProductTierState/);
+  assert.match(panel, /LEVEL \{minimumLevel\}/);
   assert.match(panel, /Luxury/);
   assert.match(panel, /Filtreyi değiştir/);
   assert.match(panel, /matchesMarketFilter/);

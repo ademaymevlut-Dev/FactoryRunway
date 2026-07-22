@@ -6,6 +6,7 @@ import {
   type ProductTier,
 } from "@/generated/prisma/client";
 import { calculateOutsourceUnitCostCents } from "@/features/production-queue/services/outsource-cost";
+import { getEffectiveProductRequiredLevel } from "@/features/orders/product-tier-rules";
 import { getPrisma } from "@/lib/db";
 
 const ACTIVE_CAPACITY_LINE_STATUSES = [
@@ -261,8 +262,17 @@ export function evaluateOrderProductCandidate(input: {
     outsourceConfigsByDepartmentId,
   } = input;
 
-  if (product.requiredPlayerLevel > currentLevel) {
-    return rejectProduct(product, "PLAYER_LEVEL_TOO_LOW", "Oyuncu seviyesi ürün için yeterli değil.");
+  const effectiveRequiredLevel = getEffectiveProductRequiredLevel({
+    requiredPlayerLevel: product.requiredPlayerLevel,
+    tier: product.tier,
+  });
+
+  if (effectiveRequiredLevel > currentLevel) {
+    return rejectProduct(
+      product,
+      "PLAYER_LEVEL_TOO_LOW",
+      `Ürün için en az LEVEL ${effectiveRequiredLevel} gerekiyor.`,
+    );
   }
 
   if (product.baseUnitPriceCents <= 0) {
@@ -423,7 +433,7 @@ export function evaluateOrderProductCandidate(input: {
       tier: product.tier,
       gender: product.gender,
       baseUnitPriceCents: product.baseUnitPriceCents,
-      requiredPlayerLevel: product.requiredPlayerLevel,
+      requiredPlayerLevel: effectiveRequiredLevel,
       offerColorCountMin: product.offerColorCountMin,
       offerColorCountMax: product.offerColorCountMax,
       requiredPointsPerUnit: requiredRouteSteps.reduce(

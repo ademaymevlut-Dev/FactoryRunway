@@ -16,6 +16,11 @@ import {
   type RouteProgressStatus as RouteProgressStatusType,
 } from "@/generated/prisma/enums";
 import { getOrderMarketView } from "@/features/orders/services/order-market-view";
+import {
+  PRODUCT_TIER_LABELS,
+  PRODUCT_TIER_MIN_LEVEL,
+  PRODUCT_TIER_ORDER,
+} from "@/features/orders/product-tier-rules";
 import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
 import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
 import { getFinancePeriod } from "@/features/finance/services/finance-period";
@@ -303,6 +308,7 @@ export async function getGameSnapshot(input: {
     investmentStages,
     factorySupportStaff,
     levelConfigs,
+    levelUpTransactions,
     taskProgressRows,
     tokenWallet,
   ] = await Promise.all([
@@ -456,6 +462,7 @@ export async function getGameSnapshot(input: {
     }),
     getOrderMarketView({
       currentDay: factory.currentDay,
+      currentLevel: factory.currentLevel,
       currencyCode: factory.currencyCode,
       factoryId: factory.id,
     }),
@@ -616,6 +623,15 @@ export async function getGameSnapshot(input: {
         unlockKey: true,
       },
     }),
+    prisma.factoryXpTransaction.findMany({
+      where: {
+        factoryId: factory.id,
+        gameDay: factory.currentDay,
+      },
+      orderBy: { createdAt: "desc" },
+      take: 20,
+      select: { metadata: true },
+    }),
     prisma.factoryTaskProgress.findMany({
       where: { factoryId: factory.id },
       orderBy: { taskDefinition: { sortOrder: "asc" } },
@@ -738,12 +754,14 @@ export async function getGameSnapshot(input: {
     notifications: buildNotifications({
       activeProductionOrderCount,
       lateOrderCount,
+      levelUpTransactions,
     }),
     managerRecommendations,
     activeShiftPlayback,
     dock: {
       badges: buildLeftDockBadges({
         availableOrderCount: orderMarket.availableCount,
+        managerRecommendations,
         tasks,
       }),
       items: dockItems,
@@ -913,6 +931,7 @@ function buildDockItems({
 
 function buildLeftDockBadges(input: {
   availableOrderCount: number;
+  managerRecommendations: GameSnapshot["managerRecommendations"];
   tasks: GameSnapshot["tasks"];
 }): GameSnapshot["dock"]["badges"] {
   const badges: GameSnapshot["dock"]["badges"] = {};
@@ -940,7 +959,44 @@ function buildLeftDockBadges(input: {
     };
   }
 
+  const managerBadge = buildManagerRecommendationBadge(
+    input.managerRecommendations,
+  );
+  if (managerBadge) {
+    badges.management = managerBadge;
+  }
+
   return badges;
+}
+
+function buildManagerRecommendationBadge(
+  recommendations: GameSnapshot["managerRecommendations"],
+): GameDockBadge | null {
+  if (recommendations.length === 0) return null;
+
+  return {
+    count: recommendations.length,
+    label: "Yönetim notu",
+    tone: getManagerRecommendationBadgeTone(recommendations),
+  };
+}
+
+function getManagerRecommendationBadgeTone(
+  recommendations: GameSnapshot["managerRecommendations"],
+): GameDockBadge["tone"] {
+  if (recommendations.some((item) => item.severity === "CRITICAL")) {
+    return "danger";
+  }
+
+  if (recommendations.some((item) => item.severity === "WARNING")) {
+    return "warning";
+  }
+
+  if (recommendations.some((item) => item.severity === "OPPORTUNITY")) {
+    return "success";
+  }
+
+  return "info";
 }
 
 function buildRouteCountsByDepartmentId(routeProgressCounts: RouteProgressCountRecord[]) {
@@ -1512,11 +1568,14 @@ function buildMetrics({
 function buildNotifications({
   activeProductionOrderCount,
   lateOrderCount,
+  levelUpTransactions,
 }: {
   activeProductionOrderCount: number;
   lateOrderCount: number;
+  levelUpTransactions: Array<{ metadata: unknown }>;
 }): GameNotification[] {
-  const notifications: GameNotification[] = [];
+  const notifications: GameNotification[] =
+    buildProductTierUnlockNotifications(levelUpTransactions);
 
   if (lateOrderCount > 0) {
     notifications.push({
@@ -1546,6 +1605,47 @@ function buildNotifications({
   }
 
   return notifications;
+}
+
+export function buildProductTierUnlockNotifications(
+  transactions: Array<{ metadata: unknown }>,
+): GameNotification[] {
+  const unlockedTiers = new Set<(typeof PRODUCT_TIER_ORDER)[number]>();
+
+  for (const transaction of transactions) {
+    if (!isRecord(transaction.metadata)) continue;
+
+    const previousLevel = readFiniteNumber(transaction.metadata.previousLevel);
+    const currentLevel = readFiniteNumber(transaction.metadata.currentLevel);
+
+    if (previousLevel === null || currentLevel === null) continue;
+
+    for (const tier of PRODUCT_TIER_ORDER) {
+      if (tier === "BASIC") continue;
+
+      const minimumLevel = PRODUCT_TIER_MIN_LEVEL[tier];
+      if (previousLevel < minimumLevel && currentLevel >= minimumLevel) {
+        unlockedTiers.add(tier);
+      }
+    }
+  }
+
+  return PRODUCT_TIER_ORDER.filter((tier) => unlockedTiers.has(tier)).map(
+    (tier) => ({
+      id: `product-tier-unlocked-${tier.toLowerCase()}`,
+      title: `${PRODUCT_TIER_LABELS[tier]} siparişleri açıldı`,
+      body: `Fabrika tecrübe seviyen artık ${PRODUCT_TIER_LABELS[tier]} siparişleri için uygun. Yeni teklifler gelmeye başlayacak.`,
+      tone: "success" as const,
+    }),
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function readFiniteNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function getLineImageUrl(line: ProductionLineRecord) {

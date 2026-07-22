@@ -8,6 +8,7 @@ import {
   calculateMarketOfferCreationCount,
   calculateCapacityTargetQuantity,
   filterCollectionCompatibleCandidates,
+  pickProductTierForOffer,
   resolveOfferDeliveryRange,
   resolveOfferLoadProfile,
   resolveMarketStageRule,
@@ -30,7 +31,7 @@ test("normal standard sipariş hedef yükü 4-6 planlanan üretim gününde kal�
   assert.ok(profile.targetLoadDaysBps <= 60_000);
 });
 
-test("express ve fırsat siparişleri eski kısa termin configiyle bile 12-15 güne normalize olur", () => {
+test("express 7-10, fırsat 12-15 günlük ayrı terminlere normalize olur", () => {
   assert.deepEqual(
     resolveOfferDeliveryRange({
       isLargeBasicBlock: false,
@@ -38,7 +39,7 @@ test("express ve fırsat siparişleri eski kısa termin configiyle bile 12-15 g�
       ruleMaxDeliveryDays: 12,
       ruleMinDeliveryDays: 7,
     }),
-    { maxDays: 15, minDays: 12 },
+    { maxDays: 10, minDays: 7 },
   );
   assert.deepEqual(
     resolveOfferDeliveryRange({
@@ -100,10 +101,11 @@ test("basic büyük blok siparişler seyrek oluşur ama yük ve termin bandı ay
   );
 });
 
-test("koleksiyon tier uyumu basic ile premium ürünleri aynı gruba almaz", () => {
-  assert.equal(areCollectionTiersCompatible("BASIC", "STANDARD"), true);
-  assert.equal(areCollectionTiersCompatible("STANDARD", "PREMIUM"), true);
-  assert.equal(areCollectionTiersCompatible("PREMIUM", "LUXURY"), true);
+test("koleksiyon yalnızca tek bir ürün grubunda kalır", () => {
+  assert.equal(areCollectionTiersCompatible("BASIC", "BASIC"), true);
+  assert.equal(areCollectionTiersCompatible("BASIC", "STANDARD"), false);
+  assert.equal(areCollectionTiersCompatible("STANDARD", "PREMIUM"), false);
+  assert.equal(areCollectionTiersCompatible("PREMIUM", "LUXURY"), false);
   assert.equal(areCollectionTiersCompatible("BASIC", "PREMIUM"), false);
   assert.equal(areCollectionTiersCompatible("BASIC", "LUXURY"), false);
   assert.equal(areCollectionTiersCompatible("STANDARD", "LUXURY"), false);
@@ -121,26 +123,41 @@ test("koleksiyon filtresi seçilmiş tüm tierlarla uyumlu adayları bırakır",
     filterCollectionCompatibleCandidates(candidates, ["BASIC"]).map(
       (candidate) => candidate.id,
     ),
-    ["basic", "standard"],
+    ["basic"],
   );
   assert.deepEqual(
     filterCollectionCompatibleCandidates(candidates, ["STANDARD"]).map(
       (candidate) => candidate.id,
     ),
-    ["basic", "standard", "premium"],
+    ["standard"],
   );
   assert.deepEqual(
     filterCollectionCompatibleCandidates(candidates, ["BASIC", "STANDARD"]).map(
       (candidate) => candidate.id,
     ),
-    ["basic", "standard"],
+    [],
   );
   assert.deepEqual(
     filterCollectionCompatibleCandidates(candidates, ["PREMIUM"]).map(
       (candidate) => candidate.id,
     ),
-    ["standard", "premium", "luxury"],
+    ["premium"],
   );
+});
+
+test("ürün grubu seçimi müşterisi ve ürünü bulunan en az temsil edilen havuzu doldurur", () => {
+  const tier = pickProductTierForOffer({
+    activeTierCounts: new Map([
+      ["BASIC", 2],
+      ["STANDARD", 0],
+    ]),
+    candidates: [{ tier: "BASIC" }, { tier: "STANDARD" }],
+    customers: [{ productTier: "BASIC" }, { productTier: "STANDARD" }],
+    seed: "balanced-tier",
+    usedTierCounts: new Map(),
+  });
+
+  assert.equal(tier, "STANDARD");
 });
 
 test("pazar ritmi eski yüksek DB stage configini dengeli üst limite indirir", () => {

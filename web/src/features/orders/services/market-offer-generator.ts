@@ -23,6 +23,7 @@ import {
   type OrderProductCandidate,
   type OrderProductCandidateColor,
 } from "@/lib/order-market/product-candidates";
+import { PRODUCT_TIER_ORDER } from "../product-tier-rules";
 
 const DEFAULT_MONTHLY_WORK_DAYS = 22;
 const DELIVERY_CAPACITY_HORIZON_DAYS = 20;
@@ -86,7 +87,7 @@ const DEFAULT_DELIVERY_RANGES: Record<
   MarketOrderOfferType,
   { minDays: number; maxDays: number }
 > = {
-  EXPRESS: { minDays: 12, maxDays: 15 },
+  EXPRESS: { minDays: 7, maxDays: 10 },
   NORMAL: { minDays: 20, maxDays: 24 },
   OPPORTUNITY: { minDays: 12, maxDays: 15 },
   REPEAT: { minDays: 18, maxDays: 24 },
@@ -138,8 +139,8 @@ const DEFAULT_MARKET_TYPE_RULES: MarketOfferTypeRule[] = [
   {
     offerType: MarketOrderOfferType.EXPRESS,
     generationWeightBps: 700,
-    minDeliveryDays: 12,
-    maxDeliveryDays: 15,
+    minDeliveryDays: 7,
+    maxDeliveryDays: 10,
     offerExpiryDays: 1,
     minimumIntervalDays: 2,
     priceMultiplierMinBps: 11500,
@@ -248,7 +249,7 @@ export async function ensureMarketOfferForFactory(
     marketRules,
     customers,
     recentOffers,
-    activeOfferCount,
+    activeOffers,
     todayOfferCount,
     offerCount,
     customerRelationshipById,
@@ -265,16 +266,27 @@ export async function ensureMarketOfferForFactory(
         sectorId: factoryCostContext.sectorId,
       }),
       fetchRecentOffersForFactory(factoryId),
-      prisma.marketOrderOffer.count({
+      prisma.marketOrderOffer.findMany({
         where: {
           factoryId,
           status: MarketOrderOfferStatus.AVAILABLE,
+        },
+        select: {
+          id: true,
+          offeredDay: true,
+          productTier: true,
+          virtualCustomerId: true,
+          virtualCustomer: { select: { productTier: true } },
+          items: {
+            select: { productId: true, productTier: true },
+          },
         },
       }),
       prisma.marketOrderOffer.count({
         where: {
           factoryId,
           offeredDay: factoryCostContext.currentDay,
+          status: { not: MarketOrderOfferStatus.EXPIRED },
         },
       }),
       prisma.marketOrderOffer.count({ where: { factoryId } }),
@@ -291,11 +303,48 @@ export async function ensureMarketOfferForFactory(
     return { created: false, reason: "NO_CUSTOMERS" };
   }
 
+  const candidateTierByProductId = new Map(
+    candidateResult.candidates.map((candidate) => [
+      candidate.productId,
+      candidate.tier,
+    ]),
+  );
+  const eligibleCustomerIds = new Set(customers.map((customer) => customer.id));
+  const compatibleActiveOffers = activeOffers.filter((offer) =>
+    isActiveOfferCompatible({
+      candidateTierByProductId,
+      eligibleCustomerIds,
+      offer,
+    }),
+  );
+  const incompatibleOfferIds = activeOffers
+    .filter((offer) => !compatibleActiveOffers.includes(offer))
+    .map((offer) => offer.id);
+
+  if (incompatibleOfferIds.length > 0) {
+    await prisma.marketOrderOffer.updateMany({
+      where: { id: { in: incompatibleOfferIds } },
+      data: { status: MarketOrderOfferStatus.EXPIRED },
+    });
+  }
+
+  const incompatibleTodayCount = activeOffers.filter(
+    (offer) =>
+      offer.offeredDay === factoryCostContext.currentDay &&
+      incompatibleOfferIds.includes(offer.id),
+  ).length;
+  const eligibleTodayOfferCount = Math.max(
+    0,
+    todayOfferCount - incompatibleTodayCount,
+  );
+
+  const activeOfferCount = compatibleActiveOffers.length;
+  const activeTierCounts = countOfferTiers(compatibleActiveOffers);
   const missingOfferCount = calculateMarketOfferCreationCount({
     activeOfferCount,
     maxNewOffersPerDay: marketRules.stageRule.maxNewOffersPerDay,
     targetActiveOfferCount: marketRules.stageRule.targetActiveOfferCount,
-    todayOfferCount,
+    todayOfferCount: eligibleTodayOfferCount,
   });
 
   if (missingOfferCount === 0) {
@@ -330,15 +379,33 @@ export async function ensureMarketOfferForFactory(
     const seedBase = [
       factoryId,
       factoryCostContext.currentDay,
-      todayOfferCount,
+      eligibleTodayOfferCount,
       index,
       sequence,
     ].join(":");
+    const productTier = pickProductTierForOffer({
+      activeTierCounts,
+      candidates: candidateResult.candidates,
+      customers,
+      seed: `${seedBase}:product-tier`,
+      usedTierCounts,
+    });
+
+    if (!productTier) continue;
+
+    const tierCustomers = customers.filter(
+      (customer) => customer.productTier === productTier,
+    );
+    const tierRepeatCustomerIds = new Set(
+      tierCustomers
+        .filter((customer) => repeatCustomerIds.has(customer.id))
+        .map((customer) => customer.id),
+    );
     const offerTypeRule = pickOfferTypeRule({
       currentDay: factoryCostContext.currentDay,
       createdOfferTypeCounts: usedOfferTypeCounts,
       recentOffers,
-      repeatCustomerIds,
+      repeatCustomerIds: tierRepeatCustomerIds,
       rules: marketRules.typeRules,
       seed: `${seedBase}:offer-type`,
     });
@@ -347,10 +414,10 @@ export async function ensureMarketOfferForFactory(
 
     const customer = pickCustomerForOffer({
       customerRelationshipById,
-      customers,
+      customers: tierCustomers,
       customerRecentCounts,
       offerType: offerTypeRule.offerType,
-      repeatCustomerIds,
+      repeatCustomerIds: tierRepeatCustomerIds,
       seed: `${seedBase}:customer`,
       usedCustomerIds,
     });
@@ -381,6 +448,7 @@ export async function ensureMarketOfferForFactory(
       monthlyWorkDays,
       offerNo: `MO-${String(sequence).padStart(4, "0")}`,
       offerTypeRule,
+      productTier,
       products,
       seed: seedBase,
     });
@@ -398,13 +466,13 @@ export async function ensureMarketOfferForFactory(
       offerTypeRule.offerType,
       (usedOfferTypeCounts.get(offerTypeRule.offerType) ?? 0) + 1,
     );
+    usedTierCounts.set(productTier, (usedTierCounts.get(productTier) ?? 0) + 1);
 
     for (const product of products) {
       usedProductIds.set(
         product.productId,
         (usedProductIds.get(product.productId) ?? 0) + 1,
       );
-      usedTierCounts.set(product.tier, (usedTierCounts.get(product.tier) ?? 0) + 1);
     }
   }
 
@@ -417,6 +485,29 @@ export async function ensureMarketOfferForFactory(
     createdCount: createdOfferIds.length,
     offerIds: createdOfferIds,
   };
+}
+
+function isActiveOfferCompatible(input: {
+  candidateTierByProductId: Map<string, ProductTier>;
+  eligibleCustomerIds: Set<string>;
+  offer: {
+    items: Array<{ productId: string; productTier: ProductTier }>;
+    productTier: ProductTier;
+    virtualCustomer: { productTier: ProductTier };
+    virtualCustomerId: string;
+  };
+}) {
+  return (
+    input.offer.items.length > 0 &&
+    input.eligibleCustomerIds.has(input.offer.virtualCustomerId) &&
+    input.offer.virtualCustomer.productTier === input.offer.productTier &&
+    input.offer.items.every(
+      (item) =>
+        item.productTier === input.offer.productTier &&
+        input.candidateTierByProductId.get(item.productId) ===
+          input.offer.productTier,
+    )
+  );
 }
 
 async function expireOldOffers(input: {
@@ -854,6 +945,40 @@ function pickCustomerForOffer(input: {
   });
 }
 
+export function pickProductTierForOffer(input: {
+  activeTierCounts: Map<ProductTier, number>;
+  candidates: Array<{ tier: ProductTier }>;
+  customers: Array<{ productTier: ProductTier }>;
+  seed: string;
+  usedTierCounts: Map<ProductTier, number>;
+}) {
+  const candidateTiers = new Set(input.candidates.map((candidate) => candidate.tier));
+  const customerTiers = new Set(
+    input.customers.map((customer) => customer.productTier),
+  );
+  const eligibleTiers = PRODUCT_TIER_ORDER.filter(
+    (tier) => candidateTiers.has(tier) && customerTiers.has(tier),
+  );
+
+  if (eligibleTiers.length === 0) return null;
+
+  const smallestPoolCount = Math.min(
+    ...eligibleTiers.map(
+      (tier) =>
+        (input.activeTierCounts.get(tier) ?? 0) +
+        (input.usedTierCounts.get(tier) ?? 0),
+    ),
+  );
+  const leastRepresentedTiers = eligibleTiers.filter(
+    (tier) =>
+      (input.activeTierCounts.get(tier) ?? 0) +
+        (input.usedTierCounts.get(tier) ?? 0) ===
+      smallestPoolCount,
+  );
+
+  return pickWeighted(leastRepresentedTiers, input.seed, () => 1);
+}
+
 function pickProductsForOffer(input: {
   candidates: OrderProductCandidate[];
   customer: VirtualCustomerForOffer;
@@ -863,6 +988,9 @@ function pickProductsForOffer(input: {
   usedProductIds: Map<string, number>;
   usedTierCounts: Map<ProductTier, number>;
 }) {
+  const tierCandidates = input.candidates.filter(
+    (candidate) => candidate.tier === input.customer.productTier,
+  );
   const requestedItemCount = seededInt({
     min: input.customer.customerVolumeClass.targetProductionDayMin > 0
       ? input.customer.customerVolumeClass.itemCountMin
@@ -878,7 +1006,7 @@ function pickProductsForOffer(input: {
 
   for (let index = 0; index < targetItemCount; index += 1) {
     const compatibleCandidates = filterCollectionCompatibleCandidates(
-      input.candidates,
+      tierCandidates,
       selectedProducts.map((product) => product.tier),
     );
 
@@ -922,9 +1050,7 @@ export function areCollectionTiersCompatible(
   firstTier: ProductTier,
   secondTier: ProductTier,
 ) {
-  return (
-    Math.abs(PRODUCT_TIER_RANK[firstTier] - PRODUCT_TIER_RANK[secondTier]) <= 1
-  );
+  return firstTier === secondTier;
 }
 
 function pickProductForOffer(input: {
@@ -937,7 +1063,6 @@ function pickProductForOffer(input: {
   usedProductIds: Map<string, number>;
   usedTierCounts: Map<ProductTier, number>;
 }) {
-  const tierWeights = readWeightMap(input.customer.customerSegment.tierWeights);
   const categoryWeights = readWeightMap(
     input.customer.customerSegment.categoryWeights,
   );
@@ -952,11 +1077,11 @@ function pickProductForOffer(input: {
       : unselectedCandidates;
 
   return pickWeighted(candidates, input.seed, (candidate) => {
-    const tierWeight = tierWeights.get(candidate.tier) ?? 10_000;
     const categoryWeight =
       categoryWeights.get(candidate.categoryKey) ??
       categoryWeights.get(candidate.productTypeKey) ??
       10_000;
+    if (categoryWeight <= 0) return 0;
     const productRecentPenalty =
       input.productRecentCounts.get(candidate.productId) ?? 0;
     const productBatchPenalty = input.usedProductIds.get(candidate.productId) ?? 0;
@@ -967,7 +1092,7 @@ function pickProductForOffer(input: {
       Math.max(1_000, candidate.bottleneckDailyQuantity),
     );
     const rawWeight =
-      (tierWeight * categoryWeight * capacityWeight) / 100_000_000;
+      (categoryWeight * capacityWeight) / 10_000;
 
     return Math.max(
       1,
@@ -994,12 +1119,19 @@ function buildPlannedOffer(input: {
   monthlyWorkDays: number;
   offerNo: string;
   offerTypeRule: MarketOfferTypeRule;
+  productTier: ProductTier;
   products: OrderProductCandidate[];
   seed: string;
 }): Prisma.MarketOrderOfferCreateInput | null {
   const primaryProduct = input.products[0];
 
   if (!primaryProduct) return null;
+  if (
+    input.customer.productTier !== input.productTier ||
+    input.products.some((product) => product.tier !== input.productTier)
+  ) {
+    return null;
+  }
 
   const targetLoadProfile = resolveOfferLoadProfile({
     maxOfferLoadBps: input.customer.customerVolumeClass.maxOfferLoadBps,
@@ -1106,6 +1238,7 @@ function buildPlannedOffer(input: {
       connect: { id: input.customer.customerVolumeClassId },
     },
     offerType: input.offerTypeRule.offerType,
+    productTier: input.productTier,
     offerNo: input.offerNo,
     offeredDay: input.currentDay,
     expiresDay: input.currentDay + input.offerTypeRule.offerExpiryDays,
@@ -1128,11 +1261,12 @@ function buildPlannedOffer(input: {
       targetDeliveryDays,
     }),
     metadata: {
-      generator: "market_rules_v2",
+      generator: "product_tier_market_v3",
       isCollection,
       isLargeBasicBlock: targetLoadProfile.isLargeBasicBlock,
       tierRange,
       offerType: input.offerTypeRule.offerType,
+      productTier: input.productTier,
       targetLoadDayMaxBps: targetLoadProfile.targetLoadDayMaxBps,
       targetLoadDayMinBps: targetLoadProfile.targetLoadDayMinBps,
       targetLoadDaysBps: targetLoadProfile.targetLoadDaysBps,
@@ -1186,7 +1320,7 @@ function buildPlannedOffer(input: {
           tierQuantityCapMin: item.tierCap.min,
         },
         metadata: {
-          generator: "market_rules_v2",
+          generator: "product_tier_market_v3",
           requiresOutsource: item.product.requiresOutsource,
           estimatedOutsourceLeadDays: item.product.estimatedOutsourceLeadDays,
           estimatedOutsourceUnitCostCents:
@@ -1777,6 +1911,19 @@ function countRecentCustomers(recentOffers: RecentOfferForPenalty[]) {
   return counts;
 }
 
+function countOfferTiers(offers: Array<{ productTier: ProductTier }>) {
+  const counts = new Map<ProductTier, number>();
+
+  for (const offer of offers) {
+    counts.set(
+      offer.productTier,
+      (counts.get(offer.productTier) ?? 0) + 1,
+    );
+  }
+
+  return counts;
+}
+
 function getTierQuantityCap(value: unknown, tier: ProductTier) {
   const caps = isRecord(value) ? value : {};
   const tierCap = caps[tier];
@@ -1796,14 +1943,22 @@ function readWeightMap(value: unknown) {
   if (!isRecord(value)) return weights;
 
   for (const [key, rawValue] of Object.entries(value)) {
-    const parsedValue = readPositiveNumber(rawValue);
+    const parsedValue = readNonNegativeNumber(rawValue);
 
-    if (parsedValue) {
+    if (parsedValue !== null) {
       weights.set(key, parsedValue);
     }
   }
 
   return weights;
+}
+
+function readNonNegativeNumber(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+
+  return Math.round(value);
 }
 
 function readPositiveNumber(value: unknown) {

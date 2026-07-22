@@ -10,6 +10,7 @@ import {
   ProductTier,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
+import { getProductTierMinimumLevel } from "@/features/orders/product-tier-rules";
 
 import { requireAdminUser } from "../admin-auth";
 import {
@@ -143,6 +144,18 @@ async function assertProductScope(
 }
 
 function mainProductInput(formData: FormData) {
+  const tier = enumValue<ProductTier>(formData, "tier", productTiers);
+  const requiredPlayerLevel = formData.has("requiredPlayerLevel")
+    ? integer(formData, "requiredPlayerLevel", { min: 1 })
+    : null;
+  const minimumLevel = getProductTierMinimumLevel(tier);
+
+  if (requiredPlayerLevel !== null && requiredPlayerLevel < minimumLevel) {
+    throw new Error(
+      `${tier} ürünler için gerekli oyuncu seviyesi en az ${minimumLevel} olmalı.`,
+    );
+  }
+
   return {
     sectorId: text(formData, "sectorId"),
     categoryId: text(formData, "categoryId"),
@@ -150,10 +163,11 @@ function mainProductInput(formData: FormData) {
     key: technicalKey(formData),
     code: optionalText(formData, "code")?.toUpperCase() ?? null,
     name: text(formData, "name"),
-    tier: enumValue<ProductTier>(formData, "tier", productTiers),
+    tier,
     gender: optionalEnumValue<Gender>(formData, "gender", genders),
     status: enumValue<ContentStatus>(formData, "status", statuses),
     sortOrder: integer(formData, "sortOrder", { min: 0 }),
+    requiredPlayerLevel,
   };
 }
 
@@ -171,8 +185,13 @@ export async function createProductAction(
       input.productTypeId,
     );
 
+    const { requiredPlayerLevel, ...mainInput } = input;
     const product = await getPrisma().product.create({
-      data: input,
+      data: {
+        ...mainInput,
+        requiredPlayerLevel:
+          requiredPlayerLevel ?? getProductTierMinimumLevel(input.tier),
+      },
       select: { id: true },
     });
 
@@ -200,6 +219,7 @@ export async function updateProductMainAction(
     where: { id: productId },
     select: {
       sectorId: true,
+      requiredPlayerLevel: true,
       _count: { select: { allowedColors: true, routeSteps: true } },
     },
   });
@@ -214,9 +234,16 @@ export async function updateProductMainAction(
     );
   }
 
+  const { requiredPlayerLevel, ...mainInput } = input;
   await prisma.product.update({
     where: { id: productId },
-    data: input,
+    data: {
+      ...mainInput,
+      requiredPlayerLevel: Math.max(
+        requiredPlayerLevel ?? existing.requiredPlayerLevel,
+        getProductTierMinimumLevel(input.tier),
+      ),
+    },
   });
   refreshProduct(productId);
 }
@@ -230,11 +257,30 @@ export async function updateProductDefinitionsAction(
   const descriptionTr = optionalText(formData, "descriptionTr");
   const descriptionEn = optionalText(formData, "descriptionEn");
 
-  await getPrisma().product.update({
+  const prisma = getPrisma();
+  const product = await prisma.product.findUnique({
+    where: { id: productId },
+    select: { tier: true },
+  });
+
+  if (!product) throw new Error("Ürün bulunamadı.");
+
+  const requiredPlayerLevel = integer(formData, "requiredPlayerLevel", {
+    min: 1,
+  });
+  const minimumLevel = getProductTierMinimumLevel(product.tier);
+
+  if (requiredPlayerLevel < minimumLevel) {
+    throw new Error(
+      `${product.tier} ürünler için gerekli oyuncu seviyesi en az ${minimumLevel} olmalı.`,
+    );
+  }
+
+  await prisma.product.update({
     where: { id: productId },
     data: {
       baseUnitPriceCents: productUnitPriceCents(formData),
-      requiredPlayerLevel: integer(formData, "requiredPlayerLevel", { min: 1 }),
+      requiredPlayerLevel,
       translations: {
         deleteMany: {},
         create: [

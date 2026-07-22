@@ -7,6 +7,7 @@ import type {
 export type OrderMarketView = {
   activeOrders: ActiveOrderPriorityView[];
   availableCount: number;
+  currentLevel: number;
   offers: OrderOfferView[];
 };
 
@@ -29,6 +30,7 @@ export type OrderOfferView = {
   volumeLabel: string;
   offerType: MarketOrderOfferType;
   offerTypeLabel: string;
+  productTier: ProductTier;
   isCollection: boolean;
   status: MarketOrderOfferStatus;
   offeredDay: number;

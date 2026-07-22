@@ -268,6 +268,7 @@ export default async function ProductDetailPage({
               id: product.id,
               baseUnitPriceCents: product.baseUnitPriceCents,
               requiredPlayerLevel: product.requiredPlayerLevel,
+              tier: product.tier,
               descriptionTr: translationDescription(
                 product.translations,
                 "tr",

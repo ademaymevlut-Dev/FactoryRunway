@@ -12,6 +12,10 @@ import {
   Textarea,
 } from "../../form-ui";
 import { updateProductDefinitionsAction } from "../product-actions";
+import {
+  getProductTierMinimumLevel,
+  type ProductTier,
+} from "@/features/orders/product-tier-rules";
 
 const DEFAULT_MONTHLY_EXPENSE = "42891";
 const DEFAULT_WORK_DAYS = 22;
@@ -20,6 +24,7 @@ type ProductDefinitionsValue = {
   id: string;
   baseUnitPriceCents: number;
   requiredPlayerLevel: number;
+  tier: ProductTier;
   descriptionTr: string;
   descriptionEn: string;
   metadata: string;
@@ -50,6 +55,7 @@ export function ProductDefinitionsForm({
   routeCapacities: ProductRouteCapacityValue[];
 }) {
   const [currencyCode, setCurrencyCode] = useState<"EUR" | "USD">("EUR");
+  const minimumPlayerLevel = getProductTierMinimumLevel(product.tier);
   const [monthlyExpense, setMonthlyExpense] = useState(
     DEFAULT_MONTHLY_EXPENSE,
   );
@@ -119,10 +125,13 @@ export function ProductDefinitionsForm({
                   value={baseUnitPrice}
                 />
               </Field>
-              <Field label="Gerekli oyuncu seviyesi">
+              <Field
+                label="Gerekli oyuncu seviyesi"
+                hint={`${product.tier} grubu için en az LEVEL ${minimumPlayerLevel}. Daha yüksek bir ürün barajı belirleyebilirsin.`}
+              >
                 <Input
                   defaultValue={product.requiredPlayerLevel}
-                  min="1"
+                  min={minimumPlayerLevel}
                   name="requiredPlayerLevel"
                   type="number"
                 />

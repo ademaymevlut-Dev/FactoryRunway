@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import {
+  ContentStatus,
   CustomerOrderStatus,
   MarketOrderOfferStatus,
   Prisma,
@@ -14,6 +15,10 @@ import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
 import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
+import {
+  getEffectiveProductRequiredLevel,
+  isProductTierUnlocked,
+} from "../product-tier-rules";
 
 export async function acceptMarketOrderAction(formData: FormData) {
   const auth = await getCurrentUser();
@@ -34,6 +39,7 @@ export async function acceptMarketOrderAction(formData: FormData) {
         select: {
           id: true,
           currentDay: true,
+          currentLevel: true,
           sectorId: true,
         },
       },
@@ -54,6 +60,9 @@ export async function acceptMarketOrderAction(formData: FormData) {
         expiresDay: { gte: factory.currentDay },
       },
       include: {
+        virtualCustomer: {
+          select: { productTier: true },
+        },
         items: {
           orderBy: [{ sortOrder: "asc" }],
           include: {
@@ -83,6 +92,38 @@ export async function acceptMarketOrderAction(formData: FormData) {
 
     if (offer.items.length === 0) {
       throw new Error("Bu teklif için ürün kalemi bulunamadı.");
+    }
+
+    if (
+      offer.virtualCustomer.productTier !== offer.productTier ||
+      offer.items.some(
+        (item) =>
+          item.productTier !== offer.productTier ||
+          item.product.tier !== offer.productTier ||
+          item.product.status !== ContentStatus.ACTIVE,
+      )
+    ) {
+      throw new Error(
+        "Sipariş teklifi tek bir ürün grubuna ait olmadığı için kabul edilemez.",
+      );
+    }
+
+    if (!isProductTierUnlocked(offer.productTier, factory.currentLevel)) {
+      throw new Error("Oyuncu seviyesi bu ürün grubu için yeterli değil.");
+    }
+
+    const lockedItem = offer.items.find(
+      (item) =>
+        getEffectiveProductRequiredLevel({
+          requiredPlayerLevel: item.product.requiredPlayerLevel,
+          tier: item.product.tier,
+        }) > factory.currentLevel,
+    );
+
+    if (lockedItem) {
+      throw new Error(
+        `${lockedItem.product.name} ürünü için oyuncu seviyesi yeterli değil.`,
+      );
     }
 
     const nextOrderNumber = (await tx.customerOrder.count({

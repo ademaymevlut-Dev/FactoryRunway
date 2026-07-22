@@ -8,15 +8,29 @@ import {
 import { grantFactoryXp } from "./factory-progression";
 
 const ORDER_XP_SOURCE_TYPE = "customer_order";
-const WORKLOAD_POINTS_PER_XP = 1_000;
-const MAX_WORKLOAD_XP = 5_000;
-const BASE_ORDER_XP = 50;
-const STANDARD_DIFFICULTY_XP = 20;
-const PREMIUM_DIFFICULTY_XP = 90;
-const LUXURY_DIFFICULTY_XP = 180;
+const WORKLOAD_POINTS_PER_XP = 5_000;
+const TIER_BASE_XP: Record<ProductTier, number> = {
+  [ProductTier.BASIC]: 100,
+  [ProductTier.STANDARD]: 400,
+  [ProductTier.PREMIUM]: 900,
+  [ProductTier.LUXURY]: 2_000,
+};
+const TIER_WORKLOAD_XP_CAP: Record<ProductTier, number> = {
+  [ProductTier.BASIC]: 100,
+  [ProductTier.STANDARD]: 150,
+  [ProductTier.PREMIUM]: 200,
+  [ProductTier.LUXURY]: 250,
+};
+const TIER_COMPLEXITY_XP_CAP: Record<ProductTier, number> = {
+  [ProductTier.BASIC]: 100,
+  [ProductTier.STANDARD]: 150,
+  [ProductTier.PREMIUM]: 200,
+  [ProductTier.LUXURY]: 250,
+};
+const PREMIUM_DIFFICULTY_XP = 300;
+const LUXURY_DIFFICULTY_XP = 800;
 const EXTRA_ITEM_COMPLEXITY_XP = 30;
 const OUTSOURCE_STEP_COMPLEXITY_XP = 20;
-const MAX_COMPLEXITY_XP = 300;
 const ON_TIME_BONUS_BPS = 1_500;
 const MIN_ON_TIME_BONUS_XP = 25;
 const MAX_ON_TIME_BONUS_XP = 250;
@@ -68,18 +82,16 @@ export function calculateOrderXpReward(
 ): OrderXpRewardBreakdown {
   const highestTier = pickHighestTier(input.tiers);
   const workloadXp = Math.min(
-    MAX_WORKLOAD_XP,
+    TIER_WORKLOAD_XP_CAP[highestTier],
     Math.floor(Math.max(0, input.totalWorkloadPoints) / WORKLOAD_POINTS_PER_XP),
   );
   const complexityXp = Math.min(
-    MAX_COMPLEXITY_XP,
+    TIER_COMPLEXITY_XP_CAP[highestTier],
     Math.max(0, input.itemCount - 1) * EXTRA_ITEM_COMPLEXITY_XP +
       Math.max(0, input.outsourcedStepCount) * OUTSOURCE_STEP_COMPLEXITY_XP,
   );
-  const standardDifficultyXp =
-    highestTier === ProductTier.STANDARD ? STANDARD_DIFFICULTY_XP : 0;
   const coreOrderXp =
-    BASE_ORDER_XP + workloadXp + complexityXp + standardDifficultyXp;
+    TIER_BASE_XP[highestTier] + workloadXp + complexityXp;
   const rawTierBonusXp =
     highestTier === ProductTier.LUXURY
       ? LUXURY_DIFFICULTY_XP

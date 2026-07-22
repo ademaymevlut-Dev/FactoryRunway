@@ -11,8 +11,6 @@ import {
 import { useFormStatus } from "react-dom";
 import {
   ArrowLeft,
-  BadgePercent,
-  Bolt,
   CalendarDays,
   Check,
   ChevronLeft,
@@ -20,6 +18,7 @@ import {
   Clock,
   Factory,
   Hash,
+  LockKeyhole,
   PackageCheck,
   Palette,
   Repeat2,
@@ -34,6 +33,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { acceptMarketOrderAction } from "@/features/orders/actions/accept-market-order-action";
+import {
+  PRODUCT_TIER_LABELS,
+  PRODUCT_TIER_MIN_LEVEL,
+  isProductTierUnlocked,
+  type ProductTier,
+} from "../product-tier-rules";
 
 import type {
   ActiveOrderPriorityView,
@@ -43,13 +48,7 @@ import type {
   OrderOfferView,
 } from "../types";
 
-type MarketFilter =
-  | "NORMAL_CORE"
-  | "OPPORTUNITY_CORE"
-  | "REPEAT"
-  | "EXPRESS"
-  | "PREMIUM"
-  | "LUXURY";
+type MarketFilter = ProductTier;
 
 const marketFilters: Array<{
   description: string;
@@ -59,43 +58,29 @@ const marketFilters: Array<{
   value: MarketFilter;
 }> = [
   {
-    description: "Basic ve Standard ürünlerde dengeli terminli işler.",
-    hint: "Basic + Standard",
+    description: "Kolay üretim, yüksek adet ve düşük XP kademeli seri üretim işleri.",
+    hint: "LEVEL 1 · Seri üretim",
     icon: ShoppingBag,
-    label: "Normal Siparişler",
-    value: "NORMAL_CORE",
+    label: "Basic",
+    value: "BASIC",
   },
   {
-    description: "Basic ve Standard ürünlerde daha yüksek kar baskısı.",
-    hint: "Basic + Standard",
-    icon: BadgePercent,
-    label: "Fırsat",
-    value: "OPPORTUNITY_CORE",
+    description: "Baskı, nakış, boyama, yıkama veya fason süreçli ikinci kademe işler.",
+    hint: "LEVEL 5 · Ek işlemli",
+    icon: Factory,
+    label: "Standard",
+    value: "STANDARD",
   },
   {
-    description: "Tüm segmentlerde tekrar sipariş potansiyeli.",
-    hint: "Tüm segmentler",
-    icon: Repeat2,
-    label: "RPT Order",
-    value: "REPEAT",
-  },
-  {
-    description: "Tüm segmentlerde kısa termin ve yüksek teslimat baskısı.",
-    hint: "Tüm segmentler",
-    icon: Bolt,
-    label: "Express Order",
-    value: "EXPRESS",
-  },
-  {
-    description: "Sadece Premium ürünlerden oluşan siparişler.",
-    hint: "Premium",
+    description: "Daha yüksek üretim yükü, kalite beklentisi ve üçüncü kademe XP.",
+    hint: "LEVEL 20 · Yüksek kalite",
     icon: TrendingUp,
-    label: "Premium Products",
+    label: "Premium",
     value: "PREMIUM",
   },
   {
-    description: "Sadece Luxury ürünlerden oluşan yüksek değerli işler.",
-    hint: "Luxury",
+    description: "Düşük adet, yüksek fiyat, yüksek kar ve en yüksek XP kademesi.",
+    hint: "LEVEL 50 · Zirve grup",
     icon: Factory,
     label: "Luxury",
     value: "LUXURY",
@@ -125,27 +110,19 @@ const marketFilterAccentClasses: Record<
   MarketFilter,
   { badge: string; border: string }
 > = {
-  EXPRESS: {
-    badge: "border-rose-400/55 bg-rose-400/10 text-rose-200",
-    border: "border-l-rose-400",
+  BASIC: {
+    badge: "border-sky-400/55 bg-sky-400/10 text-sky-200",
+    border: "border-l-sky-400",
   },
   LUXURY: {
     badge: "border-fuchsia-400/55 bg-fuchsia-400/10 text-fuchsia-200",
     border: "border-l-fuchsia-400",
   },
-  NORMAL_CORE: {
-    badge: "border-sky-400/55 bg-sky-400/10 text-sky-200",
-    border: "border-l-sky-400",
-  },
-  OPPORTUNITY_CORE: {
-    badge: "border-amber-400/60 bg-amber-400/10 text-amber-200",
-    border: "border-l-amber-400",
-  },
   PREMIUM: {
     badge: "border-violet-400/55 bg-violet-400/10 text-violet-200",
     border: "border-l-violet-400",
   },
-  REPEAT: {
+  STANDARD: {
     badge: "border-emerald-400/55 bg-emerald-400/10 text-emerald-200",
     border: "border-l-emerald-400",
   },
@@ -185,31 +162,40 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
     setSelectedFilter(null);
     setSelectedId("");
   };
+  const selectedTierUnlocked = selectedFilter
+    ? isProductTierUnlocked(selectedFilter, orderMarket.currentLevel)
+    : false;
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-2">
-      {orderMarket.offers.length === 0 ? (
-        <OrdersEmptyState />
-      ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
-          <OrderSidebarPanel
-            offers={filteredOffers}
-            selectedFilter={selectedFilter}
-            onSelect={setSelectedId}
-            onBack={resetFilter}
-            onSelectFilter={selectFilter}
-            selectedId={selectedOffer?.id ?? ""}
-            sourceOffers={orderMarket.offers}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
+        <OrderSidebarPanel
+          currentLevel={orderMarket.currentLevel}
+          offers={filteredOffers}
+          selectedFilter={selectedFilter}
+          onSelect={setSelectedId}
+          onBack={resetFilter}
+          onSelectFilter={selectFilter}
+          selectedId={selectedOffer?.id ?? ""}
+          sourceOffers={orderMarket.offers}
+        />
+        {selectedFilter === null ? (
+          <OrdersEmptyState availableCount={orderMarket.availableCount} />
+        ) : !selectedTierUnlocked ? (
+          <LockedProductTierState
+            currentLevel={orderMarket.currentLevel}
+            tier={selectedFilter}
           />
-          {selectedFilter && selectedOffer ? (
-            <SelectedOrderPanels
-              activeOrders={orderMarket.activeOrders}
-              key={selectedOffer.id}
-              offer={selectedOffer}
-            />
-          ) : null}
-        </div>
-      )}
+        ) : selectedOffer ? (
+          <SelectedOrderPanels
+            activeOrders={orderMarket.activeOrders}
+            key={selectedOffer.id}
+            offer={selectedOffer}
+          />
+        ) : (
+          <ProductTierEmptyState tier={selectedFilter} />
+        )}
+      </div>
     </div>
   );
 }
@@ -241,9 +227,9 @@ function SelectedOrderPanels({
   );
 }
 
-function OrdersEmptyState() {
+function OrdersEmptyState({ availableCount }: { availableCount: number }) {
   return (
-    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center">
+    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center xl:col-span-2">
       <div className="max-w-md">
         <span className="mx-auto grid size-12 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
           <PackageCheck size={24} />
@@ -252,10 +238,61 @@ function OrdersEmptyState() {
           Sipariş Pazarı
         </p>
         <h2 className="mt-2 text-2xl font-semibold text-foreground">
-          Açık teklif bulunmuyor
+          Ürün grubunu seç
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Sipariş üretim motoru teklifleri oluşturduğunda bu panelde listelenecek.
+          {availableCount > 0
+            ? `${availableCount} açık teklif ürün gruplarına ayrılmış durumda.`
+            : "Yeni teklifler vardiya ilerledikçe uygun ürün gruplarında oluşacak."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function LockedProductTierState({
+  currentLevel,
+  tier,
+}: {
+  currentLevel: number;
+  tier: ProductTier;
+}) {
+  const minimumLevel = PRODUCT_TIER_MIN_LEVEL[tier];
+
+  return (
+    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-amber-400/25 bg-card/70 p-8 text-center xl:col-span-2">
+      <div className="max-w-lg">
+        <span className="mx-auto grid size-12 place-items-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-200">
+          <LockKeyhole size={23} />
+        </span>
+        <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">
+          Kilitli Ürün Grubu
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-foreground">
+          {PRODUCT_TIER_LABELS[tier]} siparişleri için LEVEL {minimumLevel}
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Mevcut seviyen LEVEL {currentLevel}. Bu seviyeye ulaştığında uygun
+          ürünlerin ve bu gruba bağlı müşterilerin siparişleri gelmeye başlayacak.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ProductTierEmptyState({ tier }: { tier: ProductTier }) {
+  return (
+    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center xl:col-span-2">
+      <div className="max-w-lg">
+        <span className="mx-auto grid size-12 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+          <PackageCheck size={24} />
+        </span>
+        <h2 className="mt-5 text-2xl font-semibold text-foreground">
+          Açık {PRODUCT_TIER_LABELS[tier]} teklifi yok
+        </h2>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Motor, oyuncu seviyene ve üretim kapasitesine uygun yeni teklifleri
+          vardiya ilerledikçe oluşturacak.
         </p>
       </div>
     </div>
@@ -263,6 +300,7 @@ function OrdersEmptyState() {
 }
 
 function OrderSidebarPanel({
+  currentLevel,
   offers,
   sourceOffers,
   selectedFilter,
@@ -271,6 +309,7 @@ function OrderSidebarPanel({
   onBack,
   onSelectFilter,
 }: {
+  currentLevel: number;
   offers: OrderOfferView[];
   sourceOffers: OrderOfferView[];
   selectedFilter: MarketFilter | null;
@@ -315,6 +354,7 @@ function OrderSidebarPanel({
           {marketFilters.map((filter) => (
             <MarketFilterButton
               count={getMarketFilterCount(sourceOffers, filter.value)}
+              currentLevel={currentLevel}
               filter={filter}
               key={filter.value}
               onSelect={onSelectFilter}
@@ -352,15 +392,18 @@ function OrderSidebarPanel({
 
 function MarketFilterButton({
   count,
+  currentLevel,
   filter,
   onSelect,
 }: {
   count: number;
+  currentLevel: number;
   filter: (typeof marketFilters)[number];
   onSelect: (filter: MarketFilter) => void;
 }) {
   const Icon = filter.icon;
   const accent = marketFilterAccentClasses[filter.value];
+  const unlocked = isProductTierUnlocked(filter.value, currentLevel);
 
   return (
     <button
@@ -382,9 +425,16 @@ function MarketFilterButton({
           {filter.hint}
         </span>
       </span>
-      <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold", accent.badge)}>
-        {count}
-      </span>
+      {unlocked ? (
+        <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold", accent.badge)}>
+          {count}
+        </span>
+      ) : (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-400/35 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+          <LockKeyhole size={10} />
+          Lv. {PRODUCT_TIER_MIN_LEVEL[filter.value]}
+        </span>
+      )}
     </button>
   );
 }
@@ -1295,38 +1345,11 @@ function getMarketFilterCount(offers: OrderOfferView[], filter: MarketFilter) {
 }
 
 function matchesMarketFilter(offer: OrderOfferView, filter: MarketFilter) {
-  switch (filter) {
-    case "NORMAL_CORE":
-      return (
-        offer.offerType === "NORMAL" &&
-        hasOnlyProductTiers(offer, ["BASIC", "STANDARD"])
-      );
-    case "OPPORTUNITY_CORE":
-      return (
-        offer.offerType === "OPPORTUNITY" &&
-        hasOnlyProductTiers(offer, ["BASIC", "STANDARD"])
-      );
-    case "REPEAT":
-      return offer.offerType === "REPEAT";
-    case "EXPRESS":
-      return offer.offerType === "EXPRESS";
-    case "PREMIUM":
-      return hasOnlyProductTiers(offer, ["PREMIUM"]);
-    case "LUXURY":
-      return hasOnlyProductTiers(offer, ["LUXURY"]);
-    default:
-      return false;
-  }
-}
-
-function hasOnlyProductTiers(
-  offer: OrderOfferView,
-  allowedTiers: Array<OrderOfferItemView["productTier"]>,
-) {
-  if (offer.items.length === 0) return false;
-  const allowed = new Set(allowedTiers);
-
-  return offer.items.every((item) => allowed.has(item.productTier));
+  return (
+    offer.productTier === filter &&
+    offer.items.length > 0 &&
+    offer.items.every((item) => item.productTier === filter)
+  );
 }
 
 function capacityStateBadgeClass(state: OrderOfferCapacityState) {

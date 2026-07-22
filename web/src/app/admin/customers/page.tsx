@@ -74,6 +74,7 @@ type CustomerValues = {
   sectorId: string;
   customerSegmentId: string;
   customerVolumeClassId: string;
+  productTier: "BASIC" | "STANDARD" | "PREMIUM" | "LUXURY";
   key: string;
   name: string;
   countryCode: string;
@@ -196,7 +197,7 @@ export default async function CustomersPage() {
           <section className="grid gap-4 xl:grid-cols-2">
             <Panel
               title="Yeni müşteri segmenti"
-              description="Tier eğilimi, fiyat davranışı, kalite beklentisi ve termin baskısı."
+              description="Fiyat davranışı, kalite beklentisi ve termin baskısı. Ürün grubu müşteri kaydında seçilir."
             >
               <form
                 action={saveCustomerSegmentAction.bind(null, null)}
@@ -364,6 +365,7 @@ export default async function CustomersPage() {
             sectorId: customer.sectorId,
             customerSegmentId: customer.customerSegmentId,
             customerVolumeClassId: customer.customerVolumeClassId,
+            productTier: customer.productTier,
             key: customer.key,
             name: customer.name,
             countryCode: customer.countryCode ?? "",
@@ -375,7 +377,7 @@ export default async function CustomersPage() {
           };
           return (
             <EditableDefinition
-              badge={customer.status}
+              badge={`${customer.productTier} · ${customer.status}`}
               key={customer.id}
               subtitle={`${displayName(customer.customerSegment.translations, customer.customerSegment.key)} · ${displayName(customer.customerVolumeClass.translations, customer.customerVolumeClass.key)}`}
               title={customer.name}
@@ -433,7 +435,7 @@ function SegmentFields({
         <JsonField
           defaultValue={values?.tierWeights}
           hint='Örnek: {"BASIC":10,"STANDARD":30,"PREMIUM":40,"LUXURY":20}'
-          label="Tier ağırlıkları"
+          label="Eski tier ağırlıkları (motor kullanmıyor)"
           name="tierWeights"
         />
         <JsonField
@@ -555,6 +557,14 @@ function CustomerFields({
         <Field label="Müşteri / marka adı">
           <Input defaultValue={values?.name} name="name" required />
         </Field>
+        <Field
+          label="Ürün grubu"
+          hint="Bu müşteri yalnızca seçilen gruptaki ürünlerden sipariş verir."
+        >
+          <Select defaultValue={values?.productTier ?? "BASIC"} name="productTier">
+            <Options values={enumOptions.tiers} />
+          </Select>
+        </Field>
         <Field label="Ülke kodu" hint="İki harfli ISO kodu: TR, DE, US gibi.">
           <Input
             defaultValue={values?.countryCode}
@@ -565,7 +575,7 @@ function CustomerFields({
         </Field>
         <NumberField
           defaultValue={values?.trustRequirementBps ?? 0}
-          hint="Müşterinin açılması için gereken minimum güven puanı."
+          hint="Yüksek değer, müşterinin teklif seçim ağırlığını düşürür."
           label="Güven gereksinimi"
           min={0}
           name="trustRequirementBps"

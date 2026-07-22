@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 
-import { ContentStatus, Prisma } from "@/generated/prisma/client";
+import {
+  ContentStatus,
+  Prisma,
+  ProductTier,
+} from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
 import { requireAdminUser } from "../admin-auth";
@@ -15,6 +19,17 @@ import {
 } from "../admin-data";
 
 const pagePath = "/admin/customers";
+const productTiers = new Set<string>(Object.values(ProductTier));
+
+function productTier(formData: FormData) {
+  const value = text(formData, "productTier");
+
+  if (!productTiers.has(value)) {
+    throw new Error("Müşteri için geçerli bir ürün grubu seçilmelidir.");
+  }
+
+  return value as ProductTier;
+}
 
 function technicalKey(formData: FormData) {
   const key = text(formData, "key")
@@ -266,6 +281,7 @@ export async function saveVirtualCustomerAction(
     sectorId,
     customerSegmentId,
     customerVolumeClassId,
+    productTier: productTier(formData),
     key: technicalKey(formData),
     name: text(formData, "name"),
     countryCode,
