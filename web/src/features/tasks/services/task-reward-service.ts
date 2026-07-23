@@ -10,7 +10,10 @@ import {
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { creditRunwayTokens } from "@/features/tokens/services/runway-token-service";
 
-import type { TaskRewardSnapshot } from "./task-definition-service";
+import {
+  refreshFactoryTaskAvailability,
+  type TaskRewardSnapshot,
+} from "./task-definition-service";
 
 type TaskRewardClient = Prisma.TransactionClient;
 
@@ -54,6 +57,7 @@ export async function claimTaskReward(input: {
           cashBalanceCents: true,
           currentDay: true,
           currentFinancePeriod: true,
+          currentLevel: true,
           currentXp: true,
           playerProfileId: true,
         },
@@ -90,6 +94,7 @@ export async function claimTaskReward(input: {
     targetValue: progress.taskDefinition.targetValue,
   });
   let currentXp = progress.factory.currentXp;
+  let currentLevel = progress.factory.currentLevel;
 
   if (reward.rewardXp > 0) {
     const xpResult = await grantFactoryXp({
@@ -103,6 +108,7 @@ export async function claimTaskReward(input: {
       tx: input.tx,
     });
     currentXp = xpResult.currentXp;
+    currentLevel = xpResult.currentLevel;
   }
 
   const tokenResult = await creditRunwayTokens({
@@ -149,6 +155,12 @@ export async function claimTaskReward(input: {
       claimedDay: progress.factory.currentDay,
       status: TaskProgressStatus.CLAIMED,
     },
+  });
+  await refreshFactoryTaskAvailability({
+    currentDay: progress.factory.currentDay,
+    currentLevel,
+    factoryId: input.factoryId,
+    tx: input.tx,
   });
 
   return {

@@ -4,7 +4,7 @@ import {
   type PrismaClient,
 } from "@/generated/prisma/client";
 
-import { toShiftPlayback } from "../shift-playback";
+import { SHIFT_PLAYBACK_DURATION_SECONDS, toShiftPlayback } from "../shift-playback";
 import type { ShiftPlayback } from "../types";
 import {
   getShiftDepartmentPerformance,
@@ -13,6 +13,12 @@ import {
 } from "./shift-playback-projection";
 
 type ShiftPlaybackClient = PrismaClient | Prisma.TransactionClient;
+
+export type ShiftPlaybackReference = {
+  factoryId: string;
+  shiftId: string;
+  simulatedGameDay: number;
+};
 
 const shiftPlaybackSelect = {
   id: true,
@@ -61,6 +67,46 @@ export async function getActiveShiftPlayback(input: {
   const playback = await getLatestShiftPlayback(input);
 
   return playback?.isActive ? playback : null;
+}
+
+export async function getActiveShiftPlaybackReference(input: {
+  factoryId: string;
+  prisma: ShiftPlaybackClient;
+  now?: Date;
+}): Promise<ShiftPlaybackReference | null> {
+  const shift = await input.prisma.shiftSimulation.findFirst({
+    where: {
+      factoryId: input.factoryId,
+      completedAt: { not: null },
+      status: ShiftSimulationStatus.COMPLETED,
+    },
+    orderBy: [{ completedAt: "desc" }, { gameDay: "desc" }],
+    select: {
+      completedAt: true,
+      factoryId: true,
+      gameDay: true,
+      id: true,
+      simulationDurationSeconds: true,
+    },
+  });
+
+  if (!shift?.completedAt) return null;
+
+  const durationSeconds = Math.max(
+    1,
+    shift.simulationDurationSeconds || SHIFT_PLAYBACK_DURATION_SECONDS,
+  );
+  const playbackEndsAtMs =
+    shift.completedAt.getTime() + durationSeconds * 1_000;
+  const nowMs = (input.now ?? new Date()).getTime();
+
+  if (nowMs >= playbackEndsAtMs) return null;
+
+  return {
+    factoryId: shift.factoryId,
+    shiftId: shift.id,
+    simulatedGameDay: shift.gameDay,
+  };
 }
 
 export async function getLatestReviewableShiftPlayback(input: {

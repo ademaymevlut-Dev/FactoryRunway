@@ -24,7 +24,7 @@ test("Neon/Vercel transaction seçenekleri serializable ve sınırlı sürelidir
     Prisma.TransactionIsolationLevel.Serializable,
   );
   assert.equal(SHIFT_TRANSACTION_OPTIONS.maxWait, 5_000);
-  assert.equal(SHIFT_TRANSACTION_OPTIONS.timeout, 15_000);
+  assert.equal(SHIFT_TRANSACTION_OPTIONS.timeout, 30_000);
 });
 
 test("P2034 serializable conflict sonrası transactionı yeniden dener", async () => {

@@ -121,7 +121,11 @@ export async function purchaseProductionLine(input: {
             status: true,
             department: {
               select: {
+                key: true,
                 departmentGroupId: true,
+                departmentGroup: {
+                  select: { key: true },
+                },
                 kind: true,
                 monthlyOverheadPerLineCents: true,
               },
@@ -187,6 +191,7 @@ export async function purchaseProductionLine(input: {
           lineNumberAggregate,
           sortOrderAggregate,
           activeProductionLineCount,
+          activeDepartmentGroupLineCount,
           costConfig,
           stages,
           supportAssignments,
@@ -207,6 +212,18 @@ export async function purchaseProductionLine(input: {
           }),
           tx.factoryProductionLine.count({
             where: {
+              factoryId: factory.id,
+              status: {
+                notIn: [
+                  FactoryProductionLineStatus.SOLD,
+                  FactoryProductionLineStatus.DISABLED,
+                ],
+              },
+            },
+          }),
+          tx.factoryProductionLine.count({
+            where: {
+              departmentId: { in: departmentIds },
               factoryId: factory.id,
               status: {
                 notIn: [
@@ -404,7 +421,16 @@ export async function purchaseProductionLine(input: {
           event: {
             objectiveType: "ACQUIRE_PRODUCTION_LINE",
             metadata: {
+              activeDepartmentGroupLineCount:
+                activeDepartmentGroupLineCount + 1,
               acquisitionType: LineAcquisitionType.PURCHASED,
+              departmentKey: template.department.key,
+              ...(template.department.departmentGroup?.key
+                ? {
+                    departmentGroupKey:
+                      template.department.departmentGroup.key,
+                  }
+                : {}),
               productionLineId,
             },
           },

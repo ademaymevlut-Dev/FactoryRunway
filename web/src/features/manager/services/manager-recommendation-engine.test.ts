@@ -180,6 +180,7 @@ function buildTask(input: {
 }): TaskSnapshot {
   return {
     completedDay: null,
+    completionMessage: null,
     cta: {
       kind: "PANEL",
       label: "Yatırımları İncele",

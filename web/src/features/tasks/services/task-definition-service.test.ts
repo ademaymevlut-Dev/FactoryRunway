@@ -133,8 +133,34 @@ test("yatırım görevi starter hattı kabul etmez ve satın alma event'ini kabu
   );
 });
 
+test("seviye kilitli görev önkoşul tamamlansa da gerekli level gelmeden açılmaz", async () => {
+  const harness = buildStoryTaskHarness(19);
+  await harness.activateInvestmentTask();
+  await harness.advance(TaskObjectiveType.ACQUIRE_PRODUCTION_LINE, {
+    acquisitionType: "PURCHASED",
+    productionLineId: "line-1",
+  });
+  await harness.advance(TaskObjectiveType.USE_NEW_PRODUCTION_LINE, {
+    productionLineId: "line-1",
+  });
+
+  assert.equal(
+    harness.getStatus("story_level_20_gate"),
+    TaskProgressStatus.LOCKED,
+  );
+
+  harness.setLevel(20);
+  await harness.ensureProgress();
+
+  assert.equal(
+    harness.getStatus("story_level_20_gate"),
+    TaskProgressStatus.ACTIVE,
+  );
+});
+
 type StoryDefinition = {
   activationDay: number | null;
+  activationLevel: number | null;
   id: string;
   key: string;
   objectiveConfig: Prisma.JsonValue | null;
@@ -159,8 +185,9 @@ type StoryProgress = {
   taskDefinitionId: string;
 };
 
-function buildStoryTaskHarness() {
+function buildStoryTaskHarness(startingLevel = 25) {
   const currentDay = 4;
+  let currentLevel = startingLevel;
   const factoryId = "factory-1";
   const definitions = buildStoryDefinitions();
   const progressRows: StoryProgress[] = [];
@@ -169,6 +196,7 @@ function buildStoryTaskHarness() {
     factory: {
       findUniqueOrThrow: async () => ({
         currentDay,
+        currentLevel,
         sectorId: "textile",
       }),
     },
@@ -242,6 +270,7 @@ function buildStoryTaskHarness() {
           status: row.status,
           taskDefinition: {
             activationDay: definition.activationDay,
+            activationLevel: definition.activationLevel,
             key: definition.key,
             prerequisiteTaskKey: definition.prerequisiteTaskKey,
           },
@@ -322,38 +351,52 @@ function buildStoryTaskHarness() {
         : null;
       return row?.status ?? null;
     },
+    setLevel: (level: number) => {
+      currentLevel = level;
+    },
   };
 }
 
 function buildStoryDefinitions(): StoryDefinition[] {
-  const rows: Array<[string, TaskObjectiveType, string | null]> = [
+  const rows: Array<
+    [string, TaskObjectiveType, string | null, (number | null)?]
+  > = [
     ["story_first_normal_order", TaskObjectiveType.ACCEPT_ORDER, null],
     ["story_first_shift", TaskObjectiveType.COMPLETE_SHIFT, "story_first_normal_order"],
     ["story_first_on_time_delivery", TaskObjectiveType.SHIP_ON_TIME, "story_first_shift"],
     ["story_first_customer_payment", TaskObjectiveType.PAYMENT_RECEIVED, "story_first_on_time_delivery"],
-    ["story_first_priority_change", TaskObjectiveType.CHANGE_PRIORITY, "story_first_customer_payment"],
+    ["story_first_priority_change", TaskObjectiveType.CHANGE_PRIORITY, "story_first_on_time_delivery"],
     ["story_first_investment_review", TaskObjectiveType.OPEN_INVESTMENT_PANEL, "story_first_priority_change"],
     ["story_first_production_line", TaskObjectiveType.ACQUIRE_PRODUCTION_LINE, "story_first_investment_review"],
     ["story_first_new_line_usage", TaskObjectiveType.USE_NEW_PRODUCTION_LINE, "story_first_production_line"],
+    [
+      "story_level_20_gate",
+      TaskObjectiveType.COMPLETE_PREMIUM_ORDER,
+      "story_first_new_line_usage",
+      20,
+    ],
   ];
 
-  return rows.map(([key, objectiveType, prerequisiteTaskKey], index) => ({
-    activationDay: 4,
-    id: `definition-${index + 1}`,
-    key,
-    objectiveConfig:
-      key === "story_first_production_line"
-        ? { acquisitionTypes: ["PURCHASED", "LEASED"] }
-        : null,
-    objectiveType,
-    prerequisiteTaskKey,
-    rewardCashCents: null,
-    rewardRunwayTokens: 0,
-    rewardXp: 100,
-    sortOrder: (index + 1) * 10,
-    targetValue: 1,
-    taskType: TaskType.STORY,
-  }));
+  return rows.map(
+    ([key, objectiveType, prerequisiteTaskKey, activationLevel], index) => ({
+      activationDay: 4,
+      activationLevel: activationLevel ?? null,
+      id: `definition-${index + 1}`,
+      key,
+      objectiveConfig:
+        key === "story_first_production_line"
+          ? { acquisitionTypes: ["PURCHASED", "LEASED"] }
+          : null,
+      objectiveType,
+      prerequisiteTaskKey,
+      rewardCashCents: null,
+      rewardRunwayTokens: 0,
+      rewardXp: 100,
+      sortOrder: (index + 1) * 10,
+      targetValue: 1,
+      taskType: TaskType.STORY,
+    }),
+  );
 }
 
 function findDefinition(definitions: StoryDefinition[], taskDefinitionId: string) {
@@ -381,6 +424,44 @@ test("objective config içindeki scalar alanlar event metadata ile eşleşir", (
         metadata: { offerType: "EXPRESS" },
       },
     ),
+    false,
+  );
+});
+
+test("objective config departman grubu ve minimum aktif hat sayısını filtreler", () => {
+  const config = {
+    departmentGroupKeys: ["value_added_processes"],
+    minimumActiveDepartmentGroupLineCount: 2,
+  };
+
+  assert.equal(
+    matchesTaskEvent(config, {
+      objectiveType: TaskObjectiveType.ACQUIRE_PRODUCTION_LINE,
+      metadata: {
+        activeDepartmentGroupLineCount: 2,
+        departmentGroupKey: "value_added_processes",
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    matchesTaskEvent(config, {
+      objectiveType: TaskObjectiveType.ACQUIRE_PRODUCTION_LINE,
+      metadata: {
+        activeDepartmentGroupLineCount: 1,
+        departmentGroupKey: "value_added_processes",
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    matchesTaskEvent(config, {
+      objectiveType: TaskObjectiveType.ACQUIRE_PRODUCTION_LINE,
+      metadata: {
+        activeDepartmentGroupLineCount: 2,
+        departmentGroupKey: "main_production",
+      },
+    }),
     false,
   );
 });

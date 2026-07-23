@@ -15,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 import type { CurrencyCode } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +85,10 @@ export function TaskCard({
         {isCompleted ? (
           <div className="flex items-start gap-2 rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-50">
             <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-200" size={16} />
-            <span>Tebrikler, görev tamamlandı. Ödülün alınmaya hazır.</span>
+            <span>
+              {task.completionMessage ??
+                "Tebrikler, görev tamamlandı. Ödülün alınmaya hazır."}
+            </span>
           </div>
         ) : null}
 
@@ -93,6 +97,24 @@ export function TaskCard({
             {task.description}
           </p>
         </div>
+
+        {!isCompleted ? (
+          <div className="space-y-2 rounded-xl border border-border/70 bg-background/35 p-3">
+            <div className="flex items-center justify-between gap-3 text-xs">
+              <span className="font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                İlerleme
+              </span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {task.currentValue} / {task.targetValue}
+              </span>
+            </div>
+            <Progress
+              aria-label={`${task.title} ilerlemesi`}
+              className="h-2"
+              value={task.progressBps / 100}
+            />
+          </div>
+        ) : null}
       </CardContent>
 
       <CardFooter className="flex-col items-stretch gap-3 border-t border-border/70 pt-4">

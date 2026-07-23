@@ -102,6 +102,7 @@ function buildRow(input: {
       taskType: TaskType.STORY,
       translations: [
         {
+          completionMessage: `${input.key} tamamlandı`,
           description: `${input.key} açıklaması`,
           locale: "tr",
           title: `${input.key} başlığı`,

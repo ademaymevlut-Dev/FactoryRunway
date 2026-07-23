@@ -377,12 +377,14 @@ enum TaskObjectiveType {
   CHANGE_PRIORITY
   OPEN_INVESTMENT_PANEL
   ACQUIRE_PRODUCTION_LINE
+  UPGRADE_PRODUCTION_LINE
   USE_NEW_PRODUCTION_LINE
   COMPLETE_OUTSOURCE
   MEET_STAGE_STAFF
   CLOSE_PROFITABLE_FINANCE_PERIOD
   COMPLETE_PREMIUM_ORDER
   COMPLETE_EXPRESS_ORDER
+  COMPLETE_INTERNAL_PROCESS_ORDER
 }
 
 enum TaskProgressStatus {
@@ -2283,6 +2285,7 @@ model TaskDefinition {
   sortOrder           Int                         @default(0) @map("sort_order")
   prerequisiteTaskKey String?                     @map("prerequisite_task_key")
   activationDay       Int?                        @map("activation_day")
+  activationLevel     Int?                        @map("activation_level")
   objectiveType       TaskObjectiveType           @map("objective_type")
   targetValue         Int                         @default(1) @map("target_value")
   objectiveConfig     Json?                       @map("objective_config")

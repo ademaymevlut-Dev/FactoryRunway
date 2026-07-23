@@ -86,7 +86,7 @@ export function ShiftPlaybackHud() {
     >
       <div
         className={[
-          "pointer-events-auto mx-auto flex max-h-[min(520px,calc(100dvh-4.75rem))] max-w-[min(760px,calc(100vw-1rem))] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/94 shadow-2xl backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 xl:max-h-[min(760px,calc(100dvh-8rem))] xl:max-w-5xl xl:rounded-xl",
+          "pointer-events-auto mx-auto flex max-h-[min(520px,calc(100dvh-4.75rem))] max-w-[min(760px,calc(100vw-1rem))] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/94 shadow-2xl backdrop-blur-xl lg:-translate-x-20 xl:-translate-x-24 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 xl:max-h-[min(760px,calc(100dvh-8rem))] xl:max-w-5xl xl:rounded-xl",
           isClosing
             ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-top-2 motion-safe:duration-200"
             : "",

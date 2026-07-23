@@ -45,7 +45,7 @@ export async function ensureFactoryTaskProgress(input: {
 }) {
   const factory = await input.tx.factory.findUniqueOrThrow({
     where: { id: input.factoryId },
-    select: { currentDay: true, sectorId: true },
+    select: { currentDay: true, currentLevel: true, sectorId: true },
   });
   const currentDay = input.currentDay ?? factory.currentDay;
   const definitions = await input.tx.taskDefinition.findMany({
@@ -59,6 +59,7 @@ export async function ensureFactoryTaskProgress(input: {
     select: {
       id: true,
       activationDay: true,
+      activationLevel: true,
       key: true,
       objectiveConfig: true,
       objectiveType: true,
@@ -87,6 +88,7 @@ export async function ensureFactoryTaskProgress(input: {
         targetValue: Math.max(1, definition.targetValue),
         rewardSnapshot: buildTaskRewardSnapshot(definition),
         metadata: {
+          activationLevel: definition.activationLevel ?? null,
           objectiveType: definition.objectiveType,
           objectiveConfig: definition.objectiveConfig ?? null,
         },
@@ -97,6 +99,7 @@ export async function ensureFactoryTaskProgress(input: {
 
   await refreshFactoryTaskAvailability({
     currentDay,
+    currentLevel: factory.currentLevel,
     factoryId: input.factoryId,
     tx: input.tx,
   });
@@ -106,6 +109,7 @@ export async function ensureFactoryTaskProgress(input: {
 
 export async function refreshFactoryTaskAvailability(input: {
   currentDay: number;
+  currentLevel: number;
   factoryId: string;
   tx: TaskClient;
 }) {
@@ -118,6 +122,7 @@ export async function refreshFactoryTaskAvailability(input: {
       taskDefinition: {
         select: {
           activationDay: true,
+          activationLevel: true,
           key: true,
           prerequisiteTaskKey: true,
         },
@@ -133,6 +138,12 @@ export async function refreshFactoryTaskAvailability(input: {
     if (
       row.taskDefinition.activationDay !== null &&
       row.taskDefinition.activationDay > input.currentDay
+    ) {
+      continue;
+    }
+    if (
+      row.taskDefinition.activationLevel !== null &&
+      row.taskDefinition.activationLevel > input.currentLevel
     ) {
       continue;
     }
@@ -169,7 +180,7 @@ export async function advanceFactoryTaskProgress(input: {
 }) {
   const factory = await input.tx.factory.findUniqueOrThrow({
     where: { id: input.factoryId },
-    select: { currentDay: true },
+    select: { currentDay: true, currentLevel: true },
   });
   const currentDay = input.currentDay ?? factory.currentDay;
 
@@ -229,6 +240,7 @@ export async function advanceFactoryTaskProgress(input: {
   if (completedTaskProgressIds.length > 0) {
     await refreshFactoryTaskAvailability({
       currentDay,
+      currentLevel: factory.currentLevel,
       factoryId: input.factoryId,
       tx: input.tx,
     });
@@ -263,8 +275,43 @@ export function matchesTaskEvent(
     }
   }
 
+  const departmentGroupKeys = objectiveConfig.departmentGroupKeys;
+
+  if (Array.isArray(departmentGroupKeys)) {
+    const allowedDepartmentGroupKeys = departmentGroupKeys.filter(
+      (value): value is string => typeof value === "string",
+    );
+    const departmentGroupKey = metadata.departmentGroupKey;
+
+    if (
+      allowedDepartmentGroupKeys.length > 0 &&
+      (typeof departmentGroupKey !== "string" ||
+        !allowedDepartmentGroupKeys.includes(departmentGroupKey))
+    ) {
+      return false;
+    }
+  }
+
+  const minimumActiveDepartmentGroupLineCount =
+    objectiveConfig.minimumActiveDepartmentGroupLineCount;
+
+  if (
+    typeof minimumActiveDepartmentGroupLineCount === "number" &&
+    (typeof metadata.activeDepartmentGroupLineCount !== "number" ||
+      metadata.activeDepartmentGroupLineCount <
+        minimumActiveDepartmentGroupLineCount)
+  ) {
+    return false;
+  }
+
   for (const [key, expectedValue] of Object.entries(objectiveConfig)) {
-    if (key === "acquisitionTypes") continue;
+    if (
+      key === "acquisitionTypes" ||
+      key === "departmentGroupKeys" ||
+      key === "minimumActiveDepartmentGroupLineCount"
+    ) {
+      continue;
+    }
     if (metadata[key] !== expectedValue) return false;
   }
 

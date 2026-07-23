@@ -24,6 +24,7 @@ type TaskProgressRow = {
     sortOrder: number;
     taskType: TaskType;
     translations: Array<{
+      completionMessage: string | null;
       description: string;
       locale: string;
       title: string;
@@ -74,6 +75,7 @@ function mapTaskProgressRow(row: TaskProgressRow): TaskSnapshot {
 
   return {
     completedDay: row.completedDay,
+    completionMessage: translation?.completionMessage ?? null,
     cta: buildTaskCta(row.taskDefinition.objectiveType),
     currentValue,
     description: translation?.description ?? row.taskDefinition.key,

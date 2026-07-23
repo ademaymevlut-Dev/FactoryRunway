@@ -262,14 +262,14 @@ export function PanelChrome({
           "h-[min(780px,calc(100dvh-8rem))] w-[min(1380px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(1380px,calc(100vw-7rem))]",
         layout === "center" &&
           size === "adaptive" &&
-          "h-[min(720px,calc(100dvh-8rem))] w-[min(1080px,calc(100vw-2rem))] bg-background p-3 sm:w-[min(1080px,calc(100vw-5rem))]",
+          "h-[min(720px,calc(100dvh-13rem))] w-[min(1080px,calc(100vw-2rem))] bg-background p-3 sm:w-[min(1080px,calc(100vw-5rem))]",
         layout === "center" &&
           size === "compact" &&
           "h-[min(760px,calc(100dvh-8rem))] w-[min(880px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(880px,calc(100vw-5rem))]",
         layout === "side" &&
           "max-h-[calc(100dvh-8rem)] w-[min(420px,calc(100vw-2rem))] bg-card/95 p-4",
         layout === "dock" &&
-          "max-h-[min(620px,calc(100dvh-7rem))] w-[min(400px,calc(100vw-7rem))] bg-background p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-8 motion-safe:duration-300",
+          "max-h-[min(620px,calc(100dvh-12rem))] w-[min(400px,calc(100vw-7rem))] bg-background p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-8 motion-safe:duration-300",
       )}
     >
       <div className="mb-3 flex shrink-0 items-center justify-between gap-4">

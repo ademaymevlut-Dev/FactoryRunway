@@ -9,7 +9,10 @@ import { getPrisma } from "@/lib/db";
 import { ensureMarketOfferForFactory } from "@/features/orders/services/market-offer-generator";
 
 import { simulateFactoryDay } from "../services/day-simulation";
-import { getLatestShiftPlayback } from "../services/shift-playback-view";
+import {
+  getLatestShiftPlayback,
+  getShiftPlaybackById,
+} from "../services/shift-playback-view";
 import {
   retrySerializableTransaction,
   SHIFT_TRANSACTION_OPTIONS,
@@ -70,6 +73,8 @@ export async function advanceFactoryDayAction(
     );
   } catch (error) {
     if (!(error instanceof ShiftClaimConflictError)) {
+      console.error("Factory shift start failed.", { factoryId: factory.id }, error);
+
       return {
         code: "SHIFT_START_FAILED",
         message: "Vardiya başlatılamadı. Lütfen tekrar deneyin.",
@@ -96,6 +101,30 @@ export async function advanceFactoryDayAction(
     };
   }
 
+  const playback =
+    execution.outcome === "IDEMPOTENT_REPLAY"
+      ? execution.playback
+      : await getShiftPlaybackById({
+          now:
+            execution.outcome === "STARTED"
+              ? execution.playbackStartedAt
+              : undefined,
+          prisma,
+          shiftId: execution.shiftId,
+        });
+  const expectedSimulatedGameDay =
+    execution.outcome === "IDEMPOTENT_REPLAY"
+      ? execution.playback.simulatedGameDay
+      : execution.simulatedGameDay;
+
+  if (!playback || playback.simulatedGameDay !== expectedSimulatedGameDay) {
+    return {
+      code: "SHIFT_RESULT_NOT_FOUND",
+      message: "Vardiya tamamlandı ancak sonucu okunamadı.",
+      ok: false,
+    };
+  }
+
   let warning: string | undefined;
 
   if (execution.outcome === "STARTED") {
@@ -112,7 +141,7 @@ export async function advanceFactoryDayAction(
   return {
     ok: true,
     outcome: execution.outcome,
-    playback: execution.playback,
+    playback,
     ...(warning ? { warning } : {}),
   };
 }

@@ -21,6 +21,7 @@ export function buildTaskCta(objectiveType: TaskObjectiveType): TaskCta {
       };
     case "OPEN_INVESTMENT_PANEL":
     case "ACQUIRE_PRODUCTION_LINE":
+    case "UPGRADE_PRODUCTION_LINE":
       return {
         kind: "PANEL",
         label: "Yatırımları İncele",
@@ -38,6 +39,7 @@ export function buildTaskCta(objectiveType: TaskObjectiveType): TaskCta {
       };
     case "COMPLETE_PREMIUM_ORDER":
     case "COMPLETE_EXPRESS_ORDER":
+    case "COMPLETE_INTERNAL_PROCESS_ORDER":
       return { kind: "PANEL", label: "Siparişlere Git", panel: "orders" };
     default:
       return null;

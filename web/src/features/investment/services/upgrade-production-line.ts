@@ -17,6 +17,7 @@ import {
 } from "@/generated/prisma/client";
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
+import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 import type {
   UpgradeProductionLineInput,
   UpgradeProductionLineResult,
@@ -471,6 +472,19 @@ export async function upgradeProductionLine(input: {
           reason: XpReason.FACTORY_EXPANSION,
           sourceId: line.id,
           sourceType: "factory_production_line",
+          tx,
+        });
+        await advanceFactoryTaskProgress({
+          currentDay: factory.currentDay,
+          factoryId: factory.id,
+          event: {
+            objectiveType: "UPGRADE_PRODUCTION_LINE",
+            metadata: {
+              previousGrade: line.productionLineTemplate.grade,
+              productionLineId: line.id,
+              targetGrade: nextTemplate.grade,
+            },
+          },
           tx,
         });
 

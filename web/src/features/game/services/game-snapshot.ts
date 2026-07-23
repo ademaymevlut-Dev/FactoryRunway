@@ -653,7 +653,12 @@ export async function getGameSnapshot(input: {
             taskType: true,
             translations: {
               where: { locale: { in: [locale, "en"] } },
-              select: { description: true, locale: true, title: true },
+              select: {
+                completionMessage: true,
+                description: true,
+                locale: true,
+                title: true,
+              },
             },
           },
         },

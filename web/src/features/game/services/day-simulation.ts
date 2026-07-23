@@ -6,8 +6,10 @@ import {
   FinanceDirection,
   FinanceSourceType,
   LineAcquisitionType,
+  MarketOrderOfferType,
   OutsourceJobStatus,
   Prisma,
+  ProductTier,
   ProductionOrderStatus,
   RouteProcessingMode,
   RouteProgressStatus,
@@ -43,11 +45,7 @@ import {
 export { getLineStaffCoverageBps } from "./production-capacity";
 
 import { SHIFT_PLAYBACK_DURATION_SECONDS } from "../shift-playback";
-import type { ShiftPlayback } from "../types";
-import {
-  getActiveShiftPlayback,
-  getShiftPlaybackById,
-} from "./shift-playback-view";
+import { getActiveShiftPlaybackReference } from "./shift-playback-view";
 import {
   isUniqueConstraintError,
   ShiftClaimConflictError,
@@ -63,13 +61,22 @@ import { getRouteProgressStatus as resolveRouteProgressStatus } from "./route-pr
 export { getAvailableQuantity } from "./shift-department-result";
 
 const SHIFT_COMPLETED_XP = 30;
+const VALUE_ADDED_PROCESS_GROUP_KEY = "value_added_processes";
 
 type TransactionClient = Prisma.TransactionClient;
 type DaySimulationClient = TransactionClient;
 
 export type FactoryDaySimulationResult = {
-  outcome: "STARTED" | "ACTIVE_PLAYBACK";
-  playback: ShiftPlayback;
+  factoryId: string;
+  outcome: "ACTIVE_PLAYBACK";
+  shiftId: string;
+  simulatedGameDay: number;
+} | {
+  factoryId: string;
+  outcome: "STARTED";
+  playbackStartedAt: Date;
+  shiftId: string;
+  simulatedGameDay: number;
 };
 
 type ProductionLineForSimulation = {
@@ -211,7 +218,7 @@ export async function simulateFactoryDay(input: {
       },
     },
   });
-  const activePlayback = await getActiveShiftPlayback({
+  const activePlayback = await getActiveShiftPlaybackReference({
     factoryId: factory.id,
     prisma,
   });
@@ -219,7 +226,7 @@ export async function simulateFactoryDay(input: {
   if (activePlayback) {
     return {
       outcome: "ACTIVE_PLAYBACK",
-      playback: activePlayback,
+      ...activePlayback,
     };
   }
 
@@ -487,9 +494,13 @@ export async function simulateFactoryDay(input: {
     factoryId: factory.id,
     prisma,
   });
-
-  const onTimeShipmentCount = shippingResult.shippedOrderIds.filter(
-    (orderId) => !shippingResult.lateOrderIds.includes(orderId),
+  const shippedOrderTaskFacts = await getShippedOrderTaskFacts({
+    factoryId: factory.id,
+    orderIds: shippingResult.shippedOrderIds,
+    prisma,
+  });
+  const onTimeShipmentCount = shippedOrderTaskFacts.filter(
+    (order) => order.lateDays === 0,
   ).length;
   const customerPaymentCount = await prisma.factoryFinanceTransaction.count({
     where: {
@@ -500,11 +511,40 @@ export async function simulateFactoryDay(input: {
       sourceType: FinanceSourceType.CUSTOMER_ORDER,
     },
   });
-  const newLineProduced = lineResults.some(
-    (result) =>
-      result.producedQuantity > 0 &&
-      result.line.acquisitionType !== LineAcquisitionType.STARTER,
+  const producedNewLines = Array.from(
+    new Map(
+      lineResults
+        .filter(
+          (result) =>
+            result.producedQuantity > 0 &&
+            result.line.acquisitionType !== LineAcquisitionType.STARTER,
+        )
+        .map((result) => [result.line.id, result.line]),
+    ).values(),
   );
+  const producedDepartments =
+    producedNewLines.length > 0
+      ? await prisma.department.findMany({
+          where: {
+            id: {
+              in: Array.from(
+                new Set(producedNewLines.map((line) => line.departmentId)),
+              ),
+            },
+          },
+          select: {
+            id: true,
+            key: true,
+            departmentGroup: {
+              select: { key: true },
+            },
+          },
+        })
+      : [];
+  const producedDepartmentById = new Map(
+    producedDepartments.map((department) => [department.id, department]),
+  );
+  const newLineProduced = producedNewLines.length > 0;
   const stageState = newLineProduced
     ? await prisma.factoryOperatingStageState.findUnique({
         where: { factoryId: factory.id },
@@ -534,22 +574,39 @@ export async function simulateFactoryDay(input: {
       tx: prisma,
     });
   }
-  if (newLineProduced) {
+  for (const line of producedNewLines) {
+    const department = producedDepartmentById.get(line.departmentId);
+
     await advanceFactoryTaskProgress({
       currentDay: simulatedGameDay,
       factoryId: factory.id,
-      event: { objectiveType: "USE_NEW_PRODUCTION_LINE" },
+      event: {
+        objectiveType: "USE_NEW_PRODUCTION_LINE",
+        metadata: {
+          ...(department?.departmentGroup?.key
+            ? { departmentGroupKey: department.departmentGroup.key }
+            : {}),
+          ...(department?.key ? { departmentKey: department.key } : {}),
+          productionLineId: line.id,
+        },
+      },
       tx: prisma,
     });
-    if (stageState?.requirementsMet) {
-      await advanceFactoryTaskProgress({
-        currentDay: simulatedGameDay,
-        factoryId: factory.id,
-        event: { objectiveType: "MEET_STAGE_STAFF" },
-        tx: prisma,
-      });
-    }
   }
+  if (newLineProduced && stageState?.requirementsMet) {
+    await advanceFactoryTaskProgress({
+      currentDay: simulatedGameDay,
+      factoryId: factory.id,
+      event: { objectiveType: "MEET_STAGE_STAFF" },
+      tx: prisma,
+    });
+  }
+  await advanceShippedOrderTaskProgress({
+    currentDay: simulatedGameDay,
+    factoryId: factory.id,
+    orders: shippedOrderTaskFacts,
+    tx: prisma,
+  });
   const orderXpRewardResult = await processShippedOrderXpRewards({
     factoryDay: simulatedGameDay,
     factoryId: factory.id,
@@ -683,19 +740,12 @@ export async function simulateFactoryDay(input: {
     },
   });
 
-  const playback = await getShiftPlaybackById({
-    now: playbackStartedAt,
-    prisma,
-    shiftId: shiftSimulation.id,
-  });
-
-  if (!playback) {
-    throw new Error("Completed shift playback could not be created.");
-  }
-
   return {
+    factoryId: factory.id,
     outcome: "STARTED",
-    playback,
+    playbackStartedAt,
+    shiftId: shiftSimulation.id,
+    simulatedGameDay,
   };
 }
 
@@ -1123,6 +1173,131 @@ async function updateProductionProgress({
   return completedProductionOrderIds;
 }
 
+async function getShippedOrderTaskFacts(input: {
+  factoryId: string;
+  orderIds: string[];
+  prisma: DaySimulationClient;
+}) {
+  if (input.orderIds.length === 0) return [];
+
+  return input.prisma.customerOrder.findMany({
+    where: {
+      factoryId: input.factoryId,
+      id: { in: input.orderIds },
+      status: CustomerOrderStatus.SHIPPED,
+    },
+    orderBy: [{ shippedDay: "asc" }, { id: "asc" }],
+    select: {
+      id: true,
+      lateDays: true,
+      offerType: true,
+      items: {
+        select: {
+          product: {
+            select: { tier: true },
+          },
+          productionOrder: {
+            select: {
+              routeProgress: {
+                where: { isRequired: true },
+                select: {
+                  department: {
+                    select: {
+                      departmentGroup: {
+                        select: { key: true },
+                      },
+                    },
+                  },
+                  outsourceJobs: {
+                    select: { id: true },
+                    take: 1,
+                  },
+                  shiftLineResults: {
+                    where: { producedQuantity: { gt: 0 } },
+                    select: { id: true },
+                    take: 1,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+async function advanceShippedOrderTaskProgress(input: {
+  currentDay: number;
+  factoryId: string;
+  orders: Awaited<ReturnType<typeof getShippedOrderTaskFacts>>;
+  tx: DaySimulationClient;
+}) {
+  for (const order of input.orders) {
+    if (
+      order.lateDays === 0 &&
+      order.offerType === MarketOrderOfferType.EXPRESS
+    ) {
+      await advanceFactoryTaskProgress({
+        currentDay: input.currentDay,
+        factoryId: input.factoryId,
+        event: {
+          objectiveType: "COMPLETE_EXPRESS_ORDER",
+          metadata: { orderId: order.id },
+        },
+        tx: input.tx,
+      });
+    }
+
+    if (
+      order.lateDays === 0 &&
+      order.items.some((item) => item.product.tier === ProductTier.PREMIUM)
+    ) {
+      await advanceFactoryTaskProgress({
+        currentDay: input.currentDay,
+        factoryId: input.factoryId,
+        event: {
+          objectiveType: "COMPLETE_PREMIUM_ORDER",
+          metadata: { orderId: order.id },
+        },
+        tx: input.tx,
+      });
+    }
+
+    const internalProcessGroupKeys = new Set<string>();
+
+    for (const item of order.items) {
+      for (const routeProgress of item.productionOrder?.routeProgress ?? []) {
+        const departmentGroupKey =
+          routeProgress.department.departmentGroup?.key;
+
+        if (
+          departmentGroupKey === VALUE_ADDED_PROCESS_GROUP_KEY &&
+          routeProgress.outsourceJobs.length === 0 &&
+          routeProgress.shiftLineResults.length > 0
+        ) {
+          internalProcessGroupKeys.add(departmentGroupKey);
+        }
+      }
+    }
+
+    for (const departmentGroupKey of internalProcessGroupKeys) {
+      await advanceFactoryTaskProgress({
+        currentDay: input.currentDay,
+        factoryId: input.factoryId,
+        event: {
+          objectiveType: "COMPLETE_INTERNAL_PROCESS_ORDER",
+          metadata: {
+            departmentGroupKey,
+            orderId: order.id,
+          },
+        },
+        tx: input.tx,
+      });
+    }
+  }
+}
+
 async function completeReadyOutsourceJobs({
   activeDepartmentIds,
   factoryDay,
@@ -1313,6 +1488,22 @@ async function completeReadyOutsourceJobs({
     if (completedProductionOrderId) {
       completedProductionOrderIds.push(completedProductionOrderId);
     }
+  }
+
+  if (completedJobIds.length > 0) {
+    await advanceFactoryTaskProgress({
+      currentDay: factoryDay,
+      factoryId,
+      event: {
+        amount: completedJobIds.length,
+        objectiveType: "COMPLETE_OUTSOURCE",
+        metadata: {
+          completedJobCount: completedJobIds.length,
+          outsourceJobId: completedJobIds[0],
+        },
+      },
+      tx: prisma,
+    });
   }
 
   void completedProductionOrderIds;

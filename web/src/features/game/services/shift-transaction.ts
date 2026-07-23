@@ -3,7 +3,7 @@ import { Prisma } from "@/generated/prisma/client";
 export const SHIFT_TRANSACTION_OPTIONS = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   maxWait: 5_000,
-  timeout: 15_000,
+  timeout: 30_000,
 } as const;
 
 const MAX_SERIALIZABLE_ATTEMPTS = 3;

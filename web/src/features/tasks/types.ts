@@ -36,6 +36,7 @@ export type TaskRewardView = {
 
 export type TaskSnapshot = {
   completedDay: number | null;
+  completionMessage: string | null;
   cta: TaskCta;
   currentValue: number;
   description: string;
