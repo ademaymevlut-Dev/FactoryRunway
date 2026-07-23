@@ -18,6 +18,7 @@ import { UpgradeProductionLinePanel } from "@/features/investment/components/upg
 import type { ProductionLineInvestmentTemplate } from "@/features/investment/types";
 import { ManagerRecommendationsPanel } from "@/features/manager/components/manager-recommendations-panel";
 import { TasksPanel } from "@/features/tasks/components/tasks-panel";
+import { RankingPanel } from "@/features/ranking/components/ranking-panel";
 import { cn } from "@/lib/utils";
 
 import type { FactoryMapItem, GamePanelKey, GameSnapshot } from "../types";
@@ -112,6 +113,13 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
         factoryId={snapshot.factory.id}
       />
     ),
+  },
+  ranking: {
+    backdrop: true,
+    layout: "center",
+    size: "adaptive",
+    title: "",
+    render: () => <RankingPanel />,
   },
   warehouse: {
     layout: "center",
@@ -256,7 +264,7 @@ export function PanelChrome({
   return (
     <aside
       className={cn(
-        "pointer-events-auto flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-lg border border-white/10 text-card-foreground shadow-2xl backdrop-blur",
+        "pointer-events-auto relative flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-lg border border-white/10 text-card-foreground shadow-2xl backdrop-blur",
         layout === "center" &&
           size === "wide" &&
           "h-[min(780px,calc(100dvh-8rem))] w-[min(1380px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(1380px,calc(100vw-7rem))]",
@@ -272,14 +280,27 @@ export function PanelChrome({
           "max-h-[min(620px,calc(100dvh-12rem))] w-[min(400px,calc(100vw-7rem))] bg-background p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-8 motion-safe:duration-300",
       )}
     >
-      <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-          {title}
-        </h2>
-        <Button aria-label="Paneli kapat" onClick={onClose} size="icon-sm" type="button" variant="ghost">
+      {title ? (
+        <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
+          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
+            {title}
+          </h2>
+          <Button aria-label="Paneli kapat" onClick={onClose} size="icon-sm" type="button" variant="ghost">
+            <X size={16} />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          aria-label="Paneli kapat"
+          className="absolute right-2 top-2 z-20"
+          onClick={onClose}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
           <X size={16} />
         </Button>
-      </div>
+      )}
       <div
         className={cn(
           "min-h-0 flex-1 overscroll-contain",

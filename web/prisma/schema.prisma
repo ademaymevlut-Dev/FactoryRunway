@@ -502,6 +502,7 @@ model PlayerProfile {
   tokenWallet       PlayerTokenWallet?
   tokenTransactions PlayerTokenTransaction[]
 
+  @@index([totalXp, id])
   @@map("player_profiles")
 }
 

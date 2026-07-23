@@ -14,7 +14,9 @@ import {
   ClipboardList,
   Gauge,
   LogOut,
+  Mail,
   Sparkles,
+  Trophy,
   UserRound,
   Wallet,
   Zap,
@@ -22,6 +24,12 @@ import {
 } from "lucide-react";
 
 import { logoutAction } from "@/app/user-actions";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 import { useGameUiStore } from "../store/game-ui-store";
 import type { GameSnapshot } from "../types";
@@ -50,6 +58,7 @@ export function TopStatusBar({
   position?: "absolute" | "fixed";
   snapshot: GameSnapshot;
 }) {
+  const { activePanel, closePanel, openPanel } = useGameUiStore();
   const displayedSnapshot = useDelayedHudSnapshot(snapshot);
   const stagePulse = usePulseOnChange(
     displayedSnapshot.factory.operatingStageName,
@@ -134,16 +143,64 @@ export function TopStatusBar({
           })}
         </div>
 
-        <form action={logoutAction} className="border-l border-card pl-1.5 sm:pl-2 xl:pl-3">
+        <div className="flex shrink-0 items-center gap-0.5 border-l border-card pl-1.5 sm:gap-1 sm:pl-2 xl:pl-3">
           <button
-            aria-label="Çıkış yap"
-            className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:size-8 xl:size-9"
-            title="Çıkış yap"
-            type="submit"
+            aria-label="Ranking panelini aç"
+            aria-pressed={activePanel?.key === "ranking"}
+            className={cn(
+              "flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9",
+              activePanel?.key === "ranking" &&
+                "bg-primary/12 text-primary",
+            )}
+            onClick={() => {
+              if (activePanel?.key === "ranking") {
+                closePanel();
+                return;
+              }
+
+              openPanel("ranking");
+            }}
+            title="Player Ranking"
+            type="button"
           >
-            <LogOut className="size-3.5 xl:size-4" />
+            <Trophy className="size-3.5 xl:size-4" />
+            <span className="hidden text-xs font-semibold xl:inline">
+              Ranking
+            </span>
           </button>
-        </form>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex cursor-not-allowed">
+                <button
+                  aria-label="Mesajlar, yakında"
+                  className="flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground/55 sm:h-8 xl:h-9"
+                  disabled
+                  type="button"
+                >
+                  <Mail className="size-3.5 xl:size-4" />
+                </button>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">
+              Mesajlar ve Cooperation sistemi yakında
+            </TooltipContent>
+          </Tooltip>
+
+          <form action={logoutAction}>
+            <button
+              aria-label="Çıkış yap"
+              className="flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9"
+              title="Çıkış yap"
+              type="submit"
+            >
+              <LogOut className="size-3.5 xl:size-4" />
+              <span className="hidden text-xs font-semibold xl:inline">
+                Logout
+              </span>
+            </button>
+          </form>
+        </div>
       </div>
     </header>
   );

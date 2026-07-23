@@ -20,6 +20,7 @@ export type GamePanelKey =
   | "staff"
   | "finance"
   | "reports"
+  | "ranking"
   | "warehouse"
   | "departmentQueue"
   | "cutting"

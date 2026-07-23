@@ -30,6 +30,11 @@ type MapPan = {
 
 type TasksView = "active" | "history";
 
+export type RankingVisitState = {
+  factoryId: string;
+  playerProfileId: string;
+};
+
 type GameUiStore = {
   activePanel: OpenPanelState | null;
   hoveredDepartmentId: string | null;
@@ -41,6 +46,7 @@ type GameUiStore = {
   isShiftPlaybackActive: boolean;
   shiftPlaybackNowMs: number;
   tasksView: TasksView;
+  rankingVisit: RankingVisitState | null;
   closePanel: () => void;
   openPanel: (
     key: GamePanelKey,
@@ -52,6 +58,7 @@ type GameUiStore = {
   setMapPan: (pan: MapPan) => void;
   setMapZoom: (zoom: number) => void;
   setActiveShiftPlayback: (playback: ShiftPlayback | null) => void;
+  setRankingVisit: (visit: RankingVisitState | null) => void;
   setTasksView: (view: TasksView) => void;
 };
 
@@ -71,6 +78,9 @@ export function GameUiProvider({
   const [selectedDockDepartmentIds, setSelectedDockDepartmentIds] = useState<string[]>([]);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [tasksView, setTasksView] = useState<TasksView>("active");
+  const [rankingVisit, setRankingVisit] = useState<RankingVisitState | null>(
+    null,
+  );
   const [activeShiftPlayback, setActiveShiftPlaybackState] =
     useState<ShiftPlayback | null>(initialShiftPlayback);
   const dismissedShiftId = useStoredString(DISMISSED_SHIFT_PLAYBACK_STORAGE_KEY);
@@ -122,11 +132,16 @@ export function GameUiProvider({
   );
 
   const openPanel = useCallback<GameUiStore["openPanel"]>((key, payload) => {
+    if (key !== "ranking") {
+      setRankingVisit(null);
+    }
+
     setActivePanel({ key, payload });
   }, []);
 
   const closePanel = useCallback(() => {
     setActivePanel(null);
+    setRankingVisit(null);
     setSelectedDockDepartmentIds([]);
   }, []);
 
@@ -148,6 +163,7 @@ export function GameUiProvider({
       mapZoom,
       isShiftPlaybackActive: shiftPlaybackIsActive,
       openPanel,
+      rankingVisit,
       selectedDockDepartmentIds,
       selectedLineId,
       selectLine,
@@ -155,6 +171,7 @@ export function GameUiProvider({
       setActiveShiftPlayback,
       setMapPan,
       setMapZoom,
+      setRankingVisit,
       setSelectedDockDepartmentIds,
       setTasksView,
       shiftPlaybackNowMs,
@@ -169,6 +186,7 @@ export function GameUiProvider({
       mapPan,
       mapZoom,
       openPanel,
+      rankingVisit,
       selectedDockDepartmentIds,
       selectedLineId,
       selectLine,
