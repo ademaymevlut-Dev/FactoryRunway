@@ -41,6 +41,8 @@ const metricIcons: Record<string, LucideIcon> = {
   xp: Zap,
 };
 
+const compactHeaderMetricIds = new Set(["cash", "xp"]);
+
 export function TopStatusBar({
   position = "absolute",
   snapshot,
@@ -56,29 +58,29 @@ export function TopStatusBar({
 
   return (
     <header
-      className={`pointer-events-none inset-x-0 top-0 z-30 px-4 pt-4 sm:px-6 ${position}`}
+      className={`pointer-events-none inset-x-0 top-0 z-30 px-2 pt-2 sm:px-3 xl:px-6 xl:pt-4 ${position}`}
     >
-      <div className="pointer-events-auto mx-auto flex max-w-[1500px] items-center gap-3 rounded-lg bg-background/88 p-3 shadow-2xl backdrop-blur">
-        <div className="flex min-w-0 items-center gap-3 border-r border-card pr-4">
-          <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+      <div className="pointer-events-auto mx-auto flex max-w-[1500px] items-center gap-1.5 rounded-lg bg-background/88 p-1.5 shadow-2xl backdrop-blur sm:gap-2 sm:p-2 xl:gap-3 xl:p-3">
+        <div className="flex min-w-0 items-center gap-2 border-r border-card pr-2 sm:gap-2.5 sm:pr-3 xl:gap-3 xl:pr-4">
+          <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary xl:size-11">
             <Image
               alt="Factory Runway"
-              className="h-7 w-7 object-contain"
+              className="h-5 w-5 object-contain xl:h-7 xl:w-7"
               height={28}
               priority
               src="/factoryRunway.svg"
               width={28}
             />
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold uppercase tracking-widest text-primary">
+          <div className="min-w-0 max-w-[9.5rem] sm:max-w-[11rem] xl:max-w-[16rem]">
+            <p className="truncate text-[8px] font-semibold uppercase tracking-widest text-primary sm:text-[9px] xl:text-[11px]">
               {displayedSnapshot.factory.sectorName}
             </p>
-            <h1 className="truncate text-lg font-semibold text-white">
+            <h1 className="truncate text-xs font-semibold text-white sm:text-sm xl:text-lg">
               {displayedSnapshot.factory.name}
             </h1>
             <p
-              className={`truncate text-xs text-muted-foreground ${
+              className={`hidden truncate text-xs text-muted-foreground xl:block ${
                 stagePulse ? styles.stageChanged : ""
               }`}
             >
@@ -87,56 +89,59 @@ export function TopStatusBar({
           </div>
         </div>
 
-        <div className="grid min-w-0 flex-1 grid-cols-2 divide-x divide-card md:grid-cols-4 2xl:grid-cols-7">
+        <div className="grid min-w-0 flex-1 grid-cols-2 divide-x divide-card xl:grid-cols-7">
           {displayedSnapshot.metrics.map((metric) => {
             const Icon = metricIcons[metric.id] ?? Gauge;
+            const metricVisibilityClassName = compactHeaderMetricIds.has(metric.id)
+              ? ""
+              : "hidden xl:block";
+            let metricNode: ReactNode;
 
             if (metric.id === "cash") {
-              return (
+              metricNode = (
                 <AnimatedCashMetric
                   currencyCode={displayedSnapshot.factory.currencyCode}
                   currentCents={Number(displayedSnapshot.factory.cashBalanceCents)}
                   icon={Icon}
-                  key={metric.id}
                   label={metric.label}
                 />
               );
-            }
-
-            if (metric.id === "xp") {
-              return (
+            } else if (metric.id === "xp") {
+              metricNode = (
                 <AnimatedXpMetric
                   currentXp={displayedSnapshot.factory.currentXp}
                   icon={Icon}
-                  key={metric.id}
                   label={metric.label}
                 />
               );
-            }
-
-            if (metric.id === "level") {
-              return (
+            } else if (metric.id === "level") {
+              metricNode = (
                 <AnimatedLevelMetric
                   currentLevel={displayedSnapshot.factory.currentLevel}
                   icon={Icon}
-                  key={metric.id}
                   label={metric.label}
                 />
               );
+            } else {
+              metricNode = <AnimatedMetric metric={metric} icon={Icon} />;
             }
 
-            return <AnimatedMetric metric={metric} icon={Icon} key={metric.id} />;
+            return (
+              <div className={metricVisibilityClassName} key={metric.id}>
+                {metricNode}
+              </div>
+            );
           })}
         </div>
 
-        <form action={logoutAction} className="border-l border-card pl-3">
+        <form action={logoutAction} className="border-l border-card pl-1.5 sm:pl-2 xl:pl-3">
           <button
             aria-label="Çıkış yap"
-            className="grid size-9 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45"
+            className="grid size-7 place-items-center rounded-lg text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:size-8 xl:size-9"
             title="Çıkış yap"
             type="submit"
           >
-            <LogOut size={17} />
+            <LogOut className="size-3.5 xl:size-4" />
           </button>
         </form>
       </div>
@@ -201,7 +206,7 @@ function AnimatedCashMetric({
     >
       <div className="flex min-w-0 items-center gap-2">
         <strong
-          className={`block truncate font-mono text-sm font-semibold leading-tight tabular-nums text-white ${
+          className={`block truncate font-mono text-[11px] font-semibold leading-tight tabular-nums text-white sm:text-xs xl:text-sm ${
             isPositive
               ? styles.valuePositive
               : isNegative
@@ -213,7 +218,7 @@ function AnimatedCashMetric({
         </strong>
         {transition.change ? (
           <span
-            className={`${styles.deltaBadge} ${
+            className={`hidden xl:inline-flex ${styles.deltaBadge} ${
               isPositive ? styles.deltaPositive : styles.deltaNegative
             }`}
           >
@@ -246,7 +251,7 @@ function AnimatedXpMetric({
     >
       <div className="flex min-w-0 items-center gap-2">
         <strong
-          className={`block truncate font-mono text-sm font-semibold leading-tight tabular-nums text-white ${
+          className={`block truncate font-mono text-[11px] font-semibold leading-tight tabular-nums text-white sm:text-xs xl:text-sm ${
             isPositive ? styles.valueXp : isNegative ? styles.valueNegative : ""
           }`}
         >
@@ -254,7 +259,7 @@ function AnimatedXpMetric({
         </strong>
         {transition.change ? (
           <span
-            className={`${styles.deltaBadge} ${
+            className={`hidden xl:inline-flex ${styles.deltaBadge} ${
               isPositive ? styles.deltaXp : styles.deltaNegative
             }`}
           >
@@ -286,7 +291,7 @@ function AnimatedLevelMetric({
     >
       <div className="flex min-w-0 items-center gap-2">
         <strong
-          className={`block truncate font-mono text-sm font-semibold leading-tight tabular-nums text-white ${
+          className={`block truncate font-mono text-[11px] font-semibold leading-tight tabular-nums text-white sm:text-xs xl:text-sm ${
             leveledUp ? styles.valueLevel : ""
           }`}
         >
@@ -294,7 +299,7 @@ function AnimatedLevelMetric({
         </strong>
         {transition.change ? (
           <span
-            className={`${styles.deltaBadge} ${
+            className={`hidden xl:inline-flex ${styles.deltaBadge} ${
               leveledUp ? styles.deltaLevel : styles.deltaNegative
             }`}
           >
@@ -335,12 +340,12 @@ function AnimatedMetric({
       label={metric.label}
     >
       <strong
-        className="block truncate font-mono text-sm font-semibold leading-tight tabular-nums text-white"
+        className="block truncate font-mono text-[11px] font-semibold leading-tight tabular-nums text-white sm:text-xs xl:text-sm"
       >
         {displayValue}
       </strong>
       {isDayMetric ? (
-        <span className="mt-0.5 block truncate text-[10px] font-semibold leading-tight text-primary">
+        <span className="mt-0.5 block truncate text-[9px] font-semibold leading-tight text-primary xl:text-[10px]">
           {metric.subLabel}
         </span>
       ) : null}
@@ -361,13 +366,13 @@ function MetricFrame({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-2 overflow-visible px-3 py-1 text-muted-foreground first:pl-0 ${styles.metricTile} ${
+      className={`flex min-w-0 items-center gap-1 overflow-visible px-1.5 py-0.5 text-muted-foreground sm:gap-1.5 sm:px-2 xl:gap-2 xl:px-3 xl:py-1 ${styles.metricTile} ${
         className ?? ""
       }`}
     >
-      <Icon className="shrink-0 text-primary" size={16} />
+      <Icon className="size-3.5 shrink-0 text-primary xl:size-4" />
       <div className="min-w-0">
-        <span className="block truncate text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <span className="block truncate text-[8px] font-semibold uppercase tracking-widest text-muted-foreground xl:text-[10px]">
           {label}
         </span>
         {children}

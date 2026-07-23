@@ -1,9 +1,8 @@
 "use client";
 
 import { useActionState, useEffect } from "react";
-import { Clock3, Play, Zap } from "lucide-react";
+import { Play } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { advanceFactoryDayAction } from "@/features/game/actions/advance-factory-day-action";
 
@@ -27,25 +26,11 @@ export function ShiftControlBar({ snapshot }: { snapshot: GameSnapshot }) {
   }, [actionResult, setActiveShiftPlayback]);
 
   return (
-    <section className="pointer-events-none absolute bottom-4 right-4 z-30 hidden sm:block">
-      <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-white/10 bg-background/90 p-2 shadow-2xl backdrop-blur">
-        <div className="flex items-center gap-2 px-2">
-          <span className="grid size-8 place-items-center rounded-lg border border-amber-400/20 bg-amber-400/10 text-amber-200">
-            <Clock3 size={16} />
-          </span>
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Vardiya
-            </p>
-            <strong className="text-sm text-white">{snapshot.factory.currentDay}. gün</strong>
-          </div>
-        </div>
-        <Badge className="hidden border-emerald-400/20 bg-emerald-400/10 text-emerald-100 md:inline-flex">
-          <Zap size={12} />
-          {snapshot.map.totals.productionLineCount} hat hazır
-        </Badge>
+    <section className="pointer-events-none absolute bottom-2 right-2 z-30 hidden sm:block xl:bottom-4 xl:right-4">
+      <div className="pointer-events-auto">
         <form action={formAction}>
           <ShiftStartButton
+            currentDay={snapshot.factory.currentDay}
             disabled={playbackIsActive}
             pending={pending}
           />
@@ -56,20 +41,41 @@ export function ShiftControlBar({ snapshot }: { snapshot: GameSnapshot }) {
 }
 
 function ShiftStartButton({
+  currentDay,
   disabled,
   pending,
 }: {
+  currentDay: number;
   disabled: boolean;
   pending: boolean;
 }) {
+  const actionLabel = pending
+    ? "Çalışıyor"
+    : disabled
+      ? "Oynatılıyor"
+      : "Vardiyayı başlat";
+
   return (
-    <Button disabled={pending || disabled} size="sm" type="submit">
-      <Play size={15} />
-      {pending
-        ? "Çalışıyor..."
-        : disabled
-          ? "Vardiya oynatılıyor"
-          : "Başlat"}
+    <Button
+      aria-label={actionLabel}
+      className="group/shift relative isolate h-[58px] w-[76px] flex-col gap-0.5 overflow-hidden rounded-[20px] border border-primary/35 bg-[#232429]/85 px-1 py-1 text-primary shadow-[inset_0_0_24px_hsl(var(--primary)/0.14),0_14px_32px_rgba(0,0,0,0.42)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/65 hover:bg-[#232429]/90 hover:text-primary hover:shadow-[0_0_24px_hsl(var(--primary)/0.28),0_18px_42px_rgba(0,0,0,0.48)] focus-visible:ring-primary/50 xl:h-[88px] xl:w-[112px] xl:gap-1 xl:rounded-[24px]"
+      disabled={pending || disabled}
+      type="submit"
+      variant="ghost"
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent xl:inset-x-5"
+      />
+      <span className="grid size-6 place-items-center rounded-full bg-primary/12 text-primary shadow-[0_0_14px_hsl(var(--primary)/0.28)] transition-transform duration-200 group-hover/shift:scale-110 xl:size-9">
+        <Play className="size-3.5 fill-current xl:size-5" />
+      </span>
+      <span className="mt-0.5 font-mono text-[8px] font-semibold leading-none tabular-nums text-muted-foreground xl:text-[10px]">
+        {currentDay}. gün
+      </span>
+      <strong className="max-w-full truncate text-[8px] font-semibold leading-none text-primary xl:text-[11px]">
+        {actionLabel}
+      </strong>
     </Button>
   );
 }

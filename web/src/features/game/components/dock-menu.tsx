@@ -30,9 +30,9 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <nav
       aria-label="Departman menüsü"
-      className="pointer-events-none absolute inset-x-0 bottom-4 z-30 flex items-end justify-center px-2 sm:px-4"
+      className="pointer-events-none absolute inset-x-0 bottom-2 z-30 flex items-end justify-center px-2 xl:bottom-4 xl:px-4"
     >
-      <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] items-end gap-3">
+      <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] items-end gap-1 xl:gap-3">
         <Link
           aria-label="Oyun Rehberi"
           className="group/guide relative isolate hidden h-[88px] w-[112px] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[24px] border border-primary/35 bg-[#232429]/85 text-primary shadow-[inset_0_0_30px_hsl(var(--primary)/0.16),0_18px_42px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-primary/65 hover:shadow-[0_0_28px_hsl(var(--primary)/0.34),0_22px_50px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 xl:flex"
@@ -55,7 +55,7 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
           />
         </Link>
 
-        <div className="relative isolate max-w-[calc(100vw-1rem)] overflow-visible rounded-[28px] border border-white/10 bg-[#232429]/80 px-2.5 py-2.5 shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+        <div className="relative isolate max-w-[calc(100vw-1rem)] overflow-visible rounded-[20px] border border-white/10 bg-[#232429]/80 px-1 py-1 shadow-[inset_0_0_26px_hsl(var(--primary)/0.14),0_16px_40px_rgba(0,0,0,0.46)] backdrop-blur-xl xl:rounded-[28px] xl:px-2.5 xl:py-2.5 xl:shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)]">
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
@@ -68,7 +68,7 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-10 -bottom-4 -z-10 h-8 rounded-full bg-primary/25 blur-2xl"
           />
-          <div className="relative z-10 flex min-w-max items-end gap-1.5 sm:gap-2">
+          <div className="relative z-10 flex min-w-max items-end gap-1 xl:gap-2">
             {snapshot.dock.items.map((item) => {
               const panelKey = getDockPanelKey(item);
               const isActive =
@@ -81,11 +81,11 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                     <button
                       aria-label={item.label}
                       className={cn(
-                        "group/dock relative isolate flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-[68px] sm:w-[74px]",
+                        "group/dock relative isolate flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 xl:h-[68px] xl:w-[74px] xl:rounded-2xl",
                         "hover:-translate-y-1 hover:border-[#006d8f]/60 hover:text-primary hover:shadow-[0_0_22px_rgba(0,109,143,0.36),inset_0_0_24px_hsl(var(--primary)/0.28)]",
                         "active:scale-95",
                         isActive &&
-                          "h-16 w-16 -translate-y-1 scale-[1.04] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)] sm:h-[78px] sm:w-[88px]",
+                          "h-11 w-11 -translate-y-0.5 scale-[1.03] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_28px_rgba(0,180,235,0.48),0_12px_26px_rgba(0,0,0,0.4),inset_0_0_24px_hsl(var(--primary)/0.32)] xl:h-[78px] xl:w-[88px] xl:-translate-y-1 xl:scale-[1.04] xl:shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)]",
                       )}
                       data-map-control="true"
                       onClick={() => {
@@ -114,7 +114,7 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                       <DockIcon isActive={isActive} item={item} />
                       <span
                         className={cn(
-                          "hidden max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200 sm:block",
+                          "hidden max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200 xl:block",
                           "group-hover/dock:text-primary group-hover/dock:drop-shadow-[0_0_7px_rgba(165,243,252,0.6)]",
                           isActive &&
                             "text-primary drop-shadow-[0_0_9px_rgba(165,243,252,0.85)]",
@@ -126,7 +126,7 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                       {isActive ? (
                         <span
                           aria-hidden="true"
-                          className="absolute -bottom-1 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)]"
+                          className="absolute -bottom-0.5 left-1/2 h-0.5 w-6 -translate-x-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)] xl:-bottom-1 xl:h-1 xl:w-9"
                         />
                       ) : null}
                     </button>
@@ -178,7 +178,7 @@ function DockIcon({ isActive, item }: { isActive: boolean; item: GameDockItem })
     <span
       aria-hidden="true"
       className={cn(
-        "relative isolate block size-7 shrink-0 overflow-hidden transition-all duration-200 group-hover/dock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)] sm:size-8",
+        "relative isolate block size-5 shrink-0 overflow-hidden transition-all duration-200 group-hover/dock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)] xl:size-8",
         isActive && "drop-shadow-[0_0_15px_rgba(165,243,252,0.95)]",
       )}
     >
@@ -211,7 +211,7 @@ function DockBadge({ badge }: { badge: GameDockBadge | null }) {
     <Badge
       aria-label={`${badge.label}: ${badge.count}`}
       className={cn(
-        "absolute -right-1.5 -top-1.5 h-5 min-w-5 rounded-full border px-1 text-[10px] font-bold shadow-lg ring-2 ring-[#232429]",
+        "absolute -right-1 -top-1 h-4 min-w-4 rounded-full border px-1 text-[8px] font-bold shadow-lg ring-2 ring-[#232429] xl:-right-1.5 xl:-top-1.5 xl:h-5 xl:min-w-5 xl:text-[10px]",
         badge.tone === "danger" &&
           "!border-red-300/50 !bg-red-500 text-white shadow-[0_0_14px_rgba(239,68,68,0.6)]",
         badge.tone === "warning" &&

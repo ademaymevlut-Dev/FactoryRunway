@@ -116,9 +116,9 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <nav
       aria-label="Hızlı oyun menüsü"
-      className="pointer-events-none absolute left-4 top-1/2 z-30 -translate-y-1/2"
+      className="pointer-events-none absolute left-2 top-1/2 z-30 -translate-y-1/2 xl:left-4"
     >
-      <div className="pointer-events-auto relative isolate flex flex-col items-center gap-1.5 overflow-visible rounded-[28px] border border-white/10 bg-[#232429]/80 px-2.5 py-2.5 shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)] backdrop-blur-xl">
+      <div className="pointer-events-auto relative isolate flex flex-col items-center gap-1 overflow-visible rounded-[20px] border border-white/10 bg-[#232429]/80 px-1 py-1 shadow-[inset_0_0_26px_hsl(var(--primary)/0.14),0_16px_40px_rgba(0,0,0,0.46)] backdrop-blur-xl xl:gap-1.5 xl:rounded-[28px] xl:px-2.5 xl:py-2.5 xl:shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)]">
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
@@ -141,11 +141,11 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                 <button
                   aria-label={item.tooltip}
                   className={cn(
-                    "group/leftdock relative isolate flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 px-1.5 py-2 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-[68px] sm:w-[74px]",
+                    "group/leftdock relative isolate flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 px-1 py-1 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 xl:h-[68px] xl:w-[74px] xl:rounded-2xl xl:px-1.5 xl:py-2",
                     "hover:-translate-y-1 hover:border-[#006d8f]/60 hover:text-primary hover:shadow-[0_0_22px_rgba(0,109,143,0.36),inset_0_0_24px_hsl(var(--primary)/0.28)]",
                     "active:scale-95",
                     isActive &&
-                      "h-16 w-16 -translate-y-1 scale-[1.04] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)] sm:h-[78px] sm:w-[88px]",
+                      "h-11 w-11 -translate-y-0.5 scale-[1.03] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_28px_rgba(0,180,235,0.48),0_12px_26px_rgba(0,0,0,0.4),inset_0_0_24px_hsl(var(--primary)/0.32)] xl:h-[78px] xl:w-[88px] xl:-translate-y-1 xl:scale-[1.04] xl:shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)]",
                   )}
                   data-map-control="true"
                   onClick={() => {
@@ -179,7 +179,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                   />
                   <span
                     className={cn(
-                      "relative z-10 max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200",
+                      "relative z-10 hidden max-w-[4.75rem] truncate text-[11px] font-semibold leading-none text-primary transition-all duration-200 xl:block",
                       "group-hover/leftdock:text-primary group-hover/leftdock:drop-shadow-[0_0_7px_rgba(165,243,252,0.6)]",
                       isActive && "text-primary drop-shadow-[0_0_9px_rgba(165,243,252,0.85)]",
                     )}
@@ -190,7 +190,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                     <span
                       aria-label={`${badge.label}: ${badge.count}`}
                       className={cn(
-                        "absolute -right-1.5 -top-1.5 z-30 grid h-6 min-w-6 place-items-center rounded-full border border-white/45 px-1 text-[10px] font-black leading-none text-white shadow-[0_0_16px_rgba(0,0,0,0.35)]",
+                        "absolute -right-1 -top-1 z-30 grid h-4 min-w-4 place-items-center rounded-full border border-white/45 px-1 text-[8px] font-black leading-none text-white shadow-[0_0_16px_rgba(0,0,0,0.35)] xl:-right-1.5 xl:-top-1.5 xl:h-6 xl:min-w-6 xl:text-[10px]",
                         badge.tone === "danger" &&
                           "bg-red-500 shadow-[0_0_16px_rgba(239,68,68,0.72)]",
                         badge.tone === "warning" &&
@@ -205,7 +205,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                       }}
                     >
                       {badge.icon === "check" ? (
-                        <CheckCircle2 aria-hidden="true" className="size-3.5" />
+                        <CheckCircle2 aria-hidden="true" className="size-2.5 xl:size-3.5" />
                       ) : (
                         badge.count > 9 ? "9+" : badge.count
                       )}
@@ -214,7 +214,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                   {isActive ? (
                     <span
                       aria-hidden="true"
-                      className="absolute -right-1 top-1/2 h-9 w-1 -translate-y-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)]"
+                      className="absolute -right-0.5 top-1/2 h-6 w-0.5 -translate-y-1/2 rounded-full bg-cyan-100 shadow-[0_0_16px_rgba(165,243,252,0.95)] xl:-right-1 xl:h-9 xl:w-1"
                     />
                   ) : null}
                 </button>
@@ -254,7 +254,7 @@ function LeftDockIcon({
     <span
       aria-hidden="true"
       className={cn(
-        "relative z-10 grid size-6 place-items-center text-primary transition-all duration-200 group-hover/leftdock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)]",
+        "relative z-10 grid size-5 place-items-center text-primary transition-all duration-200 group-hover/leftdock:drop-shadow-[0_0_12px_rgba(165,243,252,0.75)] xl:size-6",
         isActive && "drop-shadow-[0_0_15px_rgba(165,243,252,0.95)]",
       )}
     >
@@ -280,21 +280,21 @@ function LeftDockIcon({
         </defs>
       </svg>
       <SolidDockIconSvg
-        className="absolute inset-0 size-6 translate-y-px opacity-35"
+        className="absolute inset-0 size-5 translate-y-px opacity-35 xl:size-6"
         fill="rgba(0,0,0,0.44)"
         paths={paths}
       />
       <SolidDockIconSvg
-        className="absolute inset-0 size-6 text-primary opacity-95"
+        className="absolute inset-0 size-5 text-primary opacity-95 xl:size-6"
         paths={paths}
       />
       <SolidDockIconSvg
-        className="absolute inset-0 size-6 opacity-80 mix-blend-screen"
+        className="absolute inset-0 size-5 opacity-80 mix-blend-screen xl:size-6"
         fill={`url(#${gradientId})`}
         paths={paths}
       />
       <SolidDockIconSvg
-        className="absolute inset-0 size-6 opacity-75 mix-blend-screen"
+        className="absolute inset-0 size-5 opacity-75 mix-blend-screen xl:size-6"
         fill={`url(#${shineId})`}
         paths={paths}
       />
