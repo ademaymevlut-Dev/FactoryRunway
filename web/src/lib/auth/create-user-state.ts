@@ -1,4 +1,4 @@
-export type CreateUserField = "email" | "password" | "name" | "factoryName" | "role";
+export type CreateUserField = "email" | "password" | "name" | "role";
 
 export type CreateUserState = {
   message: string;

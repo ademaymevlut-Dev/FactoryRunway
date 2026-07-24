@@ -4,39 +4,32 @@ import type { ReactNode } from "react";
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
-  Factory,
-  KeyRound,
   LoaderCircle,
   LogIn,
   Mail,
   ShieldCheck,
-  UserCog,
   UserRound,
 } from "lucide-react";
 
-import { NativeSelect } from "@/components/ui/native-select";
 import { initialCreateUserState, type CreateUserState } from "@/lib/auth/create-user-state";
-import { USER_ROLES } from "@/lib/auth/roles";
 
-import { createAdminAction, createPlayerAction, loginAction } from "./user-actions";
+import { createPlayerAction, loginAction } from "./user-actions";
 
-type AccountTab = "login" | "player" | "admin";
+type AccountTab = "login" | "player";
 
 const accountTabs: Array<{ key: AccountTab; label: string }> = [
   { key: "login", label: "Login" },
   { key: "player", label: "Create Player" },
-  { key: "admin", label: "Create Admin" },
 ];
 
 export function AccountCreateTabs() {
   const [activeTab, setActiveTab] = useState<AccountTab>("login");
   const [loginState, loginActionState] = useActionState(loginAction, initialCreateUserState);
   const [playerState, playerAction] = useActionState(createPlayerAction, initialCreateUserState);
-  const [adminState, adminAction] = useActionState(createAdminAction, initialCreateUserState);
 
   return (
     <div className="space-y-5">
-      <div className="game-tabs" role="tablist" aria-label="Kullanıcı oluşturma">
+      <div className="game-tabs" role="tablist" aria-label="Hesap işlemleri">
         {accountTabs.map((tab) => (
           <button
             aria-selected={activeTab === tab.key}
@@ -72,7 +65,7 @@ export function AccountCreateTabs() {
           <FormMessage state={loginState} />
           <SubmitButton icon={<LogIn size={18} />} label="Giriş Yap" />
         </form>
-      ) : activeTab === "player" ? (
+      ) : (
         <form action={playerAction} className="space-y-4">
           <FormField
             error={playerState.fieldErrors?.name}
@@ -80,13 +73,6 @@ export function AccountCreateTabs() {
             label="Oyuncu adı"
             name="name"
             placeholder="Mevlüt"
-          />
-          <FormField
-            error={playerState.fieldErrors?.factoryName}
-            icon={<Factory size={18} />}
-            label="Fabrika adı"
-            name="factoryName"
-            placeholder="Factory Runway Atelier"
           />
           <FormField
             error={playerState.fieldErrors?.email}
@@ -106,35 +92,6 @@ export function AccountCreateTabs() {
           />
           <FormMessage state={playerState} />
           <SubmitButton icon={<UserRound size={18} />} label="Player Oluştur" />
-        </form>
-      ) : (
-        <form action={adminAction} className="space-y-4">
-          <FormField
-            error={adminState.fieldErrors?.name}
-            icon={<UserCog size={18} />}
-            label="Admin adı"
-            name="name"
-            placeholder="Admin"
-          />
-          <FormField
-            error={adminState.fieldErrors?.email}
-            icon={<Mail size={18} />}
-            label="E-posta"
-            name="email"
-            placeholder="admin@factoryrunway.com"
-            type="email"
-          />
-          <FormField
-            error={adminState.fieldErrors?.password}
-            icon={<ShieldCheck size={18} />}
-            label="Şifre"
-            name="password"
-            placeholder="En az 8 karakter"
-            type="password"
-          />
-          <RoleSelect error={adminState.fieldErrors?.role} />
-          <FormMessage state={adminState} />
-          <SubmitButton icon={<UserCog size={18} />} label="Admin Oluştur" />
         </form>
       )}
     </div>
@@ -162,22 +119,6 @@ function FormField({
       <div className="game-input-wrap">
         {icon}
         <input className="game-input" name={name} placeholder={placeholder} required type={type} />
-      </div>
-      {error ? <span className="block text-xs font-semibold text-red-400">{error}</span> : null}
-    </label>
-  );
-}
-
-function RoleSelect({ error }: { error?: string }) {
-  return (
-    <label className="block space-y-2">
-      <span className="text-sm font-medium text-secondary-foreground">Rol</span>
-      <div className="relative">
-        <KeyRound className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-primary" size={18} />
-        <NativeSelect className="pl-10" defaultValue={USER_ROLES.ADMIN} name="role">
-          <option value={USER_ROLES.ADMIN}>Admin</option>
-          <option value={USER_ROLES.SUPER_ADMIN}>Super Admin</option>
-        </NativeSelect>
       </div>
       {error ? <span className="block text-xs font-semibold text-red-400">{error}</span> : null}
     </label>

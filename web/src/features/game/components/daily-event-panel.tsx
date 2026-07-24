@@ -1,22 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Banknote,
-  Boxes,
-  CheckCircle2,
-  Flag,
-  Info,
-  PackageCheck,
-  PlayCircle,
-  ReceiptText,
-  Sparkles,
-  Truck,
-  User,
-  Wrench,
-  X,
-} from "lucide-react";
+import { X } from "lucide-react";
 
+import {
+  DailyEventRowView,
+  type DailyEventIconKey,
+  type DailyEventTone,
+} from "@/components/game-presentation/daily-event-row-view";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -169,120 +160,92 @@ export function DailyEventPanel() {
         ref={viewportRef}
       >
         {visibleEvents.map((event, index) => (
-          <DailyEventRow event={event} index={index} key={event.id} />
+          <DailyEventRowView
+            animationDelayMs={Math.min(index, 8) * 70}
+            categoryKey={event.category}
+            categoryLabel={event.category}
+            description={renderEventDescription(event)}
+            iconKey={getEventIconKey(event)}
+            key={event.id}
+            severity={event.severity}
+            timestampLabel={formatShiftPlaybackTime(event.minute)}
+            title={renderEventTitle(event)}
+            tone={getEventTone(event)}
+          />
         ))}
       </div>
     </aside>
   );
 }
 
-function DailyEventRow({
-  event,
-  index,
-}: {
-  event: ShiftPlaybackTimelineEvent;
-  index: number;
-}) {
-  const eventVisualClass = getEventVisualClass(event);
-
-  return (
-    <article
-      className="grid grid-cols-[auto_1fr] gap-3 rounded-lg border border-white/10 bg-card/72 p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-4 motion-safe:duration-300"
-      data-event-category={event.category}
-      data-event-severity={event.severity}
-      style={{ animationDelay: `${Math.min(index, 8) * 70}ms` }}
-    >
-      <div className={`mt-0.5 grid size-8 place-items-center rounded-full border ${eventVisualClass}`}>
-        <EventIcon event={event} />
-      </div>
-      <div className="min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-mono text-xs tabular-nums text-muted-foreground">
-            {formatShiftPlaybackTime(event.minute)}
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            {event.category}
-          </span>
-        </div>
-        <p className="mt-1 text-sm font-medium text-white">
-          {renderEventTitle(event)}
-        </p>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          {renderEventDescription(event)}
-        </p>
-      </div>
-    </article>
-  );
-}
-
-function EventIcon({ event }: { event: ShiftPlaybackTimelineEvent }) {
-  if (event.eventKey === "shift.started") return <PlayCircle className="size-4" />;
-  if (event.eventKey === "shift.completed") return <Flag className="size-4" />;
-  if (event.eventKey.startsWith("xp.")) return <Sparkles className="size-4" />;
+function getEventIconKey(
+  event: ShiftPlaybackTimelineEvent,
+): DailyEventIconKey {
+  if (event.eventKey === "shift.started") return "play";
+  if (event.eventKey === "shift.completed") return "flag";
+  if (event.eventKey.startsWith("xp.")) return "sparkles";
   if (event.category === "FINANCE" || event.category === "PAYMENT") {
-    return event.eventKey === "operating_expense.paid" ? (
-      <ReceiptText className="size-4" />
-    ) : (
-      <Banknote className="size-4" />
-    );
+    return event.eventKey === "operating_expense.paid"
+      ? "receipt"
+      : "banknote";
   }
-  if (event.category === "SHIPPING") return <Truck className="size-4" />;
-  if (event.category === "OUTSOURCING") return <Boxes className="size-4" />;
-  if (event.category === "STAFF") return <User className="size-4" />;
-  if (event.category === "MACHINE") return <Wrench className="size-4" />;
-  if (event.severity === "SUCCESS") return <CheckCircle2 className="size-4" />;
-  if (event.category === "PRODUCTION") return <PackageCheck className="size-4" />;
+  if (event.category === "SHIPPING") return "truck";
+  if (event.category === "OUTSOURCING") return "boxes";
+  if (event.category === "STAFF") return "user";
+  if (event.category === "MACHINE") return "wrench";
+  if (event.severity === "SUCCESS") return "check";
+  if (event.category === "PRODUCTION") return "package";
 
-  return <Info className="size-4" />;
+  return "info";
 }
 
-function getEventVisualClass(event: ShiftPlaybackTimelineEvent) {
+function getEventTone(event: ShiftPlaybackTimelineEvent): DailyEventTone {
   if (event.eventKey.startsWith("xp.")) {
-    return "border-violet-300/35 bg-violet-400/15 text-violet-100";
+    return "violet";
   }
   if (event.eventKey.startsWith("penalty.")) {
-    return "border-red-300/35 bg-red-400/15 text-red-100";
+    return "danger";
   }
   if (event.eventKey.startsWith("customer.relationship_")) {
     return event.eventKey === "customer.relationship_gained"
-      ? "border-emerald-300/35 bg-emerald-400/15 text-emerald-100"
-      : "border-orange-300/35 bg-orange-400/15 text-orange-100";
+      ? "success"
+      : "orange";
   }
   if (event.eventKey === "shift.started") {
-    return "border-sky-300/35 bg-sky-400/15 text-sky-100";
+    return "sky";
   }
   if (event.eventKey === "shift.completed") {
-    return "border-emerald-300/35 bg-emerald-400/15 text-emerald-100";
+    return "success";
   }
   if (event.category === "PAYMENT") {
-    return "border-emerald-300/35 bg-emerald-400/15 text-emerald-100";
+    return "success";
   }
   if (event.category === "FINANCE") {
-    return "border-amber-300/35 bg-amber-400/15 text-amber-100";
+    return "warning";
   }
   if (event.category === "OUTSOURCING") {
-    return "border-fuchsia-300/35 bg-fuchsia-400/15 text-fuchsia-100";
+    return "fuchsia";
   }
   if (event.category === "SHIPPING") {
-    return "border-cyan-300/35 bg-cyan-400/15 text-cyan-100";
+    return "cyan";
   }
   if (event.category === "STAFF") {
-    return "border-orange-300/35 bg-orange-400/15 text-orange-100";
+    return "orange";
   }
   if (event.category === "MACHINE") {
-    return "border-slate-200/35 bg-slate-300/15 text-slate-100";
+    return "machine";
   }
   if (event.eventKey.startsWith("chaos.")) {
-    return "border-amber-300/35 bg-amber-400/15 text-amber-100";
+    return "warning";
   }
   if (event.severity === "WARNING") {
-    return "border-orange-300/35 bg-orange-400/15 text-orange-100";
+    return "orange";
   }
   if (event.severity === "CRITICAL") {
-    return "border-red-300/35 bg-red-400/15 text-red-100";
+    return "danger";
   }
 
-  return "border-white/10 bg-background/80 text-primary";
+  return "info";
 }
 
 function shouldShowDailyEvent(event: ShiftPlaybackTimelineEvent) {

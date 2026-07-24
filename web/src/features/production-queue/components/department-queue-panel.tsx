@@ -6,8 +6,8 @@ import {
   Factory,
   GripVertical,
   PackageCheck,
-  Plus,
   PackageOpen,
+  Plus,
   Printer,
   Scissors,
   Send,
@@ -21,7 +21,7 @@ import { useMemo, useState, useTransition } from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
+import { ProductionQueueRow } from "@/components/game-presentation/production-queue-row"
 import {
   Dialog,
   DialogContent,
@@ -406,7 +406,7 @@ function OutsourceCandidates({
             className="grid min-h-[64px] grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-amber-300/35 bg-transparent px-2.5 py-2"
             key={item.routeProgressId}
           >
-            <ProductThumb imageUrl={item.productImageUrl} name={item.productName} />
+            <QueueProductThumb imageUrl={item.productImageUrl} name={item.productName} />
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-1.5">
                 <strong className="truncate text-sm text-foreground">{item.orderNo}</strong>
@@ -601,7 +601,7 @@ function OutsourceJobs({ jobs }: { jobs: ProductionOutsourceJobView[] }) {
             className="grid min-h-[64px] grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg border border-cyan-300/25 bg-transparent px-2.5 py-2"
             key={job.id}
           >
-            <ProductThumb imageUrl={job.productImageUrl} name={job.productName} />
+            <QueueProductThumb imageUrl={job.productImageUrl} name={job.productName} />
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-1.5">
                 <strong className="truncate text-sm text-foreground">{job.orderNo}</strong>
@@ -665,127 +665,64 @@ function DepartmentQueueCard({
   onMessage: (message: string | null) => void
   plannedQuantity: number
 }) {
+  const rowItem = {
+    completedQuantityLabel: item.completedQuantityLabel,
+    dueLabel: item.deliveryLabel,
+    dueTone: item.deliveryTone,
+    footerStatusLabel: item.manualPriorityOverride
+      ? "Manuel sıra"
+      : item.statusLabel,
+    inputReadyQuantityLabel: item.inputReadyQuantityLabel,
+    modeLabel: "İç Hat",
+    orderNo: item.orderNo,
+    orderSummaryLabel: `Sipariş: ${item.orderQuantityLabel} · ${item.productionNo}`,
+    plannedProductionLabel: `${formatNumber(plannedQuantity)} adet`,
+    productCode: item.productCode,
+    productImageUrl: item.productImageUrl,
+    productName: item.productName,
+    productTierLabel: item.productTier,
+    queueStartLabel: item.queueStartLabel,
+    queueStartTone: item.queueStartTone,
+    remainingQuantityLabel: item.queueRemainingQuantityLabel,
+  }
+  const labels = {
+    completed: `${completedColumnLabel} adet`,
+    inputReady: "Kuyruğa Giren",
+    planned: "Planlanan",
+    remaining: "Kalan adet",
+  }
+
   return (
-    <Card
-      className={cn(
-        "rounded-lg border bg-transparent py-0 shadow-none transition-colors data-[dragging]:border-primary/70 data-[dragging]:bg-primary/10",
-        "border-border hover:border-primary/40",
-        item.deliveryTone === "danger" && "border-red-300/35",
-        item.deliveryTone === "warning" && "border-amber-300/35",
-      )}
-    >
-      <CardContent
-        className={cn(
-          "grid min-h-[66px] gap-2 px-2.5 py-2",
-          "lg:grid-cols-[30px_42px_minmax(150px,1fr)_78px_94px_84px_84px_112px_98px] lg:items-center",
-        )}
-      >
-        <div className="flex items-center gap-1 lg:block">
-          <SortableItemHandle
-            className={cn(
-              "size-7 text-muted-foreground hover:bg-muted hover:text-primary",
-              styles.dragHandleHint,
-            )}
-          >
-            <GripVertical className={styles.dragHandleIcon} size={15} />
-          </SortableItemHandle>
-          <span className="text-[11px] font-semibold tabular-nums text-muted-foreground lg:mt-1 lg:block lg:text-center">
-            {index + 1}
-          </span>
-        </div>
-
-        <ProductThumb imageUrl={item.productImageUrl} name={item.productName} />
-
-        <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-1.5">
-            <h3 className="truncate text-sm font-semibold text-foreground">
-              {item.orderNo}
-            </h3>
-            <Badge
-              className="h-5 shrink-0 rounded-md px-1.5 text-[10px]"
-              variant="outline"
-            >
-              {item.productTier}
-            </Badge>
-            <Badge
-              className="h-5 shrink-0 rounded-md border-emerald-300/30 px-1.5 text-[10px] text-emerald-100"
-              variant="outline"
-            >
-              İç Hat
-            </Badge>
-            {item.outsourceOptions.length > 0 ? (
-              <OutsourceOfferDialog
-                compact
-                disabled={disabled}
-                item={item}
-                onMessage={onMessage}
-              />
-            ) : null}
-          </div>
-          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-            {item.productName} · {item.productCode}
-          </p>
-          <p className="truncate text-[10px] text-muted-foreground">
-            Sipariş: {item.orderQuantityLabel} · {item.productionNo}
-          </p>
-        </div>
-
-        <CompactMetric
-          highlight
-          label="Planlanan"
-          value={`${formatNumber(plannedQuantity)} adet`}
-        />
-        <CompactMetric label="Kuyruğa Giren" value={item.inputReadyQuantityLabel} />
-        <CompactMetric label={`${completedColumnLabel} adet`} value={item.completedQuantityLabel} />
-        <CompactMetric
-          label="Kalan adet"
-          tone={item.deliveryTone}
-          value={item.queueRemainingQuantityLabel}
-        />
-        <QueuePill label={item.queueStartLabel} tone={item.queueStartTone} />
-        <div className="min-w-0">
-          <QueuePill label={item.deliveryLabel} tone={item.deliveryTone} />
-          <p className="mt-1 hidden truncate text-[10px] text-muted-foreground xl:block">
-            {item.manualPriorityOverride ? "Manuel sıra" : item.statusLabel}
-          </p>
-        </div>
-      </CardContent>
-    </Card>
+    <ProductionQueueRow
+      action={
+        item.outsourceOptions.length > 0 ? (
+          <OutsourceOfferDialog
+            compact
+            disabled={disabled}
+            item={item}
+            onMessage={onMessage}
+          />
+        ) : null
+      }
+      dragHandle={
+        <SortableItemHandle
+          className={cn(
+            "size-7 text-muted-foreground hover:bg-muted hover:text-primary",
+            styles.dragHandleHint,
+          )}
+        >
+          <GripVertical className={styles.dragHandleIcon} size={15} />
+        </SortableItemHandle>
+      }
+      item={rowItem}
+      labels={labels}
+      priorityLabel={String(index + 1)}
+    />
   )
 }
 
 function getQueueItemId(item: ProductionQueueItem) {
   return item.id
-}
-
-function CompactMetric({
-  highlight = false,
-  label,
-  tone,
-  value,
-}: {
-  highlight?: boolean
-  label: string
-  tone?: ProductionQueueItem["deliveryTone"]
-  value: string
-}) {
-  return (
-    <div className="min-w-0 rounded-md border border-border bg-card/35 px-2 py-1 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0">
-      <span className="block truncate text-[10px] text-muted-foreground lg:hidden">
-        {label}
-      </span>
-      <strong
-        className={cn(
-          "block truncate text-xs font-semibold tabular-nums text-foreground",
-          highlight && "text-primary",
-          tone === "danger" && "text-red-200",
-          tone === "warning" && "text-amber-100",
-        )}
-      >
-        {value}
-      </strong>
-    </div>
-  )
 }
 
 function QueuePill({
@@ -814,7 +751,7 @@ function QueuePill({
   )
 }
 
-function ProductThumb({
+function QueueProductThumb({
   imageUrl,
   name,
 }: {
@@ -833,7 +770,7 @@ function ProductThumb({
         />
       ) : (
         <span className="grid size-full place-items-center text-primary">
-          <PackageOpen size={18} />
+          <PackageOpen aria-hidden="true" size={18} />
         </span>
       )}
     </div>

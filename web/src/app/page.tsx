@@ -22,6 +22,10 @@ import {
 import type { ReactNode } from "react";
 import { useState } from "react";
 
+import { LandingOrderAcceptanceSection } from "@/features/landing/showcase/components/landing-order-acceptance-section";
+import { LandingProductionQueueSection } from "@/features/landing/showcase/components/landing-production-queue-section";
+import { LandingShiftSimulationSection } from "@/features/landing/showcase/components/landing-shift-simulation-section";
+
 import { AccountCreateTabs } from "./account-create-tabs";
 
 type TabKey = "login" | "ui";
@@ -94,7 +98,16 @@ export default function Home() {
           </div>
         </header>
 
-        {activeTab === "login" ? <LoginPanel /> : <UiPreparationPanel />}
+        {activeTab === "login" ? (
+          <>
+            <LoginPanel />
+            <LandingOrderAcceptanceSection />
+            <LandingProductionQueueSection />
+            <LandingShiftSimulationSection />
+          </>
+        ) : (
+          <UiPreparationPanel />
+        )}
       </div>
     </main>
   );
@@ -113,7 +126,7 @@ function LoginPanel() {
             Atölyeni planla, vardiyayı başlat, rapordan öğren.
           </h2>
           <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Bu ekran artık ilk kullanıcı oluşturma akışını da test ediyor. Player ve Admin hesapları normal form ile açılır, şifreler hashlenir.
+            Güvenli Player hesabını oluştur, fabrikanı onboarding sırasında adlandır ve üretim yolculuğuna başla.
           </p>
         </div>
 
@@ -124,7 +137,7 @@ function LoginPanel() {
         </div>
       </div>
 
-      <div className="game-card mx-auto w-full max-w-md p-5 sm:p-6">
+      <div className="game-card mx-auto w-full max-w-md p-5 sm:p-6" id="account">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Factory account</p>
@@ -141,7 +154,7 @@ function LoginPanel() {
           <div className="flex items-start gap-3">
             <div className="status-dot bg-primary" />
             <p className="text-sm leading-6 text-muted-foreground">
-              Login/session bir sonraki adım. Bu aşamada kullanıcı kayıtlarının veritabanına doğru yazılmasını netleştiriyoruz.
+              Public kayıt yalnızca PLAYER hesabı açar. Fabrika adını güvenli onboarding akışında belirleyeceksin.
             </p>
           </div>
         </div>

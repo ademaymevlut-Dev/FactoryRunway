@@ -33,23 +33,27 @@ test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiket
 
 test("sipariş paneli ürün kart arka planında ArtCard deneme bileşenini kullanır", () => {
   const panel = read("./components/orders-panel.tsx");
+  const showcase = read(
+    "../../components/game-presentation/product-showcase-card.tsx",
+  );
   const artCard = read("../../components/ui/art-card.tsx");
   const marketView = read("./services/order-market-view.ts");
 
-  assert.match(panel, /import \{ ArtCard \}/);
-  assert.match(panel, /gradientFrom=\{item\.cardGradientFrom\}/);
-  assert.match(panel, /gradientTo=\{item\.cardGradientTo\}/);
-  assert.match(panel, /primaryColor=\{item\.cardPrimaryColor\}/);
-  assert.match(panel, /secondaryColor=\{item\.cardSecondaryColor\}/);
-  assert.match(panel, /svgIconAccentColor=\{item\.cardSvgIconAccentColor\}/);
+  assert.match(panel, /ProductShowcaseCard/);
+  assert.match(panel, /gradientFrom: item\.cardGradientFrom/);
+  assert.match(panel, /gradientTo: item\.cardGradientTo/);
+  assert.match(panel, /primaryColor: item\.cardPrimaryColor/);
+  assert.match(panel, /secondaryColor: item\.cardSecondaryColor/);
+  assert.match(panel, /svgIconAccentColor: item\.cardSvgIconAccentColor/);
   assert.doesNotMatch(panel, /drop-shadow/);
-  assert.match(panel, /import Image from "next\/image"/);
-  assert.match(panel, /data-product-art-layer="true"/);
-  assert.match(panel, /data-product-image-layer="true"/);
-  assert.match(panel, /className="pointer-events-none absolute inset-0 z-30"/);
-  assert.match(panel, /alt=\{item\.productName\}/);
-  assert.match(panel, /className="object-contain object-bottom"/);
-  assert.match(panel, /fill/);
+  assert.match(showcase, /import \{ ArtCard \}/);
+  assert.match(showcase, /import Image from "next\/image"/);
+  assert.match(showcase, /data-product-art-layer="true"/);
+  assert.match(showcase, /data-product-image-layer="true"/);
+  assert.match(showcase, /className="pointer-events-none absolute inset-0 z-30"/);
+  assert.match(showcase, /alt=\{name\}/);
+  assert.match(showcase, /className="object-contain object-bottom"/);
+  assert.match(showcase, /fill/);
   assert.match(artCard, /linear-gradient\(to top left, \$\{gradientFrom\}/);
   assert.match(artCard, /colorToTopLeftGradient\(secondaryColor\)/);
   assert.match(artCard, /colorToTopLeftGradient\(svgIconAccentColor\)/);

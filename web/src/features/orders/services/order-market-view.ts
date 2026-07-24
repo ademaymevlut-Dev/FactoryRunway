@@ -21,6 +21,7 @@ import type {
   OrderOfferCapacityState,
   OrderOfferCustomerRelationshipView,
   OrderOfferItemColorView,
+  OrderOfferItemRouteStepView,
   OrderOfferItemView,
   OrderOfferView,
 } from "../types";
@@ -522,6 +523,7 @@ function toOrderOfferItemView({
     plannedProfitLabel: formatMoney(plannedProfitCents, currencyCode),
     plannedMarginLabel: formatMarginPercent(plannedMarginBps),
     routeLabel: buildRouteLabel(item),
+    route: buildRouteSteps(item),
     bottleneckLabel: item.bottleneckDepartment
       ? pickTranslation(
           item.bottleneckDepartment.translations,
@@ -952,6 +954,23 @@ function buildRouteLabel(item: MarketOfferItemRecord) {
     .filter((step) => step.isRequired)
     .map((step) => pickTranslation(step.department.translations, step.department.key))
     .join(" > ");
+}
+
+function buildRouteSteps(
+  item: MarketOfferItemRecord,
+): OrderOfferItemRouteStepView[] {
+  return item.product.routeSteps
+    .filter((step) => step.isRequired)
+    .map((step) => ({
+      canOutsource: step.canOutsource,
+      departmentKey: step.department.key,
+      label: pickTranslation(
+        step.department.translations,
+        step.department.key,
+      ),
+      sequence: step.sequence,
+      workloadPointsPerUnit: step.workloadPointsPerUnit,
+    }));
 }
 
 function getProductImageUrl(item: MarketOfferItemRecord) {

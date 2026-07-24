@@ -1,6 +1,6 @@
 "use server";
 
-import { del, put } from "@vercel/blob";
+import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import sharp from "sharp";
 
@@ -8,6 +8,7 @@ import { Prisma, ProductImageVariant, ProductImageView } from "@/generated/prism
 import { getPrisma } from "@/lib/db";
 
 import { requireAdminUser } from "./admin-auth";
+import { cleanupFailedProductImageUpload } from "./product-image-blob-cleanup";
 import type { AdminActionState } from "./product-form-state";
 
 const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
@@ -69,7 +70,6 @@ export async function uploadProductImagesAction(
     select: {
       code: true,
       name: true,
-      images: { where: { view }, select: { pathname: true } },
     },
   });
   if (!product || !imageFile) return errorState("Ürün bulunamadı.");
@@ -123,8 +123,9 @@ export async function uploadProductImagesAction(
       });
     } catch (error) {
       console.error("Product image Blob upload failed", formatServerError(error));
-      const paths = uploadedImages.map((image) => image.pathname);
-      if (paths.length) await del(paths, { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => undefined);
+      await cleanupFailedProductImageUpload(
+        uploadedImages.map((image) => image.pathname),
+      );
       return errorState("Görsel Blob'a yüklenemedi.", { imageFile: "Blob bağlantısını kontrol et." });
     }
   }
@@ -147,17 +148,13 @@ export async function uploadProductImagesAction(
         }),
       ),
     );
-    const nextPaths = new Set(uploadedImages.map((image) => image.pathname));
-    const replaced = product.images
-      .map((image) => image.pathname)
-      .filter((pathname): pathname is string => Boolean(pathname && !nextPaths.has(pathname)));
-    if (replaced.length) await del(replaced, { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => undefined);
     revalidatePath("/admin/products");
     revalidatePath(`/admin/products/${productId}`);
     return successState(`${view} için DETAIL, CARD ve THUMBNAIL WEBP görselleri yüklendi.`, productId);
   } catch (error) {
-    const paths = uploadedImages.map((image) => image.pathname);
-    if (paths.length) await del(paths, { token: process.env.BLOB_READ_WRITE_TOKEN }).catch(() => undefined);
+    await cleanupFailedProductImageUpload(
+      uploadedImages.map((image) => image.pathname),
+    );
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return errorState("Ürün bulunamadı.");
     return errorState("Görsel kayıtları veritabanına yazılamadı.");
   }

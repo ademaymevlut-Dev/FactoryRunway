@@ -8,6 +8,8 @@ import { clearSession, createSession } from "@/lib/auth/session";
 import type { CreateUserField, CreateUserState } from "@/lib/auth/create-user-state";
 import { getPrisma } from "@/lib/db";
 
+import { requireAdminUser } from "./admin/admin-auth";
+
 const ADMIN_ROLES = new Set<string>([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]);
 
 function readString(formData: FormData, key: CreateUserField) {
@@ -55,11 +57,6 @@ export async function createPlayerAction(
   formData: FormData,
 ): Promise<CreateUserState> {
   const { data, fieldErrors } = validateBaseUser(formData);
-  const factoryName = readString(formData, "factoryName");
-
-  if (factoryName.length < 2) {
-    fieldErrors.factoryName = "Fabrika adı en az 2 karakter olmalı.";
-  }
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -89,7 +86,6 @@ export async function createPlayerAction(
       playerProfile: {
         create: {
           displayName: data.name,
-          factoryName,
         },
       },
     },
@@ -100,13 +96,15 @@ export async function createPlayerAction(
 
   await createSession(user.id);
 
-  redirect("/player?created=1");
+  redirect("/onboarding");
 }
 
 export async function createAdminAction(
   _previousState: CreateUserState,
   formData: FormData,
 ): Promise<CreateUserState> {
+  await requireAdminUser();
+
   const { data, fieldErrors } = validateBaseUser(formData);
   const role = readString(formData, "role") || USER_ROLES.ADMIN;
 
@@ -133,7 +131,7 @@ export async function createAdminAction(
   const passwordHash = await hashPassword(data.password);
   const prisma = getPrisma();
 
-  const user = await prisma.user.create({
+  await prisma.user.create({
     data: {
       email: data.email,
       name: data.name,
@@ -146,14 +144,11 @@ export async function createAdminAction(
         },
       },
     },
-    select: {
-      id: true,
-    },
   });
 
-  await createSession(user.id);
-
-  redirect("/admin?created=1");
+  return {
+    message: "Admin hesabı oluşturuldu.",
+  };
 }
 
 export async function loginAction(

@@ -24,14 +24,18 @@ test("playback HUD sabit overlay, global saat ve kullanıcı close sözleşmesin
 
 test("departman kartları kontrollü CountUp hedefi ve final kesinliği kullanır", () => {
   const card = readSource("./components/shift-department-card.tsx");
+  const resultView = readSource(
+    "../../components/game-presentation/shift-department-result-view.tsx",
+  );
   const countUp = readSource("../../components/ui/CountUp.tsx");
   const hud = readSource("./components/shift-playback-hud.tsx");
 
-  assert.match(card, /<CountUp/);
-  assert.match(card, /value=\{value\}/);
-  assert.match(card, /value=\{efficiency\}/);
-  assert.match(card, /immediate=\{isFinal\}/);
-  assert.match(card, /ActiveProductPreview/);
+  assert.match(card, /ShiftDepartmentResultView/);
+  assert.match(resultView, /<CountUp/);
+  assert.match(resultView, /value=\{value\}/);
+  assert.match(resultView, /value=\{utilizationPercent\}/);
+  assert.match(resultView, /immediate=\{isFinal\}/);
+  assert.match(card, /activeProductPreview/);
   assert.match(card, /getActiveProductPreview/);
   assert.doesNotMatch(card, /Başlangıç|Kalan/);
   assert.doesNotMatch(card, /fadeOutProgress/);
@@ -71,9 +75,11 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.match(panel, /displayableEvents\.length/);
   assert.match(panel, /xp\.shift_completed/);
   assert.match(panel, /formatFinanceCategory\(payload\.category\)/);
-  assert.match(panel, /getEventVisualClass/);
-  assert.match(panel, /User,/);
-  assert.match(panel, /Wrench,/);
+  assert.match(panel, /DailyEventRowView/);
+  assert.match(panel, /getEventTone/);
+  assert.match(panel, /getEventIconKey/);
+  assert.match(panel, /return "user"/);
+  assert.match(panel, /return "wrench"/);
   assert.match(panel, /event\.category === "STAFF"/);
   assert.match(panel, /event\.category === "MACHINE"/);
   assert.match(panel, /chaos\.staff_absence\.minor/);

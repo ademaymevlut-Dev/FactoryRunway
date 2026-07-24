@@ -1,10 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import {
-  useEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties,
 } from "react";
@@ -31,7 +28,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-import { ArtCard } from "@/components/ui/art-card";
+import { ProductColorChips } from "@/components/game-presentation/product-color-chips";
+import { ProductRouteTimeline } from "@/components/game-presentation/product-route-timeline";
+import {
+  ProductShowcaseCard,
+  type ProductShowcaseMetric,
+} from "@/components/game-presentation/product-showcase-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -678,69 +680,70 @@ function ProductShowcase({
   offer: OrderOfferView;
   item: OrderOfferItemView;
 }) {
+  const metrics: ProductShowcaseMetric[] = [
+    {
+      icon: Hash,
+      key: "code",
+      label: "Kod",
+      value: item.productCode,
+    },
+    {
+      icon: CalendarDays,
+      key: "delivery",
+      label: "Teslim",
+      value: offer.deliveryLabel,
+    },
+    {
+      icon: Route,
+      key: "route",
+      label: "Rota",
+      value: (
+        <ProductRouteTimeline
+          steps={item.route}
+          title={item.routeLabel || "-"}
+        />
+      ),
+    },
+    {
+      icon: Palette,
+      key: "colors",
+      label: "Renk",
+      value: `${item.colors.length} varyant`,
+    },
+    {
+      icon: PackageCheck,
+      key: "quantity",
+      label: "Adet",
+      value: item.quantityLabel,
+    },
+    {
+      icon: Factory,
+      key: "segment",
+      label: "Segment",
+      value: offer.segmentLabel,
+    },
+    {
+      icon: Hash,
+      key: "volume",
+      label: "Hacim",
+      value: offer.volumeLabel,
+    },
+  ];
+  const cardColors = {
+    gradientFrom: item.cardGradientFrom,
+    gradientTo: item.cardGradientTo,
+    primaryColor: item.cardPrimaryColor,
+    secondaryColor: item.cardSecondaryColor,
+    svgIconAccentColor: item.cardSvgIconAccentColor,
+  };
+
   return (
-    <div className="grid min-h-[330px] grid-cols-1 gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-      <div className="flex min-w-0 flex-col justify-between gap-2 rounded-lg border border-border bg-background/60 p-2.5">
-        <div>
-          <h3 className="text-2xl font-semibold leading-tight text-foreground">
-            {item.productName}
-          </h3>
-        </div>
-
-        <div className="grid gap-1.5">
-          <MetaTile icon={Hash} label="Kod" value={item.productCode} />
-          <MetaTile icon={CalendarDays} label="Teslim" value={offer.deliveryLabel} />
-          <MetaTile
-            icon={Route}
-            label="Rota"
-            marquee
-            value={item.routeLabel || "-"}
-          />
-          <MetaTile icon={Palette} label="Renk" value={`${item.colors.length} varyant`} />
-          <MetaTile icon={PackageCheck} label="Adet" value={item.quantityLabel} />
-          <MetaTile icon={Factory} label="Segment" value={offer.segmentLabel} />
-          <MetaTile icon={Hash} label="Hacim" value={offer.volumeLabel} />
-        </div>
-      </div>
-
-      <div className="relative isolate min-h-[300px] overflow-hidden rounded-lg lg:min-h-0">
-        <div
-          className="absolute inset-0 z-0 overflow-hidden rounded-lg border border-white/10 bg-[#15141d]"
-          data-product-art-layer="true"
-        >
-          <ArtCard
-            gradientFrom={item.cardGradientFrom}
-            gradientTo={item.cardGradientTo}
-            primaryColor={item.cardPrimaryColor}
-            secondaryColor={item.cardSecondaryColor}
-            svgIconAccentColor={item.cardSvgIconAccentColor}
-          />
-          <span className="absolute left-5 top-3 z-10 text-8xl font-extralight text-white/20">
-            {item.productName.charAt(0).toUpperCase()}
-          </span>
-        </div>
-        {item.imageUrl ? (
-          <div
-            className="pointer-events-none absolute inset-0 z-30"
-            data-product-image-layer="true"
-          >
-            <Image
-              alt={item.productName}
-              className="object-contain object-bottom"
-              fill
-              sizes="(min-width: 1280px) 420px, (min-width: 1024px) 40vw, 90vw"
-              src={item.imageUrl}
-            />
-          </div>
-        ) : (
-          <span
-            className="absolute inset-8 z-30 grid place-items-center rounded-lg border border-white/15 bg-white/10 text-white/50"
-          >
-            <PackageCheck size={72} />
-          </span>
-        )}
-      </div>
-    </div>
+    <ProductShowcaseCard
+      cardColors={cardColors}
+      imageUrl={item.imageUrl}
+      metrics={metrics}
+      name={item.productName}
+    />
   );
 }
 
@@ -783,30 +786,16 @@ function CollectionItems({
 }
 
 function ColorDetails({ item }: { item: OrderOfferItemView }) {
-  if (item.colors.length === 0) return null;
-
   return (
-    <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
-      <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        <Palette size={13} />
-        Renk Dağılımı
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {item.colors.map((color) => (
-          <span
-            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card/70 px-2 py-1 text-[11px] text-muted-foreground"
-            key={color.id}
-          >
-            <span
-              className="size-3.5 shrink-0 rounded-[4px] border border-white/25 shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]"
-              style={{ backgroundColor: color.hexCode }}
-            />
-            <span className="max-w-24 truncate">{color.name}</span>
-            <strong className="text-foreground/80">{color.quantityLabel}</strong>
-          </span>
-        ))}
-      </div>
-    </div>
+    <ProductColorChips
+      colors={item.colors.map((color) => ({
+        hexCode: color.hexCode,
+        key: color.id,
+        label: color.name,
+        quantityLabel: color.quantityLabel,
+      }))}
+      title="Renk Dağılımı"
+    />
   );
 }
 
@@ -1195,90 +1184,6 @@ function InfoPill({
     <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/70 px-2.5 py-1 text-xs text-muted-foreground">
       <Icon size={14} />
       {label}
-    </span>
-  );
-}
-
-function MetaTile({
-  icon: Icon,
-  label,
-  marquee = false,
-  value,
-}: {
-  icon: typeof Hash;
-  label: string;
-  marquee?: boolean;
-  value: string;
-}) {
-  return (
-    <div className="flex min-h-[44px] items-center gap-2 rounded-lg border border-border bg-background/60 px-2 py-1.5">
-      <span className="grid size-6 shrink-0 place-items-center rounded-md border border-primary/20 bg-primary/10 text-primary">
-        <Icon size={13} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-[11px] text-muted-foreground">{label}</span>
-        <strong className="mt-0.5 block min-w-0 text-sm text-foreground">
-          {marquee ? (
-            <OverflowMarquee value={value} />
-          ) : (
-            <span className="block truncate">{value}</span>
-          )}
-        </strong>
-      </span>
-    </div>
-  );
-}
-
-function OverflowMarquee({ value }: { value: string }) {
-  const textRef = useRef<HTMLSpanElement>(null);
-  const viewportRef = useRef<HTMLSpanElement>(null);
-  const [distance, setDistance] = useState(0);
-
-  useEffect(() => {
-    const text = textRef.current;
-    const viewport = viewportRef.current;
-
-    if (!text || !viewport) return;
-
-    const measure = () => {
-      setDistance(Math.max(0, text.scrollWidth - viewport.clientWidth));
-    };
-
-    measure();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", measure);
-
-      return () => window.removeEventListener("resize", measure);
-    }
-
-    const observer = new ResizeObserver(measure);
-    observer.observe(text);
-    observer.observe(viewport);
-
-    return () => observer.disconnect();
-  }, [value]);
-
-  return (
-    <span
-      className="block max-w-full overflow-hidden"
-      ref={viewportRef}
-      title={value}
-    >
-      <span
-        className={cn(
-          "inline-block whitespace-nowrap pr-3",
-          distance > 0 && "order-route-marquee",
-        )}
-        ref={textRef}
-        style={
-          {
-            "--order-route-marquee-distance": `${distance}px`,
-          } as CSSProperties
-        }
-      >
-        {value}
-      </span>
     </span>
   );
 }

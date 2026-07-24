@@ -94,7 +94,7 @@ export default function CountUp({
   }, [from, target, direction, formatValue]);
 
   useEffect(() => {
-    if (value !== undefined && isInView && startWhen) {
+    if (value !== undefined && startWhen && (isInView || immediate)) {
       if (reducedMotion || immediate) {
         springValue.jump(target);
         if (ref.current) {

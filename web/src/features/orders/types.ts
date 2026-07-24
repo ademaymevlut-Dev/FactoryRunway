@@ -135,6 +135,7 @@ export type OrderOfferItemView = {
   bottleneckLabel: string;
   imageUrl: string | null;
   colors: OrderOfferItemColorView[];
+  route: OrderOfferItemRouteStepView[];
 };
 
 export type OrderOfferItemColorView = {
@@ -143,4 +144,12 @@ export type OrderOfferItemColorView = {
   hexCode: string;
   quantity: number;
   quantityLabel: string;
+};
+
+export type OrderOfferItemRouteStepView = {
+  canOutsource: boolean;
+  departmentKey: string;
+  label: string;
+  sequence: number;
+  workloadPointsPerUnit: number;
 };

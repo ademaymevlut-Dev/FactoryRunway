@@ -1,0 +1,300 @@
+{
+  "schemaVersion": 1,
+  "sectorKey": "textile",
+  "products": [
+    {
+      "key": "clavier_tshirt",
+      "name": "CLAVIER",
+      "imageUrl": "https://cnajsb5cuaxnygza.public.blob.vercel-storage.com/products/a6-ths-mgl-54/a6-ths-mgl-54-front-card-1783434799142.webp",
+      "card": {
+        "primaryColor": "#f5ec00",
+        "secondaryColor": "#74a7fe",
+        "gradientFrom": "#a96800",
+        "gradientTo": "#e0edd4",
+        "svgIconAccentColor": "#8d8600"
+      },
+      "category": {
+        "key": "upper_wear",
+        "labels": {
+          "tr": "Üst Giyim",
+          "en": "Upper Wear"
+        }
+      },
+      "productType": {
+        "key": "t_shirt",
+        "labels": {
+          "tr": "T-Shirt",
+          "en": "T-Shirt"
+        }
+      },
+      "colors": [
+        {
+          "key": "basic_black",
+          "hexCode": "#000000",
+          "labels": {
+            "tr": "Siyah",
+            "en": "Black"
+          }
+        },
+        {
+          "key": "basic_white",
+          "hexCode": "#FFFFFF",
+          "labels": {
+            "tr": "Beyaz",
+            "en": "White"
+          }
+        },
+        {
+          "key": "basic_red",
+          "hexCode": "#D42323",
+          "labels": {
+            "tr": "Kırmızı",
+            "en": "Red"
+          }
+        },
+        {
+          "key": "basic_navy",
+          "hexCode": "#1F2A44",
+          "labels": {
+            "tr": "Lacivert",
+            "en": "Navy"
+          }
+        },
+        {
+          "key": "fw_muted_clay",
+          "hexCode": "#D9B4A0",
+          "labels": {
+            "tr": "Kil Beji",
+            "en": "Muted Clay"
+          }
+        },
+        {
+          "key": "fw_neptune_green",
+          "hexCode": "#1C5D54",
+          "labels": {
+            "tr": "Petrol",
+            "en": "Neptune Green"
+          }
+        }
+      ],
+      "route": [
+        {
+          "departmentKey": "cutting",
+          "sequence": 1,
+          "workloadPointsPerUnit": 10,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Kesim",
+            "en": "Cutting"
+          }
+        },
+        {
+          "departmentKey": "sewing",
+          "sequence": 2,
+          "workloadPointsPerUnit": 16,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Dikim",
+            "en": "Sewing"
+          }
+        },
+        {
+          "departmentKey": "ironing_packing",
+          "sequence": 3,
+          "workloadPointsPerUnit": 14,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Ütü - Paket",
+            "en": "Iron - Packing"
+          }
+        }
+      ]
+    },
+    {
+      "key": "sportise_twinset",
+      "name": "SPORTISE",
+      "imageUrl": "https://cnajsb5cuaxnygza.public.blob.vercel-storage.com/products/p7-twn-mgl-42/p7-twn-mgl-42-front-card-1783867174919.webp",
+      "card": {
+        "primaryColor": "#ff6251",
+        "secondaryColor": "#a96800",
+        "gradientFrom": "#6f483c",
+        "gradientTo": "#ebf38f",
+        "svgIconAccentColor": "#fec700"
+      },
+      "category": {
+        "key": "upper_wear",
+        "labels": {
+          "tr": "Üst Giyim",
+          "en": "Upper Wear"
+        }
+      },
+      "productType": {
+        "key": "sweatshirt",
+        "labels": {
+          "tr": "Sweatshirt",
+          "en": "Sweatshirt"
+        }
+      },
+      "colors": [
+        {
+          "key": "basic_white",
+          "hexCode": "#FFFFFF",
+          "labels": {
+            "tr": "Beyaz",
+            "en": "White"
+          }
+        },
+        {
+          "key": "basic_brown",
+          "hexCode": "#7A4A2E",
+          "labels": {
+            "tr": "Kahve",
+            "en": "Brown"
+          }
+        },
+        {
+          "key": "fw_all_aboard",
+          "hexCode": "#1F4A6E",
+          "labels": {
+            "tr": "Denizci",
+            "en": "All Aboard"
+          }
+        }
+      ],
+      "route": [
+        {
+          "departmentKey": "cutting",
+          "sequence": 1,
+          "workloadPointsPerUnit": 17,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Kesim",
+            "en": "Cutting"
+          }
+        },
+        {
+          "departmentKey": "printing",
+          "sequence": 2,
+          "workloadPointsPerUnit": 26,
+          "canOutsource": true,
+          "labels": {
+            "tr": "Baskı",
+            "en": "Print"
+          }
+        },
+        {
+          "departmentKey": "sewing",
+          "sequence": 3,
+          "workloadPointsPerUnit": 36,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Dikim",
+            "en": "Sewing"
+          }
+        },
+        {
+          "departmentKey": "ironing_packing",
+          "sequence": 4,
+          "workloadPointsPerUnit": 16,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Ütü - Paket",
+            "en": "Iron - Packing"
+          }
+        }
+      ]
+    },
+    {
+      "key": "backham_blazer",
+      "name": "BACKHAM",
+      "imageUrl": "https://cnajsb5cuaxnygza.public.blob.vercel-storage.com/products/p7-blz-ckt-01/p7-blz-ckt-01-front-card-1783786079223.webp",
+      "card": {
+        "primaryColor": "#4f7a28",
+        "secondaryColor": "#006d8f",
+        "gradientFrom": "#4f7a28",
+        "gradientTo": "#b1dd8c",
+        "svgIconAccentColor": "#4f7a28"
+      },
+      "category": {
+        "key": "outerwear",
+        "labels": {
+          "tr": "Dış Giyim",
+          "en": "Outerwear"
+        }
+      },
+      "productType": {
+        "key": "blazer",
+        "labels": {
+          "tr": "Blazer",
+          "en": "Blazer"
+        }
+      },
+      "colors": [
+        {
+          "key": "basic_black",
+          "hexCode": "#000000",
+          "labels": {
+            "tr": "Siyah",
+            "en": "Black"
+          }
+        },
+        {
+          "key": "basic_navy",
+          "hexCode": "#1F2A44",
+          "labels": {
+            "tr": "Lacivert",
+            "en": "Navy"
+          }
+        },
+        {
+          "key": "basic_camel",
+          "hexCode": "#C19A6B",
+          "labels": {
+            "tr": "Camel",
+            "en": "Camel"
+          }
+        },
+        {
+          "key": "fw_burnt_olive",
+          "hexCode": "#5A5A46",
+          "labels": {
+            "tr": "Zeytin",
+            "en": "Burnt Olive"
+          }
+        }
+      ],
+      "route": [
+        {
+          "departmentKey": "cutting",
+          "sequence": 1,
+          "workloadPointsPerUnit": 45,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Kesim",
+            "en": "Cutting"
+          }
+        },
+        {
+          "departmentKey": "sewing",
+          "sequence": 2,
+          "workloadPointsPerUnit": 160,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Dikim",
+            "en": "Sewing"
+          }
+        },
+        {
+          "departmentKey": "ironing_packing",
+          "sequence": 3,
+          "workloadPointsPerUnit": 60,
+          "canOutsource": false,
+          "labels": {
+            "tr": "Ütü - Paket",
+            "en": "Iron - Packing"
+          }
+        }
+      ]
+    }
+  ]
+}

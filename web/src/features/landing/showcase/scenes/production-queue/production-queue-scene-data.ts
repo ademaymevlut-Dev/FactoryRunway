@@ -1,0 +1,62 @@
+import type { ProductionQueueSceneData } from "./production-queue-scene-types";
+
+export const productionQueueSceneData = {
+  departmentKey: "sewing",
+  initialOrder: [
+    "queue-clavier",
+    "queue-sportise",
+    "queue-backham",
+    "queue-clavier-secondary",
+  ],
+  items: [
+    {
+      customerName: "Northline Apparel",
+      dueInDays: 11,
+      id: "queue-clavier",
+      initialPlannedProduction: 520,
+      productKey: "clavier_tshirt",
+      remainingQuantity: 3_200,
+      reorderedPlannedProduction: 0,
+      status: "ready",
+    },
+    {
+      customerName: "Urban Form",
+      dueInDays: 4,
+      id: "queue-sportise",
+      initialPlannedProduction: 0,
+      productKey: "sportise_twinset",
+      remainingQuantity: 1_450,
+      reorderedPlannedProduction: 280,
+      status: "urgent",
+      warningCode: "DELIVERY_RISK",
+    },
+    {
+      customerName: "Maison Eleven",
+      dueInDays: 14,
+      id: "queue-backham",
+      initialPlannedProduction: 0,
+      productKey: "backham_blazer",
+      remainingQuantity: 620,
+      reorderedPlannedProduction: 0,
+      status: "ready",
+    },
+    {
+      customerName: "Mode District",
+      dueInDays: 8,
+      id: "queue-clavier-secondary",
+      initialPlannedProduction: 0,
+      productKey: "clavier_tshirt",
+      remainingQuantity: 1_800,
+      reorderedPlannedProduction: 0,
+      status: "ready",
+    },
+  ],
+  movedItemId: "queue-sportise",
+  reorderedOrder: [
+    "queue-sportise",
+    "queue-clavier",
+    "queue-backham",
+    "queue-clavier-secondary",
+  ],
+  sceneId: "production-queue-showcase",
+} as const satisfies ProductionQueueSceneData;
