@@ -292,6 +292,28 @@ export function matchesTaskEvent(
     }
   }
 
+  const departmentGroupSemanticKeys =
+    objectiveConfig.departmentGroupSemanticKeys;
+
+  if (Array.isArray(departmentGroupSemanticKeys)) {
+    const allowedDepartmentGroupSemanticKeys =
+      departmentGroupSemanticKeys.filter(
+        (value): value is string => typeof value === "string",
+      );
+    const departmentGroupSemanticKey =
+      metadata.departmentGroupSemanticKey;
+
+    if (
+      allowedDepartmentGroupSemanticKeys.length > 0 &&
+      (typeof departmentGroupSemanticKey !== "string" ||
+        !allowedDepartmentGroupSemanticKeys.includes(
+          departmentGroupSemanticKey,
+        ))
+    ) {
+      return false;
+    }
+  }
+
   const minimumActiveDepartmentGroupLineCount =
     objectiveConfig.minimumActiveDepartmentGroupLineCount;
 
@@ -304,11 +326,25 @@ export function matchesTaskEvent(
     return false;
   }
 
+  const minimumActiveSemanticGroupLineCount =
+    objectiveConfig.minimumActiveSemanticGroupLineCount;
+
+  if (
+    typeof minimumActiveSemanticGroupLineCount === "number" &&
+    (typeof metadata.activeSemanticGroupLineCount !== "number" ||
+      metadata.activeSemanticGroupLineCount <
+        minimumActiveSemanticGroupLineCount)
+  ) {
+    return false;
+  }
+
   for (const [key, expectedValue] of Object.entries(objectiveConfig)) {
     if (
       key === "acquisitionTypes" ||
       key === "departmentGroupKeys" ||
-      key === "minimumActiveDepartmentGroupLineCount"
+      key === "departmentGroupSemanticKeys" ||
+      key === "minimumActiveDepartmentGroupLineCount" ||
+      key === "minimumActiveSemanticGroupLineCount"
     ) {
       continue;
     }

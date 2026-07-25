@@ -20,6 +20,7 @@ import {
 import { calculateOutsourceCompletion } from "@/features/production-queue/services/outsource-math";
 import { processDueLeasingPayments } from "@/features/investment/services/leasing-payment";
 import { runFinancePeriodClosing } from "@/features/finance/services/finance-period-closing";
+import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "@/features/tasks/department-group-semantics";
 import { processShippingAndReceivables } from "@/features/warehouse/services/shipping-service";
 import { grantFactoryXp } from "./factory-progression";
 import {
@@ -61,7 +62,6 @@ import { getRouteProgressStatus as resolveRouteProgressStatus } from "./route-pr
 export { getAvailableQuantity } from "./shift-department-result";
 
 const SHIFT_COMPLETED_XP = 30;
-const VALUE_ADDED_PROCESS_GROUP_KEY = "value_added_processes";
 
 type TransactionClient = Prisma.TransactionClient;
 type DaySimulationClient = TransactionClient;
@@ -536,7 +536,10 @@ export async function simulateFactoryDay(input: {
             id: true,
             key: true,
             departmentGroup: {
-              select: { key: true },
+              select: {
+                key: true,
+                semanticKey: true,
+              },
             },
           },
         })
@@ -585,6 +588,12 @@ export async function simulateFactoryDay(input: {
         metadata: {
           ...(department?.departmentGroup?.key
             ? { departmentGroupKey: department.departmentGroup.key }
+            : {}),
+          ...(department?.departmentGroup?.semanticKey
+            ? {
+                departmentGroupSemanticKey:
+                  department.departmentGroup.semanticKey,
+              }
             : {}),
           ...(department?.key ? { departmentKey: department.key } : {}),
           productionLineId: line.id,
@@ -1204,7 +1213,10 @@ async function getShippedOrderTaskFacts(input: {
                   department: {
                     select: {
                       departmentGroup: {
-                        select: { key: true },
+                        select: {
+                          key: true,
+                          semanticKey: true,
+                        },
                       },
                     },
                   },
@@ -1264,31 +1276,32 @@ async function advanceShippedOrderTaskProgress(input: {
       });
     }
 
-    const internalProcessGroupKeys = new Set<string>();
+    const internalProcessSemanticKeys = new Set<string>();
 
     for (const item of order.items) {
       for (const routeProgress of item.productionOrder?.routeProgress ?? []) {
-        const departmentGroupKey =
-          routeProgress.department.departmentGroup?.key;
+        const departmentGroupSemanticKey =
+          routeProgress.department.departmentGroup?.semanticKey;
 
         if (
-          departmentGroupKey === VALUE_ADDED_PROCESS_GROUP_KEY &&
+          departmentGroupSemanticKey ===
+            DEPARTMENT_GROUP_SEMANTIC_KEYS.VALUE_ADDED_PROCESS &&
           routeProgress.outsourceJobs.length === 0 &&
           routeProgress.shiftLineResults.length > 0
         ) {
-          internalProcessGroupKeys.add(departmentGroupKey);
+          internalProcessSemanticKeys.add(departmentGroupSemanticKey);
         }
       }
     }
 
-    for (const departmentGroupKey of internalProcessGroupKeys) {
+    for (const departmentGroupSemanticKey of internalProcessSemanticKeys) {
       await advanceFactoryTaskProgress({
         currentDay: input.currentDay,
         factoryId: input.factoryId,
         event: {
           objectiveType: "COMPLETE_INTERNAL_PROCESS_ORDER",
           metadata: {
-            departmentGroupKey,
+            departmentGroupSemanticKey,
             orderId: order.id,
           },
         },

@@ -8,6 +8,7 @@ import {
   Prisma,
   SectorStatus,
 } from "@/generated/prisma/client";
+import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "@/features/tasks/department-group-semantics";
 import { getPrisma } from "@/lib/db";
 
 import { requireAdminUser } from "./admin-auth";
@@ -21,6 +22,10 @@ type DefinitionEntity =
   | "productCategory"
   | "productType"
   | "productColorVariant";
+
+const departmentGroupSemanticKeyValues: readonly string[] = Object.values(
+  DEPARTMENT_GROUP_SEMANTIC_KEYS,
+);
 
 const success = (message: string, entityId?: string): AdminActionState => ({
   status: "success",
@@ -143,12 +148,22 @@ export async function createDepartmentGroupAction(
   try {
     const prisma = getPrisma();
     const sectorId = text(formData, "sectorId");
+    const semanticKey = optionalText(formData, "semanticKey");
+
+    if (
+      semanticKey &&
+      !departmentGroupSemanticKeyValues.includes(semanticKey)
+    ) {
+      return error("Geçersiz departman grubu semantik sınıfı.");
+    }
+
     await prisma.sector.findUniqueOrThrow({ where: { id: sectorId }, select: { id: true } });
 
     const group = await prisma.departmentGroup.create({
       data: {
         sectorId,
         key: technicalKey(formData),
+        semanticKey,
         sortOrder: integer(formData, "sortOrder"),
         status: text(formData, "status") as ContentStatus,
         translations: {

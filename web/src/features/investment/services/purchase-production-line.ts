@@ -131,7 +131,10 @@ export async function purchaseProductionLine(input: {
                 key: true,
                 departmentGroupId: true,
                 departmentGroup: {
-                  select: { key: true },
+                  select: {
+                    key: true,
+                    semanticKey: true,
+                  },
                 },
                 kind: true,
                 monthlyOverheadPerLineCents: true,
@@ -194,11 +197,27 @@ export async function purchaseProductionLine(input: {
               })
             ).map((department) => department.id)
           : [template.departmentId];
+        const departmentGroupSemanticKey =
+          template.department.departmentGroup?.semanticKey ?? null;
+        const semanticGroupDepartmentIds = departmentGroupSemanticKey
+          ? (
+              await tx.department.findMany({
+                where: {
+                  sectorId: factory.sectorId,
+                  departmentGroup: {
+                    semanticKey: departmentGroupSemanticKey,
+                  },
+                },
+                select: { id: true },
+              })
+            ).map((department) => department.id)
+          : [];
         const [
           lineNumberAggregate,
           sortOrderAggregate,
           activeProductionLineCount,
           activeDepartmentGroupLineCount,
+          activeSemanticGroupLineCount,
           costConfig,
           stages,
           supportAssignments,
@@ -240,6 +259,20 @@ export async function purchaseProductionLine(input: {
               },
             },
           }),
+          semanticGroupDepartmentIds.length > 0
+            ? tx.factoryProductionLine.count({
+                where: {
+                  departmentId: { in: semanticGroupDepartmentIds },
+                  factoryId: factory.id,
+                  status: {
+                    notIn: [
+                      FactoryProductionLineStatus.SOLD,
+                      FactoryProductionLineStatus.DISABLED,
+                    ],
+                  },
+                },
+              })
+            : Promise.resolve(0),
           tx.sectorOperatingCostConfig.findUniqueOrThrow({
             where: { sectorId: factory.sectorId },
             select: {
@@ -437,6 +470,13 @@ export async function purchaseProductionLine(input: {
                 ? {
                     departmentGroupKey:
                       template.department.departmentGroup.key,
+                  }
+                : {}),
+              ...(departmentGroupSemanticKey
+                ? {
+                    activeSemanticGroupLineCount:
+                      activeSemanticGroupLineCount + 1,
+                    departmentGroupSemanticKey,
                   }
                 : {}),
               productionLineId,

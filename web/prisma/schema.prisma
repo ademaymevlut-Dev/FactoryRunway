@@ -616,6 +616,7 @@ model DepartmentGroup {
   id           String                       @id @default(cuid())
   sectorId     String                       @map("sector_id")
   key          String
+  semanticKey  String?                      @map("semantic_key")
   sortOrder    Int                          @default(0) @map("sort_order")
   status       ContentStatus                @default(ACTIVE)
   metadata     Json?
@@ -627,6 +628,7 @@ model DepartmentGroup {
 
   @@unique([sectorId, key])
   @@index([sectorId, sortOrder])
+  @@index([sectorId, semanticKey])
   @@map("department_groups")
 }
 

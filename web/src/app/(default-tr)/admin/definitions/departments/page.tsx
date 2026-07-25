@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "@/features/tasks/department-group-semantics";
 import { getPrisma } from "@/lib/db";
 
 import {
@@ -104,7 +105,7 @@ export default async function DepartmentDefinitionsPage() {
         <section className="grid gap-4 xl:grid-cols-2">
           <Panel
             title="Departman grubu oluştur"
-            description="Fabrika haritası ve admin görünümündeki ana organizasyon blokları."
+            description="Fiziksel yerleşim grubunu ve sektörler arası görev sınıfını birlikte tanımla."
           >
             <DefinitionForm
               action={createDepartmentGroupAction}
@@ -114,6 +115,18 @@ export default async function DepartmentDefinitionsPage() {
                 <SectorField sectors={sectors} />
                 <Field label="Teknik anahtar">
                   <Input name="key" placeholder="main_production" required />
+                </Field>
+                <Field label="Semantik görev sınıfı">
+                  <Select defaultValue="" name="semanticKey">
+                    <option value="">Sınıflandırılmamış</option>
+                    <option
+                      value={
+                        DEPARTMENT_GROUP_SEMANTIC_KEYS.VALUE_ADDED_PROCESS
+                      }
+                    >
+                      Katma değerli ara işlem
+                    </option>
+                  </Select>
                 </Field>
                 <TranslationFields />
                 <Field label="Sıralama">
@@ -200,6 +213,12 @@ export default async function DepartmentDefinitionsPage() {
                   <p className="mt-4 text-sm text-muted-foreground">
                     {displayName(group.sector.translations, group.sector.key)} ·{" "}
                     {group._count.departments} departman
+                  </p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Görev sınıfı:{" "}
+                    <span className="font-mono text-foreground">
+                      {group.semanticKey ?? "—"}
+                    </span>
                   </p>
                   <div className="mt-4">
                     <DefinitionStatusButton

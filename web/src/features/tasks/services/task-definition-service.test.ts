@@ -465,3 +465,41 @@ test("objective config departman grubu ve minimum aktif hat sayısını filtrele
     false,
   );
 });
+
+test("objective config sektörler arası semantik grubu ve toplam aktif hat sayısını filtreler", () => {
+  const config = {
+    departmentGroupSemanticKeys: ["value_added_process"],
+    minimumActiveSemanticGroupLineCount: 2,
+  };
+
+  assert.equal(
+    matchesTaskEvent(config, {
+      objectiveType: TaskObjectiveType.ACQUIRE_PRODUCTION_LINE,
+      metadata: {
+        activeSemanticGroupLineCount: 2,
+        departmentGroupSemanticKey: "value_added_process",
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    matchesTaskEvent(config, {
+      objectiveType: TaskObjectiveType.ACQUIRE_PRODUCTION_LINE,
+      metadata: {
+        activeSemanticGroupLineCount: 1,
+        departmentGroupSemanticKey: "value_added_process",
+      },
+    }),
+    false,
+  );
+  assert.equal(
+    matchesTaskEvent(config, {
+      objectiveType: TaskObjectiveType.ACQUIRE_PRODUCTION_LINE,
+      metadata: {
+        activeSemanticGroupLineCount: 2,
+        departmentGroupSemanticKey: "main_production",
+      },
+    }),
+    false,
+  );
+});

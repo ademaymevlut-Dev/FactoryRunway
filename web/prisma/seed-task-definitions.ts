@@ -8,6 +8,7 @@ import {
   TaskObjectiveType,
   TaskType,
 } from "../src/generated/prisma/client";
+import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "../src/features/tasks/department-group-semantics";
 
 loadEnv({ path: ".env.local" });
 loadEnv();
@@ -334,7 +335,9 @@ const storyTasks: StoryTaskSeed[] = [
     targetValue: 1,
     objectiveConfig: {
       acquisitionTypes: ["PURCHASED", "LEASED"],
-      departmentGroupKeys: ["value_added_processes"],
+      departmentGroupSemanticKeys: [
+        DEPARTMENT_GROUP_SEMANTIC_KEYS.VALUE_ADDED_PROCESS,
+      ],
     },
     rewardXp: 500,
     rewardRunwayTokens: 20,
@@ -355,7 +358,9 @@ const storyTasks: StoryTaskSeed[] = [
     objectiveType: TaskObjectiveType.USE_NEW_PRODUCTION_LINE,
     targetValue: 1,
     objectiveConfig: {
-      departmentGroupKeys: ["value_added_processes"],
+      departmentGroupSemanticKeys: [
+        DEPARTMENT_GROUP_SEMANTIC_KEYS.VALUE_ADDED_PROCESS,
+      ],
     },
     rewardXp: 300,
     rewardRunwayTokens: 0,
@@ -376,7 +381,9 @@ const storyTasks: StoryTaskSeed[] = [
     objectiveType: TaskObjectiveType.COMPLETE_INTERNAL_PROCESS_ORDER,
     targetValue: 1,
     objectiveConfig: {
-      departmentGroupKeys: ["value_added_processes"],
+      departmentGroupSemanticKeys: [
+        DEPARTMENT_GROUP_SEMANTIC_KEYS.VALUE_ADDED_PROCESS,
+      ],
     },
     rewardXp: 450,
     rewardRunwayTokens: 10,
@@ -399,8 +406,10 @@ const storyTasks: StoryTaskSeed[] = [
     targetValue: 1,
     objectiveConfig: {
       acquisitionTypes: ["PURCHASED", "LEASED"],
-      departmentGroupKeys: ["value_added_processes"],
-      minimumActiveDepartmentGroupLineCount: 2,
+      departmentGroupSemanticKeys: [
+        DEPARTMENT_GROUP_SEMANTIC_KEYS.VALUE_ADDED_PROCESS,
+      ],
+      minimumActiveSemanticGroupLineCount: 2,
     },
     rewardXp: 600,
     rewardRunwayTokens: 25,

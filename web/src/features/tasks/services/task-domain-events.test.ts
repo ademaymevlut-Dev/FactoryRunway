@@ -32,7 +32,8 @@ test("vardiya akışı fason, express, premium ve iç ara işlem görevlerini il
     simulation,
     /objectiveType: "COMPLETE_INTERNAL_PROCESS_ORDER"/,
   );
-  assert.match(simulation, /departmentGroupKey/);
+  assert.match(simulation, /departmentGroupSemanticKey/);
+  assert.match(simulation, /DEPARTMENT_GROUP_SEMANTIC_KEYS\.VALUE_ADDED_PROCESS/);
 });
 
 test("satın alma, leasing ve upgrade görev event metadata'sını üretir", () => {
@@ -50,6 +51,8 @@ test("satın alma, leasing ve upgrade görev event metadata'sını üretir", () 
     assert.match(source, /objectiveType: "ACQUIRE_PRODUCTION_LINE"/);
     assert.match(source, /activeDepartmentGroupLineCount/);
     assert.match(source, /departmentGroupKey/);
+    assert.match(source, /activeSemanticGroupLineCount/);
+    assert.match(source, /departmentGroupSemanticKey/);
   }
 
   assert.match(upgrade, /objectiveType: "UPGRADE_PRODUCTION_LINE"/);
