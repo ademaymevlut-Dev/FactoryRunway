@@ -14,7 +14,7 @@ type LandingPageProps = {
 
 export function LandingPage({ content }: LandingPageProps) {
   return (
-    <div className="landing-public min-h-screen overflow-hidden bg-background text-foreground">
+    <div className="landing-public min-h-screen overflow-x-clip bg-background text-foreground">
       <a
         className="fixed left-4 top-4 z-[100] -translate-y-24 rounded-lg bg-primary px-4 py-3 font-semibold text-primary-foreground shadow-xl transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
         href="#main-content"

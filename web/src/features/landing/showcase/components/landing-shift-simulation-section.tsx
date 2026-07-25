@@ -10,7 +10,7 @@ export function LandingShiftSimulationSection({
   content,
 }: LandingShiftSimulationSectionProps) {
   return (
-    <div className="scroll-mt-24" id="shift">
+    <div className="scroll-mt-52 sm:scroll-mt-40 lg:scroll-mt-24" id="shift">
       <ShiftSimulationScene
         copy={content.showcase.shiftSimulation}
         data={shiftSimulationSceneData}

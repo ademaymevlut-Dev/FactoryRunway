@@ -10,7 +10,7 @@ export function LandingProductionQueueSection({
   content,
 }: LandingProductionQueueSectionProps) {
   return (
-    <div className="scroll-mt-24" id="production">
+    <div className="scroll-mt-52 sm:scroll-mt-40 lg:scroll-mt-24" id="production">
       <ProductionQueueScene
         copy={content.showcase.productionQueue}
         data={productionQueueSceneData}

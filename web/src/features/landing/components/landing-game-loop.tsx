@@ -15,7 +15,7 @@ const stepIcons: Record<GameLoopStepKey, typeof Factory> = {
 
 export function LandingGameLoop({ content }: LandingGameLoopProps) {
   return (
-    <section className="scroll-mt-24 py-14 sm:py-20" id="gameplay">
+    <section className="scroll-mt-52 py-14 sm:scroll-mt-40 sm:py-20 lg:scroll-mt-24" id="gameplay">
       <div className="max-w-3xl">
         <p className="text-xs font-semibold uppercase tracking-[0.26em] text-primary-readable">
           {content.gameLoop.eyebrow}

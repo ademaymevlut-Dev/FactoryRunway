@@ -34,7 +34,7 @@ export function LandingLanguageSwitcher({
         /
       </span>
       <Link
-        className="inline-flex min-h-11 items-center rounded-md font-semibold text-foreground transition hover:text-primary-readable focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-md font-semibold text-foreground transition hover:text-primary-readable focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         href={href}
         hrefLang={hrefLang}
         lang={hrefLang}

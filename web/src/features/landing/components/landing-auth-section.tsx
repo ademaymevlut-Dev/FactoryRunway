@@ -11,7 +11,7 @@ export function LandingAuthSection({ content }: LandingAuthSectionProps) {
   return (
     <section
       aria-labelledby="account-title"
-      className="scroll-mt-24 py-16 sm:py-24"
+      className="scroll-mt-52 py-16 sm:scroll-mt-40 sm:py-24 lg:scroll-mt-24"
       id="account"
     >
       <div className="grid items-center gap-10 lg:grid-cols-[1fr_28rem]">
