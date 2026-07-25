@@ -3,14 +3,22 @@
 import { redirect } from "next/navigation";
 
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import type {
+  AdminAuthState,
+  AuthMessageCode,
+  PublicAuthField,
+  PublicAuthState,
+} from "@/lib/auth/public-auth-state";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { clearSession, createSession } from "@/lib/auth/session";
-import type { CreateUserField, CreateUserState } from "@/lib/auth/create-user-state";
+import type { CreateUserField } from "@/lib/auth/create-user-state";
 import { getPrisma } from "@/lib/db";
 
-import { requireAdminUser } from "./admin/admin-auth";
+import { requireAdminUser } from "./(default-tr)/admin/admin-auth";
 
 const ADMIN_ROLES = new Set<string>([USER_ROLES.ADMIN, USER_ROLES.SUPER_ADMIN]);
+type BaseUserField = Extract<CreateUserField, PublicAuthField>;
+type BaseUserFieldErrors = Partial<Record<BaseUserField, AuthMessageCode>>;
 
 function readString(formData: FormData, key: CreateUserField) {
   const value = formData.get(key);
@@ -22,18 +30,18 @@ function validateBaseUser(formData: FormData) {
   const email = readString(formData, "email").toLowerCase();
   const password = readString(formData, "password");
   const name = readString(formData, "name");
-  const fieldErrors: CreateUserState["fieldErrors"] = {};
+  const fieldErrors: BaseUserFieldErrors = {};
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    fieldErrors.email = "Geçerli bir e-posta gir.";
+    fieldErrors.email = "INVALID_EMAIL";
   }
 
   if (password.length < 8) {
-    fieldErrors.password = "Şifre en az 8 karakter olmalı.";
+    fieldErrors.password = "PASSWORD_TOO_SHORT";
   }
 
   if (name.length < 2) {
-    fieldErrors.name = "Ad en az 2 karakter olmalı.";
+    fieldErrors.name = "NAME_TOO_SHORT";
   }
 
   return {
@@ -53,24 +61,24 @@ async function isEmailTaken(email: string) {
 }
 
 export async function createPlayerAction(
-  _previousState: CreateUserState,
+  _previousState: PublicAuthState,
   formData: FormData,
-): Promise<CreateUserState> {
+): Promise<PublicAuthState> {
   const { data, fieldErrors } = validateBaseUser(formData);
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
-      message: "Player oluşturulamadı. Lütfen alanları kontrol et.",
       fieldErrors,
+      messageCode: "VALIDATION_ERROR",
     };
   }
 
   if (await isEmailTaken(data.email)) {
     return {
-      message: "Bu e-posta ile kayıtlı bir kullanıcı zaten var.",
       fieldErrors: {
-        email: "Bu e-posta zaten kullanılıyor.",
+        email: "EMAIL_ALREADY_EXISTS",
       },
+      messageCode: "EMAIL_ALREADY_EXISTS",
     };
   }
 
@@ -100,31 +108,34 @@ export async function createPlayerAction(
 }
 
 export async function createAdminAction(
-  _previousState: CreateUserState,
+  _previousState: AdminAuthState,
   formData: FormData,
-): Promise<CreateUserState> {
+): Promise<AdminAuthState> {
   await requireAdminUser();
 
-  const { data, fieldErrors } = validateBaseUser(formData);
+  const { data, fieldErrors: validationErrors } = validateBaseUser(formData);
+  const fieldErrors: NonNullable<AdminAuthState["fieldErrors"]> = {
+    ...validationErrors,
+  };
   const role = readString(formData, "role") || USER_ROLES.ADMIN;
 
   if (!ADMIN_ROLES.has(role)) {
-    fieldErrors.role = "Admin rolü geçersiz.";
+    fieldErrors.role = "INVALID_ROLE";
   }
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
-      message: "Admin oluşturulamadı. Lütfen alanları kontrol et.",
       fieldErrors,
+      messageCode: "VALIDATION_ERROR",
     };
   }
 
   if (await isEmailTaken(data.email)) {
     return {
-      message: "Bu e-posta ile kayıtlı bir kullanıcı zaten var.",
       fieldErrors: {
-        email: "Bu e-posta zaten kullanılıyor.",
+        email: "EMAIL_ALREADY_EXISTS",
       },
+      messageCode: "EMAIL_ALREADY_EXISTS",
     };
   }
 
@@ -147,30 +158,30 @@ export async function createAdminAction(
   });
 
   return {
-    message: "Admin hesabı oluşturuldu.",
+    messageCode: "ACCOUNT_CREATED",
   };
 }
 
 export async function loginAction(
-  _previousState: CreateUserState,
+  _previousState: PublicAuthState,
   formData: FormData,
-): Promise<CreateUserState> {
+): Promise<PublicAuthState> {
   const email = readString(formData, "email").toLowerCase();
   const password = readString(formData, "password");
-  const fieldErrors: CreateUserState["fieldErrors"] = {};
+  const fieldErrors: PublicAuthState["fieldErrors"] = {};
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    fieldErrors.email = "Geçerli bir e-posta gir.";
+    fieldErrors.email = "INVALID_EMAIL";
   }
 
   if (!password) {
-    fieldErrors.password = "Şifre gerekli.";
+    fieldErrors.password = "PASSWORD_REQUIRED";
   }
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
-      message: "Giriş yapılamadı. Lütfen alanları kontrol et.",
       fieldErrors,
+      messageCode: "VALIDATION_ERROR",
     };
   }
 
@@ -186,11 +197,11 @@ export async function loginAction(
 
   if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     return {
-      message: "E-posta veya şifre hatalı.",
       fieldErrors: {
-        email: "Bilgileri kontrol et.",
-        password: "Bilgileri kontrol et.",
+        email: "INVALID_CREDENTIALS",
+        password: "INVALID_CREDENTIALS",
       },
+      messageCode: "INVALID_CREDENTIALS",
     };
   }
 

@@ -86,7 +86,6 @@ export function OrderAcceptanceScene({
   return (
     <OrderAcceptanceSceneView
       copy={copy}
-      locale={locale}
       model={model}
       numberLocale={numberLocale}
       onAccept={handleAccept}

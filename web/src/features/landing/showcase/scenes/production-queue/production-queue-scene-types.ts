@@ -1,4 +1,4 @@
-import type { ShowcaseProduct } from "../../showcase-catalog";
+import type { LocalizedShowcaseProduct } from "../../catalog-resolver";
 
 export type ProductionQueueLocale = "en" | "tr";
 
@@ -81,15 +81,15 @@ export type ProductionQueueSceneCopy = {
 };
 
 export type ResolvedProductionQueueItem = ProductionQueueSceneItem & {
-  product: ShowcaseProduct;
+  product: LocalizedShowcaseProduct;
 };
 
 export type ProductionQueueSceneModel = {
   activeItem: ResolvedProductionQueueItem;
   departmentName: string;
-  departmentStep: ShowcaseProduct["route"][number];
+  departmentStep: LocalizedShowcaseProduct["route"][number];
   items: readonly ResolvedProductionQueueItem[];
   itemsById: Readonly<Record<string, ResolvedProductionQueueItem>>;
-  outsourceStep: ShowcaseProduct["route"][number];
+  outsourceStep: LocalizedShowcaseProduct["route"][number];
   totalWorkload: number;
 };

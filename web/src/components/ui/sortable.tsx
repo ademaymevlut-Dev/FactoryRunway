@@ -42,10 +42,12 @@ type SortableItemContextValue = {
   attributes: ReturnType<typeof useSortable>["attributes"]
   disabled: boolean
   listeners: ReturnType<typeof useSortable>["listeners"]
-  setActivatorNodeRef: ReturnType<typeof useSortable>["setActivatorNodeRef"]
 }
 
 const SortableItemContext = React.createContext<SortableItemContextValue | null>(null)
+const SortableActivatorContext = React.createContext<
+  ((node: HTMLElement | null) => void) | null
+>(null)
 
 function Sortable<TItem>({
   children,
@@ -134,6 +136,12 @@ function SortableItem({
     id: value,
   })
   const Comp = asChild ? Slot.Root : "div"
+  const setActivatorElement = React.useCallback(
+    (node: HTMLElement | null) => {
+      setActivatorNodeRef(node)
+    },
+    [setActivatorNodeRef],
+  )
   const itemStyle = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -141,29 +149,30 @@ function SortableItem({
   }
 
   return (
-    <SortableItemContext.Provider
-      value={{
-        attributes,
-        disabled,
-        listeners,
-        setActivatorNodeRef,
-      }}
-    >
-      <Comp
-        data-dragging={isDragging ? "" : undefined}
-        data-slot="sortable-item"
-        ref={setNodeRef}
-        className={cn(
-          "touch-manipulation",
-          isDragging && "relative z-50 opacity-80",
-          className,
-        )}
-        style={itemStyle}
-        {...props}
+    <SortableActivatorContext.Provider value={setActivatorElement}>
+      <SortableItemContext.Provider
+        value={{
+          attributes,
+          disabled,
+          listeners,
+        }}
       >
-        {children}
-      </Comp>
-    </SortableItemContext.Provider>
+        <Comp
+          data-dragging={isDragging ? "" : undefined}
+          data-slot="sortable-item"
+          ref={setNodeRef}
+          className={cn(
+            "touch-manipulation",
+            isDragging && "relative z-50 opacity-80",
+            className,
+          )}
+          style={itemStyle}
+          {...props}
+        >
+          {children}
+        </Comp>
+      </SortableItemContext.Provider>
+    </SortableActivatorContext.Provider>
   )
 }
 
@@ -175,8 +184,9 @@ function SortableItemHandle({
   asChild?: boolean
 }) {
   const context = React.useContext(SortableItemContext)
+  const setActivatorElement = React.useContext(SortableActivatorContext)
 
-  if (!context) {
+  if (!context || !setActivatorElement) {
     throw new Error("SortableItemHandle must be used inside SortableItem.")
   }
 
@@ -187,7 +197,7 @@ function SortableItemHandle({
       aria-label="Sıralamayı değiştir"
       data-slot="sortable-item-handle"
       disabled={!asChild ? context.disabled : undefined}
-      ref={context.setActivatorNodeRef}
+      ref={(node) => setActivatorElement(node)}
       type={!asChild ? "button" : undefined}
       className={cn(
         "inline-flex shrink-0 cursor-grab items-center justify-center rounded-md outline-none transition-colors active:cursor-grabbing disabled:pointer-events-none disabled:opacity-50 focus-visible:ring-2 focus-visible:ring-ring/45",

@@ -8,7 +8,6 @@ import { ProductionQueueDetail } from "./production-queue-detail";
 import { ProductionQueueList } from "./production-queue-list";
 import type { ProductionQueueSceneState } from "./production-queue-scene-state";
 import type {
-  ProductionQueueLocale,
   ProductionQueueSceneCopy,
   ProductionQueueSceneModel,
   ProductionQueueTarget,
@@ -16,7 +15,6 @@ import type {
 
 export type ProductionQueueSceneViewProps = {
   copy: ProductionQueueSceneCopy;
-  locale: ProductionQueueLocale;
   model: ProductionQueueSceneModel;
   numberLocale: string;
   onCalloutSelect: (target: ProductionQueueTarget) => void;
@@ -28,7 +26,6 @@ export type ProductionQueueSceneViewProps = {
 
 export function ProductionQueueSceneView({
   copy,
-  locale,
   model,
   numberLocale,
   onCalloutSelect,
@@ -69,7 +66,6 @@ export function ProductionQueueSceneView({
           <ProductionQueueList
             activeTarget={state.activeTarget}
             copy={copy}
-            locale={locale}
             model={model}
             numberLocale={numberLocale}
             state={state}
@@ -77,7 +73,6 @@ export function ProductionQueueSceneView({
 
           <ProductionQueueDetail
             copy={copy}
-            locale={locale}
             model={model}
             numberLocale={numberLocale}
           />

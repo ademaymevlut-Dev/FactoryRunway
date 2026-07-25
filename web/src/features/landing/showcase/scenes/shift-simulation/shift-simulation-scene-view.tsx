@@ -10,7 +10,6 @@ import { ShiftSimulationPlan } from "./shift-simulation-plan";
 import type { ShiftSimulationSceneState } from "./shift-simulation-scene-state";
 import { ShiftSimulationSummary } from "./shift-simulation-summary";
 import type {
-  ShiftSimulationLocale,
   ShiftSimulationSceneCopy,
   ShiftSimulationSceneData,
   ShiftSimulationSceneModel,
@@ -20,7 +19,6 @@ import type {
 export type ShiftSimulationSceneViewProps = {
   copy: ShiftSimulationSceneCopy;
   data: ShiftSimulationSceneData;
-  locale: ShiftSimulationLocale;
   model: ShiftSimulationSceneModel;
   numberLocale: string;
   onCalloutSelect: (target: ShiftSimulationTarget) => void;
@@ -33,7 +31,6 @@ export type ShiftSimulationSceneViewProps = {
 export function ShiftSimulationSceneView({
   copy,
   data,
-  locale,
   model,
   numberLocale,
   onCalloutSelect,
@@ -75,7 +72,6 @@ export function ShiftSimulationSceneView({
             <ShiftSimulationPlan
               copy={copy}
               data={data}
-              locale={locale}
               model={model}
               numberLocale={numberLocale}
               onStart={onStart}
@@ -113,7 +109,6 @@ export function ShiftSimulationSceneView({
           copy={copy}
           highlighted={state.activeTarget === "shift-summary"}
           isOpen={state.isSummaryOpen}
-          locale={locale}
           model={model}
           numberLocale={numberLocale}
           sceneId={data.sceneId}

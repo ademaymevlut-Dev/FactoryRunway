@@ -1,4 +1,4 @@
-import type { ShowcaseProduct } from "../../showcase-catalog";
+import type { LocalizedShowcaseProduct } from "../../catalog-resolver";
 
 export type ShiftSimulationLocale = "en" | "tr";
 
@@ -118,8 +118,8 @@ export type ResolvedShiftSimulationDepartment =
     achievementPercent: number;
     departmentName: string;
     difference: number;
-    product: ShowcaseProduct;
-    routeStep: ShowcaseProduct["route"][number];
+    product: LocalizedShowcaseProduct;
+    routeStep: LocalizedShowcaseProduct["route"][number];
   };
 
 export type ResolvedShiftSimulationEvent = ShiftSimulationEvent & {
@@ -128,7 +128,7 @@ export type ResolvedShiftSimulationEvent = ShiftSimulationEvent & {
 };
 
 export type ResolvedShiftFinishedGoods = ShiftFinishedGoods & {
-  product: ShowcaseProduct;
+  product: LocalizedShowcaseProduct;
 };
 
 export type ShiftSimulationSceneModel = {
@@ -138,6 +138,6 @@ export type ShiftSimulationSceneModel = {
   >;
   events: readonly ResolvedShiftSimulationEvent[];
   finishedGoods: readonly ResolvedShiftFinishedGoods[];
-  product: ShowcaseProduct;
+  product: LocalizedShowcaseProduct;
   totalWorkload: number;
 };

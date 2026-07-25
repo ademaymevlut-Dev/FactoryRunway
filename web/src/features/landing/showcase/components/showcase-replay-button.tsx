@@ -15,7 +15,7 @@ export function ShowcaseReplayButton({
 }: ShowcaseReplayButtonProps) {
   return (
     <Button
-      className="gap-2 border-white/15 bg-white/5 text-foreground hover:bg-white/10"
+      className="min-h-11 gap-2 border-white/15 bg-white/5 text-foreground hover:bg-white/10"
       data-showcase-replay
       disabled={disabled}
       onClick={onReplay}

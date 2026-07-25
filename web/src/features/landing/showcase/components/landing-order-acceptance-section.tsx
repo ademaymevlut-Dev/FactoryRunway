@@ -1,14 +1,22 @@
-import { orderAcceptanceSceneCopyTr } from "../scenes/order-acceptance/order-acceptance-scene-copy";
+import type { LandingContent } from "../../content/types";
 import { orderAcceptanceSceneData } from "../scenes/order-acceptance/order-acceptance-scene-data";
 import { OrderAcceptanceScene } from "../scenes/order-acceptance/order-acceptance-scene";
 
-export function LandingOrderAcceptanceSection() {
+type LandingOrderAcceptanceSectionProps = {
+  content: LandingContent;
+};
+
+export function LandingOrderAcceptanceSection({
+  content,
+}: LandingOrderAcceptanceSectionProps) {
   return (
-    <OrderAcceptanceScene
-      copy={orderAcceptanceSceneCopyTr}
-      data={orderAcceptanceSceneData}
-      locale="tr"
-      numberLocale="tr-TR"
-    />
+    <div className="scroll-mt-24" id="orders">
+      <OrderAcceptanceScene
+        copy={content.showcase.orderAcceptance}
+        data={orderAcceptanceSceneData}
+        locale={content.locale}
+        numberLocale={content.numberLocale}
+      />
+    </div>
   );
 }

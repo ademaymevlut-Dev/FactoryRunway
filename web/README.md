@@ -18,7 +18,17 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The interface uses a local system-font stack, so page rendering does not depend on a runtime font request.
+
+## Public site URL
+
+Set the public production origin before building a deployment:
+
+```bash
+NEXT_PUBLIC_SITE_URL=https://your-production-domain.example
+```
+
+The value must be an absolute `http` or `https` origin and must not include a route. Landing metadata uses it for the `/` and `/en` canonical URLs, `hreflang` alternates, and Open Graph URLs. When it is absent, the app uses Vercel's production URL variables if available and intentionally omits canonical URLs rather than emitting a localhost address.
 
 ## Learn More
 

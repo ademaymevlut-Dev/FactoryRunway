@@ -58,7 +58,11 @@ export function ShiftSimulationEvents({
         className="flex items-center gap-2 text-sm font-semibold text-foreground"
         id={`${data.sceneId}-events-title`}
       >
-        <Activity aria-hidden="true" className="text-primary" size={16} />
+        <Activity
+          aria-hidden="true"
+          className="text-primary-readable"
+          size={16}
+        />
         {copy.eventPanelTitle}
       </h3>
 

@@ -14,21 +14,18 @@ import { Badge } from "@/components/ui/badge";
 
 import { formatProductionQueueNumber } from "./production-queue-formatters";
 import type {
-  ProductionQueueLocale,
   ProductionQueueSceneCopy,
   ProductionQueueSceneModel,
 } from "./production-queue-scene-types";
 
 export type ProductionQueueDetailProps = {
   copy: ProductionQueueSceneCopy;
-  locale: ProductionQueueLocale;
   model: ProductionQueueSceneModel;
   numberLocale: string;
 };
 
 export function ProductionQueueDetail({
   copy,
-  locale,
   model,
   numberLocale,
 }: ProductionQueueDetailProps) {
@@ -38,7 +35,7 @@ export function ProductionQueueDetail({
     active: step.departmentKey === model.departmentStep.departmentKey,
     canOutsource: step.canOutsource,
     departmentKey: step.departmentKey,
-    label: step.labels[locale],
+    label: step.label,
     sequence: step.sequence,
     workloadLabel: `${formatProductionQueueNumber(
       step.workloadPointsPerUnit,
@@ -49,7 +46,7 @@ export function ProductionQueueDetail({
   const colors = product.colors.map((color) => ({
     hexCode: color.hexCode,
     key: color.key,
-    label: color.labels[locale],
+    label: color.label,
   }));
 
   return (
@@ -101,7 +98,7 @@ export function ProductionQueueDetail({
               {copy.categoryLabel}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-foreground">
-              {product.category.labels[locale]}
+              {product.category.label}
             </dd>
           </div>
           <div className="rounded-lg border border-border bg-background/55 p-2.5">
@@ -110,7 +107,7 @@ export function ProductionQueueDetail({
               {copy.productTypeLabel}
             </dt>
             <dd className="mt-1 text-sm font-semibold text-foreground">
-              {product.productType.labels[locale]}
+              {product.productType.label}
             </dd>
           </div>
           <div className="rounded-lg border border-border bg-background/55 p-2.5">
@@ -118,7 +115,7 @@ export function ProductionQueueDetail({
               <Scissors aria-hidden="true" size={12} />
               {copy.workloadLabel}
             </dt>
-            <dd className="mt-1 text-sm font-semibold text-primary">
+            <dd className="mt-1 text-sm font-semibold text-primary-readable">
               {formatProductionQueueNumber(model.totalWorkload, numberLocale)}{" "}
               {copy.workloadUnitLabel}
             </dd>
@@ -152,7 +149,7 @@ export function ProductionQueueDetail({
           title={copy.routeLabel}
         />
         <p className="mt-2 rounded-md border border-fuchsia-300/25 bg-fuchsia-400/8 px-2 py-1.5 text-[11px] font-medium text-fuchsia-100">
-          {outsourceStep.labels[locale]} · {copy.outsourceBadgeLabel}
+          {outsourceStep.label} · {copy.outsourceBadgeLabel}
         </p>
       </div>
     </aside>

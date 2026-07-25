@@ -1,14 +1,22 @@
-import { productionQueueSceneCopyTr } from "../scenes/production-queue/production-queue-scene-copy";
+import type { LandingContent } from "../../content/types";
 import { productionQueueSceneData } from "../scenes/production-queue/production-queue-scene-data";
 import { ProductionQueueScene } from "../scenes/production-queue/production-queue-scene";
 
-export function LandingProductionQueueSection() {
+type LandingProductionQueueSectionProps = {
+  content: LandingContent;
+};
+
+export function LandingProductionQueueSection({
+  content,
+}: LandingProductionQueueSectionProps) {
   return (
-    <ProductionQueueScene
-      copy={productionQueueSceneCopyTr}
-      data={productionQueueSceneData}
-      locale="tr"
-      numberLocale="tr-TR"
-    />
+    <div className="scroll-mt-24" id="production">
+      <ProductionQueueScene
+        copy={content.showcase.productionQueue}
+        data={productionQueueSceneData}
+        locale={content.locale}
+        numberLocale={content.numberLocale}
+      />
+    </div>
   );
 }

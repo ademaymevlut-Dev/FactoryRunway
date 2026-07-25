@@ -1,4 +1,4 @@
-import { resolveShowcaseProduct } from "../../catalog-resolver";
+import { resolveLocalizedShowcaseProduct } from "../../catalog-resolver";
 import type {
   ResolvedShiftSimulationDepartment,
   ShiftSimulationLocale,
@@ -57,7 +57,7 @@ export function createShiftSimulationSceneModel(
   );
   validateCallouts(copy);
 
-  const product = resolveShowcaseProduct(data.productKey);
+  const product = resolveLocalizedShowcaseProduct(data.productKey, locale);
   const departments = data.departments.map<ResolvedShiftSimulationDepartment>(
     (department) => {
       assertNonNegativeInteger(
@@ -82,12 +82,15 @@ export function createShiftSimulationSceneModel(
         );
       }
 
-      const resolvedProduct = resolveShowcaseProduct(department.productKey);
+      const resolvedProduct = resolveLocalizedShowcaseProduct(
+        department.productKey,
+        locale,
+      );
       const routeStep = resolvedProduct.route.find(
         (step) => step.departmentKey === department.departmentKey,
       );
 
-      if (!routeStep?.labels[locale]) {
+      if (!routeStep) {
         throw new Error(
           `Shift department route bulunamadı: ${department.productKey}/${department.departmentKey}/${locale}`,
         );
@@ -119,7 +122,7 @@ export function createShiftSimulationSceneModel(
             : Math.round(
                 (department.actualQuantity / department.plannedQuantity) * 100,
               ),
-        departmentName: routeStep.labels[locale],
+        departmentName: routeStep.label,
         difference:
           department.actualQuantity - department.plannedQuantity,
         product: resolvedProduct,
@@ -164,7 +167,7 @@ export function createShiftSimulationSceneModel(
   });
   const finishedGoods = data.finishedGoods.map((item) => ({
     ...item,
-    product: resolveShowcaseProduct(item.productKey),
+    product: resolveLocalizedShowcaseProduct(item.productKey, locale),
   }));
   const ironingResult = departmentsByKey.ironing_packing;
 

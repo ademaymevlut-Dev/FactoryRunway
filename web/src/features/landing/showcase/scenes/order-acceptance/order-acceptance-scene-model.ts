@@ -1,4 +1,4 @@
-import { resolveShowcaseProduct } from "../../catalog-resolver";
+import { resolveLocalizedShowcaseProduct } from "../../catalog-resolver";
 import type {
   OrderAcceptanceSceneCopy,
   OrderAcceptanceSceneData,
@@ -40,7 +40,10 @@ export function createOrderAcceptanceSceneModel(
   }
 
   const offers = data.offers.map((offer) => {
-    const product = resolveShowcaseProduct(offer.productKey);
+    const product = resolveLocalizedShowcaseProduct(
+      offer.productKey,
+      locale,
+    );
     const unitPriceCents = Math.round(offer.unitPrice * 100);
     const totalRevenueCents = Math.round(offer.totalRevenue * 100);
 
@@ -99,14 +102,6 @@ export function createOrderAcceptanceSceneModel(
 
     return { color, quantity: allocation.quantity };
   });
-
-  for (const routeStep of product.route) {
-    if (!routeStep.labels[locale]) {
-      throw new Error(
-        `Showcase route locale bulunamadı: ${product.key}/${routeStep.departmentKey}/${locale}`,
-      );
-    }
-  }
 
   return {
     colorAllocation,

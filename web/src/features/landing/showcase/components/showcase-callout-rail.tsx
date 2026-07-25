@@ -44,7 +44,7 @@ export function ShowcaseCalloutRail<TTarget extends string>({
                   className={cn(
                     "grid size-8 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 font-mono text-xs font-semibold text-muted-foreground transition-colors",
                     isActive &&
-                      "border-primary/50 bg-primary/15 text-primary",
+                      "border-primary/50 bg-primary/15 text-primary-readable",
                   )}
                 >
                   {callout.number}

@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { formatShiftSimulationNumber } from "./shift-simulation-formatters";
 import type { ShiftSimulationSceneState } from "./shift-simulation-scene-state";
 import type {
-  ShiftSimulationLocale,
   ShiftSimulationSceneCopy,
   ShiftSimulationSceneData,
   ShiftSimulationSceneModel,
@@ -18,7 +17,6 @@ import { getShiftSimulationTargetClass } from "./shift-simulation-target";
 export type ShiftSimulationPlanProps = {
   copy: ShiftSimulationSceneCopy;
   data: ShiftSimulationSceneData;
-  locale: ShiftSimulationLocale;
   model: ShiftSimulationSceneModel;
   numberLocale: string;
   onStart: () => void;
@@ -28,7 +26,6 @@ export type ShiftSimulationPlanProps = {
 export function ShiftSimulationPlan({
   copy,
   data,
-  locale,
   model,
   numberLocale,
   onStart,
@@ -41,7 +38,7 @@ export function ShiftSimulationPlan({
   const routeSteps = model.product.route.map((step) => ({
     canOutsource: step.canOutsource,
     departmentKey: step.departmentKey,
-    label: step.labels[locale],
+    label: step.label,
     sequence: step.sequence,
     workloadLabel: `${formatShiftSimulationNumber(
       step.workloadPointsPerUnit,
@@ -83,7 +80,7 @@ export function ShiftSimulationPlan({
           data-showcase-target="shift-start"
         >
           <Button
-            className="w-full gap-2 bg-primary font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
+            className="min-h-11 w-full gap-2 bg-primary font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
             data-shift-start-button
             disabled={state.status !== "idle"}
             onClick={onStart}

@@ -40,8 +40,12 @@ function serverActionFiles(directory: string): string[] {
 }
 
 test("public hesap arayüzü yalnızca login ve PLAYER kaydı sunar", () => {
-  const accountTabs = read("./account-create-tabs.tsx");
-  const landing = read("./page.tsx");
+  const accountTabs = read(
+    "../features/landing/components/landing-auth-form.tsx",
+  );
+  const landing = read(
+    "../features/landing/components/landing-auth-section.tsx",
+  );
 
   assert.doesNotMatch(
     accountTabs,
@@ -79,7 +83,7 @@ test("admin oluşturma action'ı guard ile başlar ve yöneticinin session'ını
 
   assert.match(
     adminAction,
-    /\): Promise<CreateUserState> \{\s*await requireAdminUser\(\);/,
+    /\): Promise<AdminAuthState> \{\s*await requireAdminUser\(\);/,
   );
   assert.match(adminAction, /ADMIN_ROLES\.has\(role\)/);
   assert.doesNotMatch(adminAction, /createSession|clearSession|redirect\(/);
@@ -95,9 +99,12 @@ test("login role bazlı yönlendirmeyi korur", () => {
 });
 
 test("admin route'u ve admin Server Action'ları bağımsız guard kullanır", () => {
-  const adminAuth = read("./admin/admin-auth.ts");
-  const adminLayout = read("./admin/layout.tsx");
-  const adminDirectory = new URL("./admin", import.meta.url).pathname;
+  const adminAuth = read("./(default-tr)/admin/admin-auth.ts");
+  const adminLayout = read("./(default-tr)/admin/layout.tsx");
+  const adminDirectory = new URL(
+    "./(default-tr)/admin",
+    import.meta.url,
+  ).pathname;
   const actionFiles = serverActionFiles(adminDirectory);
   let actionCount = 0;
 
@@ -135,9 +142,9 @@ test("admin route'u ve admin Server Action'ları bağımsız guard kullanır", (
 });
 
 test("eski create-player route'u ortak landing kayıt alanına yönlendirir", () => {
-  const legacyPage = read("./create-player/page.tsx");
+  const legacyPage = read("./(default-tr)/create-player/page.tsx");
   const legacyFormPath = new URL(
-    "./create-player/create-player-form.tsx",
+    "./(default-tr)/create-player/create-player-form.tsx",
     import.meta.url,
   );
 

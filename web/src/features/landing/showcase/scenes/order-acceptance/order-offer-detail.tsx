@@ -26,7 +26,6 @@ import type {
   OrderAcceptanceSceneCopy,
   OrderAcceptanceSceneModel,
   OrderAcceptanceTarget,
-  ShowcaseLocale,
 } from "./order-acceptance-scene-types";
 import { getOrderAcceptanceTargetClass } from "./order-acceptance-target";
 
@@ -34,7 +33,6 @@ export type OrderOfferDetailProps = {
   accepted: boolean;
   activeTarget: OrderAcceptanceTarget | null;
   copy: OrderAcceptanceSceneCopy;
-  locale: ShowcaseLocale;
   model: OrderAcceptanceSceneModel;
   numberLocale: string;
   onAccept: () => void;
@@ -44,7 +42,6 @@ export function OrderOfferDetail({
   accepted,
   activeTarget,
   copy,
-  locale,
   model,
   numberLocale,
   onAccept,
@@ -55,13 +52,13 @@ export function OrderOfferDetail({
       icon: Tag,
       key: "category",
       label: copy.categoryLabel,
-      value: product.category.labels[locale],
+      value: product.category.label,
     },
     {
       icon: Shirt,
       key: "product-type",
       label: copy.productTypeLabel,
-      value: product.productType.labels[locale],
+      value: product.productType.label,
     },
     {
       icon: WalletCards,
@@ -77,7 +74,7 @@ export function OrderOfferDetail({
   const colorChips = model.colorAllocation.map(({ color, quantity }) => ({
     hexCode: color.hexCode,
     key: color.key,
-    label: color.labels[locale],
+    label: color.label,
     quantityLabel: `${formatShowcaseNumber(quantity, numberLocale)} ${
       copy.pieceUnitLabel
     }`,
@@ -85,7 +82,7 @@ export function OrderOfferDetail({
   const routeSteps = product.route.map((step) => ({
     canOutsource: step.canOutsource,
     departmentKey: step.departmentKey,
-    label: step.labels[locale],
+    label: step.label,
     sequence: step.sequence,
     workloadLabel: `${formatShowcaseNumber(
       step.workloadPointsPerUnit,

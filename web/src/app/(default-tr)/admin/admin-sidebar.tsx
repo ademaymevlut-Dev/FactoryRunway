@@ -22,7 +22,7 @@ import {
   Users,
 } from "lucide-react";
 
-import { logoutAction } from "../user-actions";
+import { logoutAction } from "@/app/user-actions";
 
 type AdminSidebarProps = {
   user: {

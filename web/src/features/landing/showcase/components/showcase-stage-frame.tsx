@@ -28,7 +28,7 @@ export function ShowcaseStageFrame({
       ref={rootRef}
     >
       <div className="mb-7 max-w-3xl sm:mb-9">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-readable">
           {eyebrow}
         </p>
         <h2

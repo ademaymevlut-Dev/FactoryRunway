@@ -99,7 +99,12 @@ test("BACKHAM adı, route sırası, departman label ve workload değerleri katal
     shiftSimulationSceneCopyTr,
   );
 
-  assert.equal(model.product, product);
+  assert.equal(model.product.key, product.key);
+  assert.equal(model.product.category.label, product.category.labels.tr);
+  assert.equal(
+    model.product.productType.label,
+    product.productType.labels.tr,
+  );
   assert.equal(model.product.name, "BACKHAM");
   assert.deepEqual(
     model.product.route.map((step) => [
@@ -275,7 +280,6 @@ test("render başlangıç planını ve final vardiya özetini eksiksiz gösterir
       createElement(ShiftSimulationSceneView, {
         copy: shiftSimulationSceneCopyTr,
         data: shiftSimulationSceneData,
-        locale: "tr",
         model,
         numberLocale: "tr-TR",
         onCalloutSelect: () => undefined,
@@ -312,7 +316,7 @@ test("scene dependency, tek timeline, lifecycle ve index sınırlarını korur",
   const scene = read("./shift-simulation-scene.tsx");
   const timeline = read("./shift-simulation-timeline.ts");
   const playback = read("../../hooks/use-showcase-playback.ts");
-  const page = read("../../../../../app/page.tsx");
+  const page = read("../../../components/landing-page.tsx");
   const progressView = read(
     "../../../../../components/game-presentation/shift-progress-view.tsx",
   );
@@ -356,10 +360,10 @@ test("scene dependency, tek timeline, lifecycle ve index sınırlarını korur",
   assert.match(countUp, /\(isInView \|\| immediate\)/);
 
   const productionQueueIndex = page.indexOf(
-    "<LandingProductionQueueSection />",
+    "<LandingProductionQueueSection content={content} />",
   );
   const shiftSimulationIndex = page.indexOf(
-    "<LandingShiftSimulationSection />",
+    "<LandingShiftSimulationSection content={content} />",
   );
 
   assert.ok(productionQueueIndex >= 0);

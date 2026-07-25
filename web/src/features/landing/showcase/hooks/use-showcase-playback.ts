@@ -65,6 +65,8 @@ export function useShowcasePlayback({
     }
 
     let context: gsap.Context | null = null;
+    let isSceneIntersecting = false;
+    let shouldResumeOnIntersect = false;
     let timeline: gsap.core.Timeline | null = null;
     let shouldResumeOnVisible = false;
 
@@ -102,14 +104,34 @@ export function useShowcasePlayback({
           sceneEntry && visibleReferenceHeight > 0
             ? sceneEntry.intersectionRect.height / visibleReferenceHeight
             : 0;
-
-        if (
+        const isAutoplayVisible =
           sceneEntry?.isIntersecting &&
           (sceneEntry.intersectionRatio >= 0.35 ||
-            viewportRelativeRatio >= 0.35) &&
-          !hasAutoPlayedRef.current
-        ) {
+            viewportRelativeRatio >= 0.35);
+
+        isSceneIntersecting = sceneEntry?.isIntersecting ?? false;
+
+        if (isAutoplayVisible && !hasAutoPlayedRef.current) {
           restart();
+        }
+
+        if (
+          isSceneIntersecting &&
+          shouldResumeOnIntersect &&
+          document.visibilityState === "visible"
+        ) {
+          shouldResumeOnIntersect = false;
+          timeline?.resume();
+          return;
+        }
+
+        if (
+          !isSceneIntersecting &&
+          timeline?.isActive() &&
+          !timeline.paused()
+        ) {
+          shouldResumeOnIntersect = true;
+          timeline.pause();
         }
       },
       { threshold: [0, 0.35, 0.6] },
@@ -126,7 +148,12 @@ export function useShowcasePlayback({
 
       if (shouldResumeOnVisible) {
         shouldResumeOnVisible = false;
-        timeline.resume();
+
+        if (isSceneIntersecting) {
+          timeline.resume();
+        } else {
+          shouldResumeOnIntersect = true;
+        }
       }
     };
 

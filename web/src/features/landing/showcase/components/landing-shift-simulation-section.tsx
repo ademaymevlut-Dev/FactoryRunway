@@ -1,14 +1,22 @@
-import { shiftSimulationSceneCopyTr } from "../scenes/shift-simulation/shift-simulation-scene-copy";
+import type { LandingContent } from "../../content/types";
 import { shiftSimulationSceneData } from "../scenes/shift-simulation/shift-simulation-scene-data";
 import { ShiftSimulationScene } from "../scenes/shift-simulation/shift-simulation-scene";
 
-export function LandingShiftSimulationSection() {
+type LandingShiftSimulationSectionProps = {
+  content: LandingContent;
+};
+
+export function LandingShiftSimulationSection({
+  content,
+}: LandingShiftSimulationSectionProps) {
   return (
-    <ShiftSimulationScene
-      copy={shiftSimulationSceneCopyTr}
-      data={shiftSimulationSceneData}
-      locale="tr"
-      numberLocale="tr-TR"
-    />
+    <div className="scroll-mt-24" id="shift">
+      <ShiftSimulationScene
+        copy={content.showcase.shiftSimulation}
+        data={shiftSimulationSceneData}
+        locale={content.locale}
+        numberLocale={content.numberLocale}
+      />
+    </div>
   );
 }

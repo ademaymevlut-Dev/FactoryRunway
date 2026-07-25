@@ -1,4 +1,4 @@
-import { resolveShowcaseProduct } from "../../catalog-resolver";
+import { resolveLocalizedShowcaseProduct } from "../../catalog-resolver";
 import type {
   ProductionQueueLocale,
   ProductionQueueSceneCopy,
@@ -92,7 +92,7 @@ export function createProductionQueueSceneModel(
 
     return {
       ...item,
-      product: resolveShowcaseProduct(item.productKey),
+      product: resolveLocalizedShowcaseProduct(item.productKey, locale),
     };
   });
   const itemsById = Object.fromEntries(
@@ -108,7 +108,7 @@ export function createProductionQueueSceneModel(
     (step) => step.departmentKey === data.departmentKey,
   );
 
-  if (!departmentStep?.labels[locale]) {
+  if (!departmentStep) {
     throw new Error(
       `Showcase department bulunamadı: ${data.departmentKey}/${locale}`,
     );
@@ -122,19 +122,9 @@ export function createProductionQueueSceneModel(
     throw new Error("SPORTISE printing adımı fasona uygun olmalı.");
   }
 
-  for (const item of items) {
-    for (const routeStep of item.product.route) {
-      if (!routeStep.labels[locale]) {
-        throw new Error(
-          `Showcase route locale bulunamadı: ${item.product.key}/${routeStep.departmentKey}/${locale}`,
-        );
-      }
-    }
-  }
-
   return {
     activeItem,
-    departmentName: departmentStep.labels[locale],
+    departmentName: departmentStep.label,
     departmentStep,
     items,
     itemsById,

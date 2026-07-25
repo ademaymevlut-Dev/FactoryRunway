@@ -10,7 +10,6 @@ import type {
   OrderAcceptanceSceneCopy,
   OrderAcceptanceSceneModel,
   OrderAcceptanceTarget,
-  ShowcaseLocale,
 } from "./order-acceptance-scene-types";
 import { getOrderAcceptanceTargetClass } from "./order-acceptance-target";
 import { OrderOfferDetail } from "./order-offer-detail";
@@ -18,7 +17,6 @@ import { OrderOfferList } from "./order-offer-list";
 
 export type OrderAcceptanceSceneViewProps = {
   copy: OrderAcceptanceSceneCopy;
-  locale: ShowcaseLocale;
   model: OrderAcceptanceSceneModel;
   numberLocale: string;
   onAccept: () => void;
@@ -31,7 +29,6 @@ export type OrderAcceptanceSceneViewProps = {
 
 export function OrderAcceptanceSceneView({
   copy,
-  locale,
   model,
   numberLocale,
   onAccept,
@@ -84,7 +81,6 @@ export function OrderAcceptanceSceneView({
             accepted={accepted}
             activeTarget={state.activeTarget}
             copy={copy}
-            locale={locale}
             model={model}
             numberLocale={numberLocale}
             onAccept={onAccept}

@@ -1,4 +1,4 @@
-import type { ShowcaseProduct } from "../../showcase-catalog";
+import type { LocalizedShowcaseProduct } from "../../catalog-resolver";
 
 export type ShowcaseLocale = "en" | "tr";
 
@@ -71,17 +71,17 @@ export type OrderAcceptanceSceneCopy = {
 };
 
 export type ResolvedOrderAcceptanceOffer = OrderAcceptanceOffer & {
-  product: ShowcaseProduct;
+  product: LocalizedShowcaseProduct;
 };
 
 export type ResolvedOrderAcceptanceColor = {
-  color: ShowcaseProduct["colors"][number];
+  color: LocalizedShowcaseProduct["colors"][number];
   quantity: number;
 };
 
 export type OrderAcceptanceSceneModel = {
   colorAllocation: readonly ResolvedOrderAcceptanceColor[];
   offers: readonly ResolvedOrderAcceptanceOffer[];
-  product: ShowcaseProduct;
+  product: LocalizedShowcaseProduct;
   selectedOffer: ResolvedOrderAcceptanceOffer;
 };

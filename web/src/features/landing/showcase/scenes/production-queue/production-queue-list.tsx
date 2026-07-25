@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import { formatProductionQueueNumber } from "./production-queue-formatters";
 import type { ProductionQueueSceneState } from "./production-queue-scene-state";
 import type {
-  ProductionQueueLocale,
   ProductionQueueSceneCopy,
   ProductionQueueSceneModel,
   ProductionQueueTarget,
@@ -21,7 +20,6 @@ import type {
 export type ProductionQueueListProps = {
   activeTarget: ProductionQueueTarget | null;
   copy: ProductionQueueSceneCopy;
-  locale: ProductionQueueLocale;
   model: ProductionQueueSceneModel;
   numberLocale: string;
   state: ProductionQueueSceneState;
@@ -54,7 +52,6 @@ function createRowItem(
   item: ResolvedProductionQueueItem,
   plannedProduction: number,
   copy: ProductionQueueSceneCopy,
-  locale: ProductionQueueLocale,
   numberLocale: string,
 ): ProductionQueueRowItem {
   const statusLabel = copy.statuses[item.status];
@@ -70,14 +67,14 @@ function createRowItem(
     dueTone: getItemTone(item),
     footerStatusLabel: statusLabel,
     inputReadyQuantityLabel: quantity(item.remainingQuantity),
-    modeLabel: item.product.productType.labels[locale],
+    modeLabel: item.product.productType.label,
     orderNo: item.product.name,
     orderSummaryLabel: `${item.customerName} · ${statusLabel}`,
     plannedProductionLabel: quantity(plannedProduction),
     productCode: item.customerName,
     productImageUrl: item.product.imageUrl,
     productName: item.product.name,
-    productTierLabel: item.product.category.labels[locale],
+    productTierLabel: item.product.category.label,
     queueStartLabel: statusLabel,
     queueStartTone: getItemTone(item),
     remainingQuantityLabel: quantity(item.remainingQuantity),
@@ -88,7 +85,6 @@ function createRowItem(
 export function ProductionQueueList({
   activeTarget,
   copy,
-  locale,
   model,
   numberLocale,
   state,
@@ -125,7 +121,7 @@ export function ProductionQueueList({
           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             {copy.plannedSummaryLabel}
           </p>
-          <strong className="mt-0.5 block font-mono text-lg text-primary">
+          <strong className="mt-0.5 block font-mono text-lg text-primary-readable">
             {formatProductionQueueNumber(
               totalPlannedProduction,
               numberLocale,
@@ -208,7 +204,7 @@ export function ProductionQueueList({
                       "grid size-7 place-items-center rounded-md text-muted-foreground transition-[background-color,color,box-shadow]",
                       activeTarget === "queue-drag-handle" &&
                         isMovedItem &&
-                        "bg-primary/15 text-primary shadow-[0_0_16px_color-mix(in_srgb,var(--primary)_24%,transparent)]",
+                        "bg-primary/15 text-primary-readable shadow-[0_0_16px_color-mix(in_srgb,var(--primary)_24%,transparent)]",
                     )}
                     data-highlighted={
                       activeTarget === "queue-drag-handle" && isMovedItem
@@ -231,7 +227,6 @@ export function ProductionQueueList({
                   item,
                   plannedProduction,
                   copy,
-                  locale,
                   numberLocale,
                 )}
                 labels={{

@@ -130,7 +130,6 @@ export function ShiftSimulationScene({
     <ShiftSimulationSceneView
       copy={copy}
       data={data}
-      locale={locale}
       model={model}
       numberLocale={numberLocale}
       onCalloutSelect={handleCalloutSelect}

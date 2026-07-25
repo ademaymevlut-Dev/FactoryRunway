@@ -38,6 +38,7 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-readable: var(--primary-readable);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -74,6 +75,7 @@
   --popover-foreground: #ffffff;
   --primary: #006d8f;
   --primary-foreground: #ffffff;
+  --primary-readable: #38bdf8;
   --secondary: #2c2d32;
   --secondary-foreground: #9ca3af;
   --muted: #2c2d32;
@@ -166,6 +168,39 @@
 }
 
 @layer components {
+  .landing-public {
+    --muted-foreground: #9ca3af;
+  }
+
+  .landing-public .text-primary {
+    color: var(--primary-readable);
+  }
+
+  .landing-public .game-tab {
+    min-height: 2.75rem;
+  }
+
+  .landing-public .game-input {
+    min-height: 2.75rem;
+  }
+
+  .landing-public .game-input::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+  }
+
+  .landing-public .game-input-wrap:focus-within {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent);
+  }
+
+  .landing-public .game-button-primary:focus-visible,
+  .landing-public .game-button-ghost:focus-visible,
+  .landing-public .game-tab:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
+  }
+
   .onboarding-shell {
     position: relative;
     isolation: isolate;
@@ -1919,6 +1954,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .landing-public *,
+  .landing-public *::before,
+  .landing-public *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .onboarding-welcome,
   .onboarding-intro,
   .onboarding-intro-point,

@@ -10,7 +10,6 @@ import { cn } from "@/lib/utils";
 
 import { formatShiftSimulationNumber } from "./shift-simulation-formatters";
 import type {
-  ShiftSimulationLocale,
   ShiftSimulationSceneCopy,
   ShiftSimulationSceneModel,
 } from "./shift-simulation-scene-types";
@@ -18,7 +17,6 @@ import type {
 export type ShiftSimulationSummaryProps = {
   copy: ShiftSimulationSceneCopy;
   isOpen: boolean;
-  locale: ShiftSimulationLocale;
   model: ShiftSimulationSceneModel;
   numberLocale: string;
   highlighted: boolean;
@@ -29,7 +27,6 @@ export function ShiftSimulationSummary({
   copy,
   highlighted,
   isOpen,
-  locale,
   model,
   numberLocale,
   sceneId,
@@ -42,13 +39,13 @@ export function ShiftSimulationSummary({
       icon: Layers3,
       key: "category",
       label: copy.categoryLabel,
-      value: model.product.category.labels[locale],
+      value: model.product.category.label,
     },
     {
       icon: Shirt,
       key: "product-type",
       label: copy.productTypeLabel,
-      value: model.product.productType.labels[locale],
+      value: model.product.productType.label,
     },
     {
       icon: Gauge,
@@ -63,7 +60,7 @@ export function ShiftSimulationSummary({
   const colors = model.product.colors.map((color) => ({
     hexCode: color.hexCode,
     key: color.key,
-    label: color.labels[locale],
+    label: color.label,
   }));
 
   return (
@@ -79,7 +76,7 @@ export function ShiftSimulationSummary({
       data-showcase-target="shift-summary"
     >
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-readable">
           {copy.finishedGoodsLabel}
         </p>
         <h3 className="mt-1 text-xl font-semibold text-foreground" id={titleId}>

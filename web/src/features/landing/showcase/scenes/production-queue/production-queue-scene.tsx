@@ -102,7 +102,6 @@ export function ProductionQueueScene({
   return (
     <ProductionQueueSceneView
       copy={copy}
-      locale={locale}
       model={model}
       numberLocale={numberLocale}
       onCalloutSelect={handleCalloutSelect}

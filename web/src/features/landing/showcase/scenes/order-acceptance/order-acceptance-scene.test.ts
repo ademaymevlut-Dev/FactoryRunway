@@ -184,7 +184,6 @@ test("scene renderı CLAVIER detaylarını, altı callout ve kabul sonucunu gös
     renderToStaticMarkup(
       createElement(OrderAcceptanceSceneView, {
         copy: orderAcceptanceSceneCopyTr,
-        locale: "tr",
         model,
         numberLocale: "tr-TR",
         onAccept: () => undefined,
@@ -216,7 +215,7 @@ test("scene dependency ve animation lifecycle sınırlarını korur", () => {
   const scene = read("./order-acceptance-scene.tsx");
   const timeline = read("./order-acceptance-timeline.ts");
   const playback = read("../../hooks/use-showcase-playback.ts");
-  const page = read("../../../../../app/page.tsx");
+  const page = read("../../../components/landing-page.tsx");
   const combinedSceneSource = `${scene}\n${timeline}`;
 
   for (const forbidden of [
@@ -243,5 +242,5 @@ test("scene dependency ve animation lifecycle sınırlarını korur", () => {
   assert.match(playback, /timeline\?\.kill\(\)/);
   assert.match(playback, /context\?\.revert\(\)/);
   assert.match(playback, /prefers-reduced-motion: reduce/);
-  assert.match(page, /LandingOrderAcceptanceSection/);
+  assert.match(page, /<LandingOrderAcceptanceSection content=\{content\} \/>/);
 });

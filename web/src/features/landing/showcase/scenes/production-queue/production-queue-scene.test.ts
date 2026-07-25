@@ -88,7 +88,15 @@ test("SPORTISE katalog adı, rota sırası, workload ve fason bilgisini aynen ç
   );
 
   assert.equal(model.activeItem.product.name, "SPORTISE");
-  assert.equal(model.activeItem.product, product);
+  assert.equal(model.activeItem.product.key, product.key);
+  assert.equal(
+    model.activeItem.product.category.label,
+    product.category.labels.tr,
+  );
+  assert.equal(
+    model.activeItem.product.productType.label,
+    product.productType.labels.tr,
+  );
   assert.equal(model.departmentName, "Dikim");
   assert.equal(model.departmentStep.departmentKey, "sewing");
   assert.equal(model.outsourceStep.departmentKey, "printing");
@@ -240,7 +248,6 @@ test("render Dikim kuyruğunu, gerçek DOM reorderı, detayları ve bildirimi g�
     renderToStaticMarkup(
       createElement(ProductionQueueSceneView, {
         copy: productionQueueSceneCopyTr,
-        locale: "tr",
         model,
         numberLocale: "tr-TR",
         onCalloutSelect: () => undefined,
@@ -289,7 +296,7 @@ test("render Dikim kuyruğunu, gerçek DOM reorderı, detayları ve bildirimi g�
 test("scene bağımlılık, gerçek FLIP ve index entegrasyonu sınırlarını korur", () => {
   const scene = read("./production-queue-scene.tsx");
   const timeline = read("./production-queue-timeline.ts");
-  const page = read("../../../../../app/page.tsx");
+  const page = read("../../../components/landing-page.tsx");
   const row = read(
     "../../../../../components/game-presentation/production-queue-row.tsx",
   );
@@ -328,10 +335,10 @@ test("scene bağımlılık, gerçek FLIP ve index entegrasyonu sınırlarını k
   assert.match(row, /layout === "showcase"/);
 
   const orderAcceptanceIndex = page.indexOf(
-    "<LandingOrderAcceptanceSection />",
+    "<LandingOrderAcceptanceSection content={content} />",
   );
   const productionQueueIndex = page.indexOf(
-    "<LandingProductionQueueSection />",
+    "<LandingProductionQueueSection content={content} />",
   );
 
   assert.ok(orderAcceptanceIndex >= 0);

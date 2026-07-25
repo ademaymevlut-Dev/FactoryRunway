@@ -27,7 +27,7 @@ export function OrderOfferList({
   return (
     <div className="rounded-xl border border-white/10 bg-background/58 p-3 sm:p-4">
       <div className="mb-3 border-b border-white/8 pb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary-readable">
           {copy.listTitle}
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
@@ -65,7 +65,7 @@ export function OrderOfferList({
                   </h3>
                 </div>
                 {isSelected ? (
-                  <span className="shrink-0 rounded-md border border-primary/40 bg-primary/10 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-primary">
+                  <span className="shrink-0 rounded-md border border-primary/40 bg-primary/10 px-1.5 py-1 text-[9px] font-semibold uppercase tracking-wider text-primary-readable">
                     {copy.selectedOfferLabel}
                   </span>
                 ) : null}
