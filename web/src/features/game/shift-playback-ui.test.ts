@@ -31,13 +31,15 @@ test("departman kartları kontrollü CountUp hedefi ve final kesinliği kullanı
   const hud = readSource("./components/shift-playback-hud.tsx");
 
   assert.match(card, /ShiftDepartmentResultView/);
+  assert.match(card, /shiftPlaybackCopy\[locale\]\.hud/);
+  assert.match(card, /numberLocale=\{numberLocale\}/);
   assert.match(resultView, /<CountUp/);
   assert.match(resultView, /value=\{value\}/);
   assert.match(resultView, /value=\{utilizationPercent\}/);
   assert.match(resultView, /immediate=\{isFinal\}/);
   assert.match(card, /activeProductPreview/);
   assert.match(card, /getActiveProductPreview/);
-  assert.doesNotMatch(card, /Başlangıç|Kalan/);
+  assert.doesNotMatch(card, /Başlangıç|Kalan|Kuyruğa giren|Çıkan|Aktif ürün/);
   assert.doesNotMatch(card, /fadeOutProgress/);
   assert.match(card, /throughputBps: number/);
   assert.doesNotMatch(card, /%\\{efficiency\\}/);
@@ -54,15 +56,21 @@ test("vardiya boyunca yönetim yüzeyi merkezi bir UI kilidiyle korunur", () => 
 
   assert.match(lock, /activeShiftPlayback/);
   assert.match(lock, /data-shift-playback-lock/);
-  assert.match(shell, /<ShiftPlaybackInteractionLock \/>/);
+  assert.match(lock, /shiftPlaybackCopy\[locale\]\.hud/);
+  assert.match(shell, /<ShiftPlaybackInteractionLock locale=\{initialSnapshot\.locale\}/);
 });
 
 test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () => {
   const panel = readSource("./components/daily-event-panel.tsx");
   const shell = readSource("./components/game-shell.tsx");
 
-  assert.match(shell, /<DailyEventPanel \/>/);
+  assert.match(
+    shell,
+    /<DailyEventPanel[\s\S]*?currencyCode=\{initialSnapshot\.factory\.currencyCode\}[\s\S]*?locale=\{initialSnapshot\.locale\}/,
+  );
   assert.match(panel, /data-daily-event-panel/);
+  assert.match(panel, /shiftPlaybackCopy\[locale\]\.dailyEvents/);
+  assert.match(panel, /copy\.categories\[event\.category\]/);
   assert.match(panel, /right-4 top-6/);
   assert.match(panel, /max-w-\[calc\(100vw-24px\)\]/);
   assert.match(panel, /overscroll-contain/);
@@ -74,7 +82,7 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.match(panel, /!event\.eventKey\.startsWith\("department\."\)/);
   assert.match(panel, /displayableEvents\.length/);
   assert.match(panel, /xp\.shift_completed/);
-  assert.match(panel, /formatFinanceCategory\(payload\.category\)/);
+  assert.match(panel, /getFinanceCategoryLabel\(copy, payload\.category\)/);
   assert.match(panel, /DailyEventRowView/);
   assert.match(panel, /getEventTone/);
   assert.match(panel, /getEventIconKey/);
@@ -85,4 +93,23 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.match(panel, /chaos\.staff_absence\.minor/);
   assert.match(panel, /chaos\.machine\.minor_issue/);
   assert.match(panel, /renderChaosDescription/);
+  assert.doesNotMatch(panel, /Günlük Olaylar|Vardiya başladı|Sipariş sevk edildi|Kapat/);
+});
+
+test("playback projection ve view servisleri locale translation seçimini kullanır", () => {
+  const playback = readSource("./shift-playback.ts");
+  const view = readSource("./services/shift-playback-view.ts");
+  const projection = readSource("./services/shift-playback-projection.ts");
+  const action = readSource("./actions/advance-factory-day-action.ts");
+
+  assert.match(playback, /preferredTranslation\(localizedTranslations, locale\)/);
+  assert.match(view, /locale\?: SupportedLocale/);
+  assert.match(view, /toShiftPlayback\(shift, input\.now, locale\)/);
+  assert.match(projection, /locale\?: SupportedLocale/);
+  assert.match(projection, /getTranslationLocaleFallbacks\(locale\)/);
+  assert.match(projection, /copy\.lineLabel\(chaosEvent\.factoryProductionLine\.lineNumber\)/);
+  assert.match(action, /preferredLocale: true/);
+  assert.match(action, /getShiftPlaybackById\(\{[\s\S]*?locale,/);
+  assert.doesNotMatch(view, /where: \{ locale: "tr" \}/);
+  assert.doesNotMatch(projection, /where: \{ locale: "tr" \}/);
 });

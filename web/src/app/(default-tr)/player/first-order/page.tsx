@@ -11,11 +11,21 @@ import {
 import { getCurrentUser } from "@/lib/auth/session";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getPrisma } from "@/lib/db";
+import {
+  localizedMetadataString,
+  localizedMetadataStringArray,
+  normalizeLocale,
+  numberLocale,
+  translatedDescription,
+  translatedName,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import {
   FirstOrderClient,
   type FirstOrderView,
 } from "./first-order-client";
+import { firstOrderCopy } from "./first-order-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +76,7 @@ export default async function FirstOrderPage() {
   });
 
   const factory = playerProfile?.factories[0];
+  const locale = normalizeLocale(playerProfile?.preferredLocale);
 
   if (!playerProfile || !factory) redirect("/onboarding");
 
@@ -86,6 +97,7 @@ export default async function FirstOrderPage() {
       index,
       currentDay: factory.currentDay,
       currencyCode: factory.currencyCode,
+      locale,
     }),
   );
 
@@ -95,6 +107,7 @@ export default async function FirstOrderPage() {
         <FirstOrderClient
           currentDay={factory.currentDay}
           factoryName={factory.name}
+          locale={locale}
           orders={orders}
         />
       </div>
@@ -107,18 +120,21 @@ function buildFirstOrderView({
   index,
   currentDay,
   currencyCode,
+  locale,
 }: {
   option: Awaited<ReturnType<typeof loadFirstOrderOptions>>[number];
   index: number;
   currentDay: number;
   currencyCode: string;
+  locale: SupportedLocale;
 }): FirstOrderView {
   const product = option.product;
   const metadata = readMetadata(option.metadata);
   const productMetadata = readMetadata(product.metadata);
-  const categoryName = displayName(product.category.translations, product.category.key);
-  const typeName = displayName(product.productType.translations, product.productType.key);
-  const description = displayDescription(product.translations);
+  const copy = firstOrderCopy[locale];
+  const categoryName = displayName(product.category.translations, product.category.key, locale);
+  const typeName = displayName(product.productType.translations, product.productType.key, locale);
+  const description = displayDescription(product.translations, locale);
   const totalPriceCents =
     moneyCents(metadata.offerPriceCents, metadata.offerPrice) ??
     (moneyCents(metadata.unitPriceCents, metadata.unitPrice) ??
@@ -131,41 +147,42 @@ function buildFirstOrderView({
   const imageUrl = pickProductImage(product.images);
   const routeLabel = product.routeSteps.length
     ? product.routeSteps
-        .map((step) => displayName(step.department.translations, step.department.key))
+        .map((step) => displayName(step.department.translations, step.department.key, locale))
         .join(" → ")
-    : "Rota bekleniyor";
+    : copy.selection.routePending;
 
   return {
     id: option.id,
     orderIndex: String(index + 1).padStart(2, "0"),
     customerName:
-      stringValue(metadata.customerName) ??
-      stringValue(productMetadata.customerName) ??
+      localizedMetadataString(metadata, "customerName", locale) ??
+      localizedMetadataString(productMetadata, "customerName", locale) ??
       product.name,
     productName:
-      stringValue(metadata.orderTitle) ??
-      stringValue(productMetadata.orderTitle) ??
+      localizedMetadataString(metadata, "orderTitle", locale) ??
+      localizedMetadataString(productMetadata, "orderTitle", locale) ??
       typeName,
     productCode: product.code ?? product.key,
     collectionName:
-      stringValue(metadata.collection) ??
-      stringValue(productMetadata.collection) ??
+      localizedMetadataString(metadata, "collection", locale) ??
+      localizedMetadataString(productMetadata, "collection", locale) ??
       categoryName,
     themeName:
-      stringValue(metadata.theme) ??
-      stringValue(productMetadata.theme) ??
+      localizedMetadataString(metadata, "theme", locale) ??
+      localizedMetadataString(productMetadata, "theme", locale) ??
       typeName,
     difficultyLabel:
-      stringValue(metadata.difficulty) ?? productTierLabel(product.tier),
-    statusLabel: stringValue(metadata.statusLabel) ?? "Teklif açık",
-    quantityLabel: `${formatNumber(option.defaultQuantity)} adet`,
-    deliveryLabel: `${option.targetDeliveryDays} gün`,
-    requestedDateLabel: `Day ${currentDay + option.targetDeliveryDays}`,
-    totalPriceLabel: formatMoney(totalPriceCents, currencyCode),
-    unitPriceLabel: formatMoney(unitPriceCents, currencyCode),
+      localizedMetadataString(metadata, "difficulty", locale) ??
+      productTierLabel(product.tier, locale),
+    statusLabel: localizedMetadataString(metadata, "statusLabel", locale) ?? copy.selection.statusOpen,
+    quantityLabel: copy.selection.quantity(formatNumber(option.defaultQuantity, locale)),
+    deliveryLabel: copy.selection.deliveryDays(option.targetDeliveryDays),
+    requestedDateLabel: copy.selection.requestedDay(currentDay + option.targetDeliveryDays),
+    totalPriceLabel: formatMoney(totalPriceCents, currencyCode, locale),
+    unitPriceLabel: formatMoney(unitPriceCents, currencyCode, locale),
     routeLabel,
     imageUrl,
-    cardCopy: cardCopy(metadata, description),
+    cardCopy: cardCopy(metadata, description, locale),
     colors: {
       primary: product.cardPrimaryColor,
       secondary: product.cardSecondaryColor,
@@ -233,10 +250,6 @@ function readMetadata(value: unknown): Metadata {
     : {};
 }
 
-function stringValue(value: unknown) {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
 function moneyCents(centsValue: unknown, currencyValue: unknown) {
   return positiveInteger(centsValue) ?? currencyToCents(currencyValue);
 }
@@ -260,16 +273,14 @@ function currencyToCents(value: unknown) {
   return Math.round(parsed * 100);
 }
 
-function cardCopy(metadata: Metadata, description: string | null) {
-  const lines = metadata.cardCopy;
+function cardCopy(
+  metadata: Metadata,
+  description: string | null,
+  locale: SupportedLocale,
+) {
+  const lines = localizedMetadataStringArray(metadata, "cardCopy", locale);
 
-  if (
-    Array.isArray(lines) &&
-    lines.every((line) => typeof line === "string") &&
-    lines.length > 0
-  ) {
-    return lines.slice(0, 3) as string[];
-  }
+  if (lines?.length) return lines.slice(0, 3);
 
   const descriptionLines = description
     ?.split(/[.!?]/)
@@ -279,42 +290,40 @@ function cardCopy(metadata: Metadata, description: string | null) {
 
   return descriptionLines?.length
     ? descriptionLines.map((line) => `${line}.`)
-    : [description ?? stringValue(metadata.orderTitle) ?? ""].filter(Boolean);
+    : [description ?? localizedMetadataString(metadata, "orderTitle", locale) ?? ""].filter(Boolean);
 }
 
-function displayName(translations: Translation[], fallback: string) {
-  return (
-    translations.find((translation) => translation.locale === "tr")?.name ??
-    translations.find((translation) => translation.locale === "en")?.name ??
-    fallback
-  );
+function displayName(
+  translations: Translation[],
+  fallback: string,
+  locale: SupportedLocale,
+) {
+  return translatedName(translations, fallback, locale);
 }
 
-function displayDescription(translations: Translation[]) {
-  return (
-    translations.find((translation) => translation.locale === "tr")?.description ??
-    translations.find((translation) => translation.locale === "en")?.description ??
-    null
-  );
+function displayDescription(
+  translations: Translation[],
+  locale: SupportedLocale,
+) {
+  return translatedDescription(translations, locale);
 }
 
-function productTierLabel(tier: string) {
-  const labels: Record<string, string> = {
-    BASIC: "Kolay",
-    STANDARD: "Orta",
-    PREMIUM: "Zor",
-    LUXURY: "Uzman",
-  };
+function productTierLabel(tier: string, locale: SupportedLocale) {
+  const labels = firstOrderCopy[locale].productTier as Record<string, string>;
 
   return labels[tier] ?? tier;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
+function formatNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale)).format(value);
 }
 
-function formatMoney(cents: number, currencyCode: string) {
-  const amount = new Intl.NumberFormat("tr-TR", {
+function formatMoney(
+  cents: number,
+  currencyCode: string,
+  locale: SupportedLocale,
+) {
+  const amount = new Intl.NumberFormat(numberLocale(locale), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(cents / 100);

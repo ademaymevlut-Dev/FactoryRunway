@@ -4,6 +4,11 @@ import type {
   TaskProgressStatus,
   TaskType,
 } from "@/generated/prisma/enums";
+import {
+  normalizeLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import { buildTaskCta } from "./task-cta";
 import type { TaskSnapshot, TasksSnapshot } from "../types";
@@ -33,15 +38,17 @@ type TaskProgressRow = {
 };
 
 export function buildTasksSnapshot(input: {
+  locale?: SupportedLocale;
   progressRows: TaskProgressRow[];
   tokenBalance: number;
 }): TasksSnapshot {
+  const locale = normalizeLocale(input.locale);
   const allTasks = [...input.progressRows]
     .sort(
       (first, second) =>
         first.taskDefinition.sortOrder - second.taskDefinition.sortOrder,
     )
-    .map(mapTaskProgressRow);
+    .map((row) => mapTaskProgressRow(row, locale));
   const activeTasks = allTasks.filter((task) => task.status === "ACTIVE");
   const completedUnclaimedTasks = allTasks.filter(
     (task) => task.status === "COMPLETED",
@@ -65,18 +72,21 @@ export function buildTasksSnapshot(input: {
   };
 }
 
-function mapTaskProgressRow(row: TaskProgressRow): TaskSnapshot {
-  const translation =
-    row.taskDefinition.translations.find((item) => item.locale === "tr") ??
-    row.taskDefinition.translations.find((item) => item.locale === "en") ??
-    row.taskDefinition.translations[0];
+function mapTaskProgressRow(
+  row: TaskProgressRow,
+  locale: SupportedLocale,
+): TaskSnapshot {
+  const translation = preferredTranslation(
+    row.taskDefinition.translations,
+    locale,
+  );
   const targetValue = Math.max(1, row.targetValue);
   const currentValue = Math.min(targetValue, Math.max(0, row.currentValue));
 
   return {
     completedDay: row.completedDay,
     completionMessage: translation?.completionMessage ?? null,
-    cta: buildTaskCta(row.taskDefinition.objectiveType),
+    cta: buildTaskCta(row.taskDefinition.objectiveType, locale),
     currentValue,
     description: translation?.description ?? row.taskDefinition.key,
     id: row.id,

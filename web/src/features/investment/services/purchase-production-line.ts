@@ -20,6 +20,10 @@ import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
 import { recalculateFactoryOperatingStage } from "@/features/game/services/factory-operating-stage";
 import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
+import {
+  normalizeLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import { calculateProductionLineInvestmentPreview } from "./production-line-investment";
 import type {
   PurchaseProductionLineInput,
@@ -54,10 +58,13 @@ export function calculateNextLinePlacement(input: {
 }
 
 export async function purchaseProductionLine(input: {
+  locale?: SupportedLocale | string | null;
   prisma: PrismaClient;
   purchase: PurchaseProductionLineInput;
   userId: string;
 }): Promise<PurchaseProductionLineResult> {
+  const locale = normalizeLocale(input.locale);
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
   const referenceKey = buildLinePurchaseReferenceKey(input.purchase);
 
   for (let attempt = 1; attempt <= MAX_PURCHASE_ATTEMPTS; attempt += 1) {
@@ -141,7 +148,7 @@ export async function purchaseProductionLine(input: {
                     monthlySalaryCents: true,
                     staffType: true,
                     translations: {
-                      where: { locale: "tr" },
+                      where: { locale: translationLocaleFilter },
                       select: { name: true },
                     },
                   },
@@ -257,7 +264,7 @@ export async function purchaseProductionLine(input: {
               dailySupportMealPerStaffCents: true,
               supportOverheadPerStaffCents: true,
               translations: {
-                where: { locale: "tr" },
+                where: { locale: translationLocaleFilter },
                 select: { name: true },
               },
               staffRequirements: {
@@ -270,7 +277,7 @@ export async function purchaseProductionLine(input: {
                       key: true,
                       monthlySalaryCents: true,
                       translations: {
-                        where: { locale: "tr" },
+                        where: { locale: translationLocaleFilter },
                         select: { name: true },
                       },
                     },
@@ -299,6 +306,7 @@ export async function purchaseProductionLine(input: {
           costConfig,
           currentStageId:
             factory.operatingStageState?.currentStageId ?? null,
+          locale,
           stages,
           supportStaffByRoleId,
           template,
@@ -500,6 +508,10 @@ export async function purchaseProductionLine(input: {
   }
 
   throw new Error("Production line purchase retry loop exited unexpectedly.");
+}
+
+function getTranslationLocaleFallbacks(locale: SupportedLocale) {
+  return locale === "en" ? ["en", "tr"] : ["tr", "en"];
 }
 
 function failure(

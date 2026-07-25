@@ -16,6 +16,8 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { translatedName, type SupportedLocale } from "@/lib/i18n/locales";
+import { getPlayerPreferredLocale } from "@/lib/i18n/player-locale";
 import { ensureFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
 export type StarterStaffRequirement = {
@@ -100,7 +102,34 @@ const starterTemplateKeys = [
   "ironing_packing_workshop",
 ] as const;
 
-const locale = "tr";
+const actionCopy = {
+  tr: {
+    adminBlocked: "Admin hesabı için oyuncu onboarding akışı kullanılamaz.",
+    factoryMissingName: "Fabrika adı olmadan kurulum tamamlanamaz.",
+    factoryNameTooShort: "Fabrika adı en az 3 karakter olmalı.",
+    inactiveSector: "Seçilen sektör şu anda aktif değil.",
+    missingFactoryStage: "small_workshop işletme aşaması bulunamadı.",
+    missingPlayerProfile: "Oyuncu profili bulunamadı.",
+    missingStarterLines: "Başlangıç üretim hatları eksik yapılandırılmış.",
+    noSession: "Oturum bulunamadı. Lütfen tekrar giriş yap.",
+    sectorNotPlayable: "Bu sektör şu anda oynanabilir durumda değil.",
+    setupStageMissing: "Başlangıç işletme aşaması bulunamadı.",
+    setupStarterLinesMissing: "Başlangıç üretim hattı tanımları eksik.",
+  },
+  en: {
+    adminBlocked: "Player onboarding is not available for admin accounts.",
+    factoryMissingName: "Factory setup cannot be completed without a factory name.",
+    factoryNameTooShort: "Factory name must be at least 3 characters.",
+    inactiveSector: "The selected sector is not active right now.",
+    missingFactoryStage: "The small_workshop operating stage was not found.",
+    missingPlayerProfile: "Player profile was not found.",
+    missingStarterLines: "Starting production lines are not fully configured.",
+    noSession: "Session not found. Please sign in again.",
+    sectorNotPlayable: "This sector is not playable right now.",
+    setupStageMissing: "Starting operating stage was not found.",
+    setupStarterLinesMissing: "Starting production line definitions are missing.",
+  },
+} as const satisfies Record<SupportedLocale, Record<string, string>>;
 
 export async function beginOnboardingSectorAction(
   sectorId: string,
@@ -112,7 +141,8 @@ export async function beginOnboardingSectorAction(
   }
 
   const prisma = getPrisma();
-  const setup = await buildFactorySetupPayload(sectorId, auth.user.id);
+  const locale = await getPlayerPreferredLocale(auth.user.id);
+  const setup = await buildFactorySetupPayload(sectorId, auth.user.id, locale);
 
   if (!setup.ok) {
     return setup;
@@ -167,11 +197,13 @@ export async function saveOnboardingIdentityAction(input: {
   }
 
   const factoryName = normalizeFactoryName(input.factoryName);
+  const locale = await getPlayerPreferredLocale(auth.user.id);
+  const copy = actionCopy[locale];
 
   if (!factoryName) {
     return {
       ok: false,
-      message: "Fabrika adı en az 3 karakter olmalı.",
+      message: copy.factoryNameTooShort,
     };
   }
 
@@ -224,11 +256,13 @@ export async function completeFactoryOnboardingAction(input: {
   }
 
   const factoryName = normalizeFactoryName(input.factoryName);
+  const locale = await getPlayerPreferredLocale(auth.user.id);
+  const copy = actionCopy[locale];
 
   if (!factoryName) {
     return {
       ok: false,
-      message: "Fabrika adı olmadan kurulum tamamlanamaz.",
+      message: copy.factoryMissingName,
     };
   }
 
@@ -249,7 +283,7 @@ export async function completeFactoryOnboardingAction(input: {
     });
 
     if (!playerProfile) {
-      throw new Error("Oyuncu profili bulunamadı.");
+      throw new Error(copy.missingPlayerProfile);
     }
 
     if (playerProfile.factories.length > 0) {
@@ -300,7 +334,7 @@ export async function completeFactoryOnboardingAction(input: {
       ]);
 
     if (!sector || sector.status !== "ACTIVE") {
-      throw new Error("Seçilen sektör şu anda aktif değil.");
+      throw new Error(copy.inactiveSector);
     }
 
     const orderedTemplates = starterTemplateKeys
@@ -308,11 +342,11 @@ export async function completeFactoryOnboardingAction(input: {
       .filter(Boolean);
 
     if (orderedTemplates.length !== starterTemplateKeys.length) {
-      throw new Error("Başlangıç üretim hatları eksik yapılandırılmış.");
+      throw new Error(copy.missingStarterLines);
     }
 
     if (!startingStage) {
-      throw new Error("small_workshop işletme aşaması bulunamadı.");
+      throw new Error(copy.missingFactoryStage);
     }
 
     const factory = await tx.factory.create({
@@ -480,6 +514,7 @@ export async function completeFactoryOnboardingAction(input: {
 async function buildFactorySetupPayload(
   sectorId: string,
   userId: string,
+  locale: SupportedLocale,
 ): Promise<OnboardingActionResult> {
   const prisma = getPrisma();
   const [
@@ -548,7 +583,7 @@ async function buildFactorySetupPayload(
   if (!sector || sector.status !== "ACTIVE") {
     return {
       ok: false,
-      message: "Bu sektör şu anda oynanabilir durumda değil.",
+      message: actionCopy[locale].sectorNotPlayable,
     };
   }
 
@@ -559,14 +594,14 @@ async function buildFactorySetupPayload(
   if (orderedTemplates.length !== starterTemplateKeys.length) {
     return {
       ok: false,
-      message: "Başlangıç üretim hattı tanımları eksik.",
+      message: actionCopy[locale].setupStarterLinesMissing,
     };
   }
 
   if (!startingStage) {
     return {
       ok: false,
-      message: "Başlangıç işletme aşaması bulunamadı.",
+      message: actionCopy[locale].setupStageMissing,
     };
   }
 
@@ -580,6 +615,7 @@ async function buildFactorySetupPayload(
       roleName: displayName(
         requirement.staffRole.translations,
         requirement.staffRole.key,
+        locale,
       ),
       roleKey: requirement.staffRole.key,
       quantity: requirement.requiredQuantity,
@@ -602,6 +638,7 @@ async function buildFactorySetupPayload(
       departmentName: displayName(
         template.department.translations,
         template.department.key,
+        locale,
       ),
       grade: template.grade,
       idealStaff: template.idealStaff,
@@ -621,6 +658,7 @@ async function buildFactorySetupPayload(
     roleName: displayName(
       requirement.staffRole.translations,
       requirement.staffRole.key,
+      locale,
     ),
     roleKey: requirement.staffRole.key,
     quantity: requirement.requiredQuantity,
@@ -682,7 +720,7 @@ async function buildFactorySetupPayload(
       sector: {
         id: sector.id,
         key: sector.key,
-        title: displayName(sector.translations, sector.key),
+        title: displayName(sector.translations, sector.key, locale),
       },
       simulation: {
         startingCapitalCents: String(simulationConfig?.startingCapitalCents ?? BigInt(100_000_000)),
@@ -732,14 +770,14 @@ async function requirePlayerUser() {
   if (!user) {
     return {
       ok: false as const,
-      message: "Oturum bulunamadı. Lütfen tekrar giriş yap.",
+      message: actionCopy.tr.noSession,
     };
   }
 
   if (user.role === USER_ROLES.ADMIN || user.role === USER_ROLES.SUPER_ADMIN) {
     return {
       ok: false as const,
-      message: "Admin hesabı için oyuncu onboarding akışı kullanılamaz.",
+      message: actionCopy.tr.adminBlocked,
     };
   }
 
@@ -749,12 +787,9 @@ async function requirePlayerUser() {
 function displayName(
   translations: Array<{ locale: string; name: string }>,
   fallback: string,
+  locale: SupportedLocale,
 ) {
-  return (
-    translations.find((translation) => translation.locale === locale)?.name ??
-    translations[0]?.name ??
-    fallback
-  );
+  return translatedName(translations, fallback, locale);
 }
 
 function buildVisuals(

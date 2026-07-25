@@ -9,7 +9,6 @@ import {
 } from "react";
 import {
   AlertTriangle,
-  Boxes,
   CalendarDays,
   ClipboardList,
   Gauge,
@@ -24,6 +23,7 @@ import {
 } from "lucide-react";
 
 import { logoutAction } from "@/app/user-actions";
+import { GameLocaleSwitcher } from "@/components/game-locale-switcher";
 import {
   Tooltip,
   TooltipContent,
@@ -32,6 +32,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { useGameUiStore } from "../store/game-ui-store";
+import { gameCopy } from "../game-copy";
 import type { GameSnapshot } from "../types";
 import styles from "./top-status-bar.module.css";
 
@@ -40,7 +41,6 @@ const SMALL_METRIC_ANIMATION_MS = 900;
 
 const metricIcons: Record<string, LucideIcon> = {
   cash: Wallet,
-  capacity: Boxes,
   day: CalendarDays,
   late: AlertTriangle,
   level: Sparkles,
@@ -64,6 +64,7 @@ export function TopStatusBar({
     displayedSnapshot.factory.operatingStageName,
     1_600,
   );
+  const copy = gameCopy[displayedSnapshot.locale].topStatus;
 
   return (
     <header
@@ -98,7 +99,7 @@ export function TopStatusBar({
           </div>
         </div>
 
-        <div className="grid min-w-0 flex-1 grid-cols-2 divide-x divide-card xl:grid-cols-7">
+        <div className="grid min-w-0 flex-1 grid-cols-2 divide-x divide-card xl:grid-cols-6">
           {displayedSnapshot.metrics.map((metric) => {
             const Icon = metricIcons[metric.id] ?? Gauge;
             const metricVisibilityClassName = compactHeaderMetricIds.has(metric.id)
@@ -113,6 +114,7 @@ export function TopStatusBar({
                   currentCents={Number(displayedSnapshot.factory.cashBalanceCents)}
                   icon={Icon}
                   label={metric.label}
+                  numberLocale={displayedSnapshot.numberLocale}
                 />
               );
             } else if (metric.id === "xp") {
@@ -121,6 +123,7 @@ export function TopStatusBar({
                   currentXp={displayedSnapshot.factory.currentXp}
                   icon={Icon}
                   label={metric.label}
+                  numberLocale={displayedSnapshot.numberLocale}
                 />
               );
             } else if (metric.id === "level") {
@@ -129,10 +132,17 @@ export function TopStatusBar({
                   currentLevel={displayedSnapshot.factory.currentLevel}
                   icon={Icon}
                   label={metric.label}
+                  numberLocale={displayedSnapshot.numberLocale}
                 />
               );
             } else {
-              metricNode = <AnimatedMetric metric={metric} icon={Icon} />;
+              metricNode = (
+                <AnimatedMetric
+                  metric={metric}
+                  icon={Icon}
+                  numberLocale={displayedSnapshot.numberLocale}
+                />
+              );
             }
 
             return (
@@ -145,10 +155,10 @@ export function TopStatusBar({
 
         <div className="flex shrink-0 items-center gap-0.5 border-l border-card pl-1.5 sm:gap-1 sm:pl-2 xl:pl-3">
           <button
-            aria-label="Ranking panelini aç"
+            aria-label={copy.openRankingAria}
             aria-pressed={activePanel?.key === "ranking"}
             className={cn(
-              "flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9",
+              "flex h-7 items-center justify-center rounded-lg px-2 text-primary transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9",
               activePanel?.key === "ranking" &&
                 "bg-primary/12 text-primary",
             )}
@@ -163,41 +173,37 @@ export function TopStatusBar({
             title="Player Ranking"
             type="button"
           >
-            <Trophy className="size-3.5 xl:size-4" />
-            <span className="hidden text-xs font-semibold xl:inline">
-              Ranking
-            </span>
+            <Trophy className="size-3.5 text-primary xl:size-4" />
           </button>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex cursor-not-allowed">
                 <button
-                  aria-label="Mesajlar, yakında"
-                  className="flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground/55 sm:h-8 xl:h-9"
+                  aria-label={copy.messagesAria}
+                  className="flex h-7 items-center justify-center rounded-lg px-2 text-primary/55 sm:h-8 xl:h-9"
                   disabled
                   type="button"
                 >
-                  <Mail className="size-3.5 xl:size-4" />
+                  <Mail className="size-3.5 text-primary/55 xl:size-4" />
                 </button>
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              Mesajlar ve Cooperation sistemi yakında
+              {copy.messagesTooltip}
             </TooltipContent>
           </Tooltip>
 
+          <GameLocaleSwitcher locale={displayedSnapshot.locale} variant="hud" />
+
           <form action={logoutAction}>
             <button
-              aria-label="Çıkış yap"
-              className="flex h-7 items-center justify-center gap-1.5 rounded-lg px-2 text-muted-foreground transition-colors hover:bg-card hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9"
-              title="Çıkış yap"
+              aria-label={copy.logoutAria}
+              className="flex h-7 items-center justify-center rounded-lg px-2 text-primary transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9"
+              title={copy.logoutTitle}
               type="submit"
             >
-              <LogOut className="size-3.5 xl:size-4" />
-              <span className="hidden text-xs font-semibold xl:inline">
-                Logout
-              </span>
+              <LogOut className="size-3.5 text-primary xl:size-4" />
             </button>
           </form>
         </div>
@@ -239,11 +245,13 @@ function AnimatedCashMetric({
   currentCents,
   icon,
   label,
+  numberLocale,
 }: {
   currencyCode: GameSnapshot["factory"]["currencyCode"];
   currentCents: number;
   icon: LucideIcon;
   label: string;
+  numberLocale: GameSnapshot["numberLocale"];
 }) {
   const transition = useNumericTransition(currentCents, VALUE_ANIMATION_MS);
   const isPositive = (transition.change?.delta ?? 0) > 0;
@@ -271,7 +279,7 @@ function AnimatedCashMetric({
                 : ""
           }`}
         >
-          {formatMoneyFromCents(transition.displayValue, currencyCode)}
+          {formatMoneyFromCents(transition.displayValue, currencyCode, numberLocale)}
         </strong>
         {transition.change ? (
           <span
@@ -279,7 +287,11 @@ function AnimatedCashMetric({
               isPositive ? styles.deltaPositive : styles.deltaNegative
             }`}
           >
-            {formatSignedMoneyFromCents(transition.change.delta, currencyCode)}
+            {formatSignedMoneyFromCents(
+              transition.change.delta,
+              currencyCode,
+              numberLocale,
+            )}
           </span>
         ) : null}
       </div>
@@ -291,10 +303,12 @@ function AnimatedXpMetric({
   currentXp,
   icon,
   label,
+  numberLocale,
 }: {
   currentXp: number;
   icon: LucideIcon;
   label: string;
+  numberLocale: GameSnapshot["numberLocale"];
 }) {
   const transition = useNumericTransition(currentXp, VALUE_ANIMATION_MS);
   const isPositive = (transition.change?.delta ?? 0) > 0;
@@ -312,7 +326,7 @@ function AnimatedXpMetric({
             isPositive ? styles.valueXp : isNegative ? styles.valueNegative : ""
           }`}
         >
-          {formatNumber(transition.displayValue)} XP
+          {formatNumber(transition.displayValue, numberLocale)} XP
         </strong>
         {transition.change ? (
           <span
@@ -320,7 +334,7 @@ function AnimatedXpMetric({
               isPositive ? styles.deltaXp : styles.deltaNegative
             }`}
           >
-            {formatSignedNumber(transition.change.delta)} XP
+            {formatSignedNumber(transition.change.delta, numberLocale)} XP
           </span>
         ) : null}
       </div>
@@ -332,10 +346,12 @@ function AnimatedLevelMetric({
   currentLevel,
   icon,
   label,
+  numberLocale,
 }: {
   currentLevel: number;
   icon: LucideIcon;
   label: string;
+  numberLocale: GameSnapshot["numberLocale"];
 }) {
   const transition = useNumericTransition(currentLevel, VALUE_ANIMATION_MS);
   const leveledUp = (transition.change?.delta ?? 0) > 0;
@@ -352,7 +368,7 @@ function AnimatedLevelMetric({
             leveledUp ? styles.valueLevel : ""
           }`}
         >
-          Lv. {formatNumber(transition.displayValue)}
+          Lv. {formatNumber(transition.displayValue, numberLocale)}
         </strong>
         {transition.change ? (
           <span
@@ -360,7 +376,7 @@ function AnimatedLevelMetric({
               leveledUp ? styles.deltaLevel : styles.deltaNegative
             }`}
           >
-            {formatSignedLevel(transition.change.delta)}
+            {formatSignedLevel(transition.change.delta, numberLocale)}
           </span>
         ) : null}
       </div>
@@ -371,9 +387,11 @@ function AnimatedLevelMetric({
 function AnimatedMetric({
   icon,
   metric,
+  numberLocale,
 }: {
   icon: LucideIcon;
   metric: GameSnapshot["metrics"][number];
+  numberLocale: GameSnapshot["numberLocale"];
 }) {
   const numericValue = parseIntegerMetric(metric.value);
   const transition = useNumericTransition(
@@ -387,7 +405,7 @@ function AnimatedMetric({
   const displayValue =
     metric.id === "day" || numericValue === null
       ? metric.value
-      : formatNumber(transition.displayValue);
+      : formatNumber(transition.displayValue, numberLocale);
   const isDayMetric = metric.id === "day";
 
   return (
@@ -563,7 +581,7 @@ function usePulseOnChange(value: string, durationMs: number) {
 }
 
 function parseIntegerMetric(value: string) {
-  const normalizedValue = value.replace(/\./g, "");
+  const normalizedValue = value.replace(/[.,\s\u00a0]/g, "");
   const match = normalizedValue.match(/^-?\d+/);
 
   return match ? Number(match[0]) : null;
@@ -572,8 +590,9 @@ function parseIntegerMetric(value: string) {
 function formatMoneyFromCents(
   cents: number,
   currencyCode: GameSnapshot["factory"]["currencyCode"],
+  numberLocale: GameSnapshot["numberLocale"],
 ) {
-  return new Intl.NumberFormat("tr-TR", {
+  return new Intl.NumberFormat(numberLocale, {
     currency: currencyCode,
     maximumFractionDigits: 0,
     style: "currency",
@@ -583,26 +602,33 @@ function formatMoneyFromCents(
 function formatSignedMoneyFromCents(
   cents: number,
   currencyCode: GameSnapshot["factory"]["currencyCode"],
+  numberLocale: GameSnapshot["numberLocale"],
 ) {
   const sign = cents >= 0 ? "+" : "-";
 
-  return `${sign}${formatMoneyFromCents(Math.abs(cents), currencyCode)}`;
+  return `${sign}${formatMoneyFromCents(Math.abs(cents), currencyCode, numberLocale)}`;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatNumber(value: number, numberLocale: GameSnapshot["numberLocale"]) {
+  return new Intl.NumberFormat(numberLocale, {
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-function formatSignedNumber(value: number) {
+function formatSignedNumber(
+  value: number,
+  numberLocale: GameSnapshot["numberLocale"],
+) {
   const sign = value >= 0 ? "+" : "-";
 
-  return `${sign}${formatNumber(Math.abs(value))}`;
+  return `${sign}${formatNumber(Math.abs(value), numberLocale)}`;
 }
 
-function formatSignedLevel(value: number) {
+function formatSignedLevel(
+  value: number,
+  numberLocale: GameSnapshot["numberLocale"],
+) {
   const sign = value >= 0 ? "+" : "-";
 
-  return `${sign}Lv.${formatNumber(Math.abs(value))}`;
+  return `${sign}Lv.${formatNumber(Math.abs(value), numberLocale)}`;
 }

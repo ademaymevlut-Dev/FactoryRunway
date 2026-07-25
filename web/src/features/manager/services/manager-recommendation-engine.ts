@@ -3,7 +3,12 @@ import {
   TaskProgressStatus,
 } from "@/generated/prisma/enums";
 import type { TasksSnapshot, TaskSnapshot } from "@/features/tasks/types";
+import { normalizeLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
+import {
+  managerCopy,
+  type ManagerRecommendationCopy,
+} from "../manager-copy";
 import type { ManagerRecommendation } from "../types";
 import {
   buildManagerMetrics,
@@ -17,42 +22,52 @@ import {
 const managerRecommendationLimit = 3;
 
 export type BuildManagerRecommendationsInput = BuildManagerMetricsInput & {
+  locale?: SupportedLocale;
   tasks: TasksSnapshot;
 };
 
 export function buildManagerRecommendations(
   input: BuildManagerRecommendationsInput,
 ): ManagerRecommendation[] {
-  const metrics = buildManagerMetrics(input);
+  const locale = normalizeLocale(input.locale);
+  const copy = managerCopy[locale].recommendations;
+  const metrics = buildManagerMetrics({ ...input, locale });
 
   return [
-    evaluateFinancialRisk(metrics, input.tasks),
-    evaluateBottleneck(metrics),
-    evaluateInvestmentOpportunity(metrics, input.tasks),
-    evaluateStaffShortage(metrics),
+    evaluateFinancialRisk(metrics, input.tasks, copy),
+    evaluateBottleneck(metrics, copy),
+    evaluateInvestmentOpportunity(metrics, input.tasks, copy),
+    evaluateStaffShortage(metrics, copy),
   ]
     .filter(isManagerRecommendation)
     .sort((left, right) => right.priority - left.priority)
     .slice(0, managerRecommendationLimit);
 }
 
-function evaluateBottleneck(metrics: ManagerMetrics): ManagerRecommendation | null {
+function evaluateBottleneck(
+  metrics: ManagerMetrics,
+  copy: ManagerRecommendationCopy,
+): ManagerRecommendation | null {
   const bottleneck = metrics.bottlenecks[0];
 
   if (!bottleneck) return null;
 
   const isCritical =
     bottleneck.workloadDays >= 5 || !Number.isFinite(bottleneck.workloadDays);
-  const actionHint = bottleneck.hasOutsourceCandidate
-    ? "Fason adayı işler de var; kuyruk önceliğiyle birlikte dış kaynak seçeneğini değerlendirebiliriz."
-    : "Önce kuyruk önceliğini düzenleyelim; gerekiyorsa yatırım tarafına geçeriz.";
+  const actionHint = copy.bottleneckActionHint(
+    bottleneck.hasOutsourceCandidate,
+  );
 
   return {
-    body: `${bottleneck.departmentName} departmanı ${bottleneck.workloadDaysLabel} iş yükü taşıyor. ${actionHint}`,
+    body: copy.bottleneckBody(
+      bottleneck.departmentName,
+      bottleneck.workloadDaysLabel,
+      actionHint,
+    ),
     category: "OPERATIONS",
     cta: {
       kind: "PANEL",
-      label: "Kuyruğu Aç",
+      label: copy.openQueue,
       panel: "departmentQueue",
       payload: { departmentId: bottleneck.departmentId },
     },
@@ -60,24 +75,24 @@ function evaluateBottleneck(metrics: ManagerMetrics): ManagerRecommendation | nu
     meta: buildBottleneckMeta(bottleneck),
     priority: isCritical ? 88 : 79,
     severity: isCritical ? "CRITICAL" : "WARNING",
-    title: `Müdür: ${bottleneck.departmentName} sıkışıyor`,
+    title: copy.bottleneckTitle(bottleneck.departmentName),
   };
 }
 
 function evaluateInvestmentOpportunity(
   metrics: ManagerMetrics,
   tasks: TasksSnapshot,
+  copy: ManagerRecommendationCopy,
 ): ManagerRecommendation | null {
   const activeInvestmentTask = getActiveInvestmentTask(tasks);
 
   if (activeInvestmentTask?.objectiveType === TaskObjectiveType.OPEN_INVESTMENT_PANEL) {
     return {
-      body:
-        "Sipariş akışını gördük. Şimdi yatırımlar panelini açıp hangi bölümde kapasite büyütebileceğimizi inceleyelim.",
+      body: copy.investmentReviewBody,
       category: "INVESTMENT",
       cta: {
         kind: "PANEL",
-        label: "Yatırımları Aç",
+        label: copy.openInvestments,
         panel: "investment",
       },
       id: "manager:investment-review",
@@ -87,7 +102,7 @@ function evaluateInvestmentOpportunity(
       }),
       priority: 80,
       severity: "OPPORTUNITY",
-      title: "Müdür: büyüme fırsatı var",
+      title: copy.investmentReviewTitle,
     };
   }
 
@@ -95,11 +110,13 @@ function evaluateInvestmentOpportunity(
     if (!metrics.investment.hasAffordableInvestmentOption) return null;
 
     return {
-      body: `Yeni üretim hattı eklemek fabrikayı büyütmenin ilk gerçek adımı. ${getInvestmentAcquisitionHint(metrics.investment)}`,
+      body: copy.acquisitionBody(
+        getInvestmentAcquisitionHint(metrics.investment, copy),
+      ),
       category: "INVESTMENT",
       cta: {
         kind: "PANEL",
-        label: "Hat Yatırımı Yap",
+        label: copy.investInLine,
         panel: "investment",
       },
       id: "manager:first-production-line",
@@ -109,7 +126,7 @@ function evaluateInvestmentOpportunity(
       }),
       priority: 82,
       severity: "OPPORTUNITY",
-      title: "Müdür: ilk yatırım hamlesi hazır",
+      title: copy.acquisitionTitle,
     };
   }
 
@@ -125,11 +142,11 @@ function evaluateInvestmentOpportunity(
   }
 
   return {
-    body: `${bottleneck.departmentName} yükü büyüyor. Nakit uygunken bu departman için yeni hat seçeneğini incelemek mantıklı olabilir.`,
+    body: copy.investmentOpportunityBody(bottleneck.departmentName),
     category: "INVESTMENT",
     cta: {
       kind: "PANEL",
-      label: "Yatırımı İncele",
+      label: copy.reviewInvestment,
       panel: "investment",
       payload: { departmentId: bottleneck.departmentId },
     },
@@ -144,34 +161,42 @@ function evaluateInvestmentOpportunity(
     },
     priority: 76,
     severity: "OPPORTUNITY",
-    title: "Müdür: kapasite yatırımı düşünülebilir",
+    title: copy.investmentOpportunityTitle,
   };
 }
 
-function evaluateStaffShortage(metrics: ManagerMetrics): ManagerRecommendation | null {
+function evaluateStaffShortage(
+  metrics: ManagerMetrics,
+  copy: ManagerRecommendationCopy,
+): ManagerRecommendation | null {
   const shortage = metrics.staffShortages[0];
 
   if (!shortage) return null;
 
   return {
-    body: `${shortage.lineTitle} ${shortage.assignedStaff}/${shortage.idealStaff} personelle çalışıyor. Eksik ekip kapasiteyi aşağı çekebilir.`,
+    body: copy.staffShortageBody(
+      shortage.lineTitle,
+      shortage.assignedStaff,
+      shortage.idealStaff,
+    ),
     category: "OPERATIONS",
     cta: {
       kind: "PANEL",
-      label: "Personeli Aç",
+      label: copy.openStaff,
       panel: "staff",
     },
     id: `manager:staff-shortage:${shortage.lineId}`,
     meta: buildStaffShortageMeta(shortage),
     priority: shortage.coverageBps < 6_000 ? 86 : 78,
     severity: shortage.coverageBps < 6_000 ? "CRITICAL" : "WARNING",
-    title: "Müdür: ekip kapasitesi eksik",
+    title: copy.staffShortageTitle,
   };
 }
 
 function evaluateFinancialRisk(
   metrics: ManagerMetrics,
   tasks: TasksSnapshot,
+  copy: ManagerRecommendationCopy,
 ): ManagerRecommendation | null {
   const activeInvestmentTask = getActiveInvestmentTask(tasks);
 
@@ -180,54 +205,52 @@ function evaluateFinancialRisk(
     activeInvestmentTask?.objectiveType === TaskObjectiveType.ACQUIRE_PRODUCTION_LINE
   ) {
     return {
-      body:
-        "Yeni hat için iştah doğru ama kasa henüz peşinat seviyesine gelmemiş görünüyor. Önce tahsilat ve nakit durumunu kontrol edelim.",
+      body: copy.investmentCashRiskBody,
       category: "FINANCE",
       cta: {
         kind: "PANEL",
-        label: "Finansı Aç",
+        label: copy.openFinance,
         panel: "finance",
       },
       id: "manager:financial-risk:investment-cash",
       meta: buildFinancialMeta(metrics),
       priority: 92,
       severity: "WARNING",
-      title: "Müdür: yatırım için nakit zayıf",
+      title: copy.investmentCashRiskTitle,
     };
   }
 
   if (metrics.lateOrderCount > 0 && metrics.finance.lowCash) {
     return {
-      body: `${metrics.lateOrderCount} geciken sipariş varken kasa rezervi zayıf. Ceza ve tahsilat etkisini finans panelinden izleyelim.`,
+      body: copy.lateOrdersCashRiskBody(metrics.lateOrderCount),
       category: "FINANCE",
       cta: {
         kind: "PANEL",
-        label: "Finansı Aç",
+        label: copy.openFinance,
         panel: "finance",
       },
       id: "manager:financial-risk:late-orders",
       meta: buildFinancialMeta(metrics),
       priority: 90,
       severity: "CRITICAL",
-      title: "Müdür: finansal risk artıyor",
+      title: copy.lateOrdersCashRiskTitle,
     };
   }
 
   if (metrics.finance.leasedLineCount > 0 && metrics.finance.lowCash) {
     return {
-      body:
-        "Kiralı hat ödemeleri varken nakit rezervi inceliyor. Yeni harcama öncesi dönem giderlerini kontrol etmek iyi olur.",
+      body: copy.leasingReserveBody,
       category: "FINANCE",
       cta: {
         kind: "PANEL",
-        label: "Finansı Aç",
+        label: copy.openFinance,
         panel: "finance",
       },
       id: "manager:financial-risk:leasing-reserve",
       meta: buildFinancialMeta(metrics),
       priority: 84,
       severity: "WARNING",
-      title: "Müdür: leasing rezervini koruyalım",
+      title: copy.leasingReserveTitle,
     };
   }
 
@@ -251,16 +274,19 @@ function isActiveInvestmentTask(task: TaskSnapshot | null): task is TaskSnapshot
   );
 }
 
-function getInvestmentAcquisitionHint(summary: ManagerInvestmentMetrics) {
+function getInvestmentAcquisitionHint(
+  summary: ManagerInvestmentMetrics,
+  copy: ManagerRecommendationCopy,
+) {
   if (summary.affordablePurchaseCount > 0) {
-    return "Kasada en az bir hattı satın alabilecek güç görünüyor.";
+    return copy.acquisitionHintPurchase;
   }
 
   if (summary.affordableLeaseOfferCount > 0) {
-    return "Satın alma ağır gelirse kiralama seçeneği iyi bir geçiş hamlesi olabilir.";
+    return copy.acquisitionHintLease;
   }
 
-  return "Nakit sıkıysa önce maliyeti görüp hedef nakdi planlayalım.";
+  return copy.acquisitionHintTightCash;
 }
 
 function isManagerRecommendation(

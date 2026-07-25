@@ -20,8 +20,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
+import type { SupportedLocale } from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 
+import { managerCopy } from "../manager-copy";
 import type { ManagerRecommendation } from "../types";
 
 const severityClasses: Record<ManagerRecommendation["severity"], string> = {
@@ -31,24 +33,14 @@ const severityClasses: Record<ManagerRecommendation["severity"], string> = {
   WARNING: "border-amber-400/25 bg-amber-500/10 text-amber-100",
 };
 
-const severityLabels: Record<ManagerRecommendation["severity"], string> = {
-  CRITICAL: "Kritik",
-  INFO: "Bilgi",
-  OPPORTUNITY: "Fırsat",
-  WARNING: "Uyarı",
-};
-
-const categoryLabels: Record<ManagerRecommendation["category"], string> = {
-  FINANCE: "Finans",
-  INVESTMENT: "Yatırım",
-  OPERATIONS: "Operasyon",
-};
-
 export function ManagerRecommendationsPanel({
+  locale,
   recommendations,
 }: {
+  locale: SupportedLocale;
   recommendations: ManagerRecommendation[];
 }) {
+  const copy = managerCopy[locale];
   const { openPanel } = useGameUiStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const safeIndex =
@@ -82,10 +74,10 @@ export function ManagerRecommendationsPanel({
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">
-              Yönetim gündemi
+              {copy.panel.title}
             </p>
             <p className="text-xs text-muted-foreground">
-              Müdür tavsiyeleri
+              {copy.panel.subtitle}
             </p>
           </div>
         </div>
@@ -93,14 +85,14 @@ export function ManagerRecommendationsPanel({
           className="shrink-0 border-primary/25 bg-primary/10 text-primary"
           variant="outline"
         >
-          {recommendations.length} not
+          {copy.panel.noteCount(recommendations.length)}
         </Badge>
       </header>
 
       {hasMultipleRecommendations ? (
         <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-2 py-1.5">
           <Button
-            aria-label="Önceki yönetim notu"
+            aria-label={copy.panel.previousAria}
             onClick={() => goToRecommendation(-1)}
             size="icon-sm"
             type="button"
@@ -112,7 +104,7 @@ export function ManagerRecommendationsPanel({
             {safeIndex + 1} / {recommendations.length}
           </span>
           <Button
-            aria-label="Sonraki yönetim notu"
+            aria-label={copy.panel.nextAria}
             onClick={() => goToRecommendation(1)}
             size="icon-sm"
             type="button"
@@ -125,26 +117,29 @@ export function ManagerRecommendationsPanel({
 
       {activeRecommendation ? (
         <ManagerRecommendationCard
+          copy={copy}
           onCta={followRecommendation}
           positionLabel={
             hasMultipleRecommendations
               ? `${safeIndex + 1} / ${recommendations.length}`
-              : "Yönetim"
+              : copy.panel.singlePosition
           }
           recommendation={activeRecommendation}
         />
       ) : (
-        <EmptyManagementState />
+        <EmptyManagementState copy={copy.panel} />
       )}
     </div>
   );
 }
 
 function ManagerRecommendationCard({
+  copy,
   onCta,
   positionLabel,
   recommendation,
 }: {
+  copy: (typeof managerCopy)[SupportedLocale];
   onCta: (recommendation: ManagerRecommendation) => void;
   positionLabel: string;
   recommendation: ManagerRecommendation;
@@ -164,7 +159,7 @@ function ManagerRecommendationCard({
             </span>
             <div className="min-w-0">
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {positionLabel} · {categoryLabels[recommendation.category]}
+                {positionLabel} · {copy.labels.categories[recommendation.category]}
               </p>
               <CardTitle className="mt-1 line-clamp-2 text-base leading-5 text-foreground">
                 {recommendation.title}
@@ -178,7 +173,7 @@ function ManagerRecommendationCard({
             )}
             variant="outline"
           >
-            {severityLabels[recommendation.severity]}
+            {copy.labels.severities[recommendation.severity]}
           </Badge>
         </div>
       </CardHeader>
@@ -201,7 +196,7 @@ function ManagerRecommendationCard({
           </Button>
         ) : (
           <Button disabled type="button" variant="secondary">
-            Takipte
+            {copy.panel.followUp}
           </Button>
         )}
       </CardFooter>
@@ -209,17 +204,17 @@ function ManagerRecommendationCard({
   );
 }
 
-function EmptyManagementState() {
+function EmptyManagementState({ copy }: { copy: (typeof managerCopy)[SupportedLocale]["panel"] }) {
   return (
     <Card className="border border-dashed border-border bg-card" size="sm">
       <CardContent className="grid min-h-[260px] place-items-center text-center">
         <div>
           <CheckCircle2 className="mx-auto text-emerald-300" size={30} />
           <h3 className="mt-3 font-semibold text-foreground">
-            Yönetim notu yok
+            {copy.emptyTitle}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Müdür şimdilik ek aksiyon önermiyor.
+            {copy.emptyBody}
           </p>
         </div>
       </CardContent>

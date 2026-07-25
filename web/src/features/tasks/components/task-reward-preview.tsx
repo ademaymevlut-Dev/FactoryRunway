@@ -2,14 +2,17 @@ import { Coins, Sparkles, Ticket } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import type { CurrencyCode } from "@/generated/prisma/enums";
+import type { NumberLocale } from "@/lib/i18n/locales";
 
 import type { TaskRewardView } from "../types";
 
 export function TaskRewardPreview({
   currencyCode,
+  numberLocale,
   reward,
 }: {
   currencyCode: CurrencyCode;
+  numberLocale: NumberLocale;
   reward: TaskRewardView;
 }) {
   return (
@@ -29,15 +32,19 @@ export function TaskRewardPreview({
       {reward.cashCents && BigInt(reward.cashCents) > BigInt(0) ? (
         <Badge className="border-emerald-400/25 bg-emerald-400/10 text-emerald-100" variant="outline">
           <Coins size={12} />
-          {formatCash(reward.cashCents, currencyCode)}
+          {formatCash(reward.cashCents, currencyCode, numberLocale)}
         </Badge>
       ) : null}
     </div>
   );
 }
 
-function formatCash(cents: string, currencyCode: CurrencyCode) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatCash(
+  cents: string,
+  currencyCode: CurrencyCode,
+  numberLocale: NumberLocale,
+) {
+  return new Intl.NumberFormat(numberLocale, {
     currency: currencyCode,
     maximumFractionDigits: 0,
     style: "currency",

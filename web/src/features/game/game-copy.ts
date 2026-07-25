@@ -1,0 +1,547 @@
+import type { ProductionGrade } from "@/generated/prisma/enums";
+import type { SupportedLocale } from "@/lib/i18n/locales";
+
+import type { FactoryLineWorkloadState, GamePanelKey } from "./types";
+
+export const gameCopy = {
+  tr: {
+    dock: {
+      navLabel: "Departman menüsü",
+      guideAria: "Oyun Rehberi",
+      guideTitle: "Oyun Rehberi",
+      guideSubtitle: "Akışları incele",
+    },
+    leftDock: {
+      navLabel: "Hızlı oyun menüsü",
+      items: {
+        finance: { label: "Finans", tooltip: "Finans" },
+        management: { label: "Yönetim", tooltip: "Yönetim tavsiyeleri" },
+        orders: { label: "Sipariş", tooltip: "Yeni Siparişler" },
+        reports: { label: "Reports", tooltip: "Raporlar" },
+        tasks: { label: "Görevler", tooltip: "Görevler" },
+      },
+    },
+    map: {
+      ariaLabel: "Fabrika haritası",
+      lineCount: (count: number) => `${count} hat`,
+      lineDetailAria: (title: string) => `${title} detay`,
+      workloadTitle: "İş Yükü",
+      noCapacity: "kapasite yok.",
+      days: (days: number) => `${days} gün.`,
+      investmentLabelFallback: "Yeni Hat",
+      slotStatus: {
+        active: "Aktif",
+        busy: "Dolu",
+        idle: "Boş",
+        locked: "Kilitli",
+        risk: "Riskli",
+      },
+      productionGrades: {
+        INDUSTRIAL: {
+          label: "Industrial Grade",
+          readyLabel: "Premium Uygun",
+          titleLabel: "Endüstriyel Standardı",
+        },
+        PRECISION: {
+          label: "Precision Grade",
+          readyLabel: "Luxury Uygun",
+          titleLabel: "Hassas Standardı",
+        },
+        SMART: {
+          label: "Smart Grade",
+          readyLabel: "Verimlilik Bonusu",
+          titleLabel: "Akıllı Standardı",
+        },
+        WORKSHOP: {
+          label: "Workshop Grade",
+          readyLabel: "Basic Uygun",
+          titleLabel: "Atölye Standardı",
+        },
+      },
+    },
+    panels: {
+      closeAria: "Paneli kapat",
+      titles: {
+        cutting: "Kesim",
+        departmentDetail: "Departman",
+        departmentQueue: "Üretim Kuyruğu",
+        finance: "Finans",
+        investment: "Üretim Hattı Yatırımı",
+        lineDetail: "Üretim Hattı Geliştirme",
+        management: "Yönetim",
+        orders: "Siparişler",
+        production: "Üretim",
+        ranking: "",
+        reports: "Raporlar",
+        staff: "Personel",
+        tasks: "Görevler",
+        warehouse: "Depo",
+      },
+      production: {
+        title: "Üretim",
+        value: (count: number) => `${count} hat`,
+        body: "Kurulu üretim alanları haritada hazır.",
+      },
+      staff: {
+        title: "Personel",
+        body: "Ekip planı ayrı panelde takip edilecek.",
+      },
+      lineMissing: {
+        title: "Hat Detayı",
+        body: "Seçili üretim hattı bulunamadı.",
+      },
+      departmentMissing: {
+        title: "Departman",
+        body: "Seçili departman bulunamadı.",
+      },
+      departmentClean: "Temiz",
+      departmentDatum: {
+        department: "Departman",
+        dockId: "Dock ID",
+        icon: "İkon",
+        order: "Sıra",
+      },
+    },
+    shiftControl: {
+      pending: "Çalışıyor",
+      playing: "Oynatılıyor",
+      start: "Vardiyayı başlat",
+      day: (day: number) => `${day}. gün`,
+    },
+    snapshot: {
+      badges: {
+        activeTask: "Aktif görev",
+        managementNote: "Yönetim notu",
+        materialMissing: "Malzeme uyarısı",
+        newOrder: "Yeni sipariş",
+        pendingTask: "Bekleyen iş",
+        queueBottleneck: "Kuyruk / darboğaz",
+        rewardWaiting: "Ödül bekliyor",
+        shippingReady: "Sevke hazır",
+        warehouseInbound: "Yolda",
+      },
+      dockLabels: {
+        shipping: "Sevkiyat",
+        warehouse: "Depo",
+      },
+      investmentAction: {
+        title: "Yatırım Yap",
+        subtitle: (groupTitle: string) => `${groupTitle} yatırımları`,
+      },
+      lineTitle: (departmentName: string, lineNumber: number) =>
+        `${departmentName} Hattı ${lineNumber}`,
+      metrics: {
+        activeOrder: "Aktif Sipariş",
+        cash: "Nakit",
+        clean: "Temiz",
+        day: "Gün",
+        financePeriod: (period: number) => `Finans ${period}. dönem`,
+        installedLine: "Kurulu Hat",
+        late: "Geciken",
+        level: "Seviye",
+        maxLevel: "Maksimum seviye",
+        productionArea: "Üretim alanı",
+        productionOrders: (count: number) => `${count} üretim emri`,
+        risk: "Risk altında",
+        xp: "Tecrübe",
+        xpForNextLevel: (level: number, xp: string) => `Lv. ${level} için ${xp} XP`,
+        xpRemaining: (xp: string) => `${xp} XP kaldı`,
+      },
+      monthNames: [
+        "Ocak",
+        "Şubat",
+        "Mart",
+        "Nisan",
+        "Mayıs",
+        "Haziran",
+        "Temmuz",
+        "Ağustos",
+        "Eylül",
+        "Ekim",
+        "Kasım",
+        "Aralık",
+      ],
+      monthYear: (monthName: string, yearIndex: number) =>
+        `${monthName} - ${yearIndex}. Yıl`,
+      notifications: {
+        factoryStableTitle: "Fabrika akışı sakin",
+        factoryStableBody: "Haritada acil uyarı yok.",
+        lateOrdersTitle: "Teslimat riski",
+        lateOrdersBody: (count: number) => `${count} sipariş gecikme durumunda.`,
+        productionActiveTitle: "Üretim emri aktif",
+        productionActiveBody: (count: number) => `${count} üretim emri takipte.`,
+        tierUnlockedTitle: (tier: string) => `${tier} siparişleri açıldı`,
+        tierUnlockedBody: (tier: string) =>
+          `Fabrika tecrübe seviyen artık ${tier} siparişleri için uygun. Yeni teklifler gelmeye başlayacak.`,
+      },
+    },
+    taskCta: {
+      acceptOrder: "Siparişlere Git",
+      advanceShift: "Vardiyayı İlerle",
+      finance: "Finansı Aç",
+      investment: "Yatırımları İncele",
+      productionQueue: "Üretim Kuyruğuna Git",
+      staff: "Personeli İncele",
+      warehouse: "Depoyu İncele",
+    },
+    topStatus: {
+      messagesAria: "Mesajlar, yakında",
+      messagesTooltip: "Mesajlar ve Cooperation sistemi yakında",
+      openRankingAria: "Ranking panelini aç",
+      logoutAria: "Çıkış yap",
+      logoutTitle: "Çıkış yap",
+      logoutLabel: "Logout",
+    },
+    workload: {
+      daySuffix: "g",
+      noCapacity: "Kapasite Yok",
+      states: {
+        balanced: "Dengeli",
+        constrained: "Sıkışma Riski",
+        critical: "Kritik Darboğaz",
+        empty: "Boşta",
+        low: "Düşük Yük",
+        thin: "Zayıf Yük",
+      },
+    },
+  },
+  en: {
+    dock: {
+      navLabel: "Department menu",
+      guideAria: "Gameplay Guide",
+      guideTitle: "Gameplay Guide",
+      guideSubtitle: "Review flows",
+    },
+    leftDock: {
+      navLabel: "Quick game menu",
+      items: {
+        finance: { label: "Finance", tooltip: "Finance" },
+        management: { label: "Manager", tooltip: "Manager recommendations" },
+        orders: { label: "Orders", tooltip: "New Orders" },
+        reports: { label: "Reports", tooltip: "Reports" },
+        tasks: { label: "Tasks", tooltip: "Tasks" },
+      },
+    },
+    map: {
+      ariaLabel: "Factory map",
+      lineCount: (count: number) => `${count} lines`,
+      lineDetailAria: (title: string) => `${title} details`,
+      workloadTitle: "Workload",
+      noCapacity: "no capacity.",
+      days: (days: number) => `${days} days.`,
+      investmentLabelFallback: "New Line",
+      slotStatus: {
+        active: "Active",
+        busy: "Busy",
+        idle: "Idle",
+        locked: "Locked",
+        risk: "At Risk",
+      },
+      productionGrades: {
+        INDUSTRIAL: {
+          label: "Industrial Grade",
+          readyLabel: "Premium Ready",
+          titleLabel: "Industrial Grade",
+        },
+        PRECISION: {
+          label: "Precision Grade",
+          readyLabel: "Luxury Ready",
+          titleLabel: "Precision Grade",
+        },
+        SMART: {
+          label: "Smart Grade",
+          readyLabel: "Efficiency Bonus",
+          titleLabel: "Smart Grade",
+        },
+        WORKSHOP: {
+          label: "Workshop Grade",
+          readyLabel: "Basic Ready",
+          titleLabel: "Workshop Grade",
+        },
+      },
+    },
+    panels: {
+      closeAria: "Close panel",
+      titles: {
+        cutting: "Cutting",
+        departmentDetail: "Department",
+        departmentQueue: "Production Queue",
+        finance: "Finance",
+        investment: "Production Line Investment",
+        lineDetail: "Production Line Upgrade",
+        management: "Management",
+        orders: "Orders",
+        production: "Production",
+        ranking: "",
+        reports: "Reports",
+        staff: "Staff",
+        tasks: "Tasks",
+        warehouse: "Warehouse",
+      },
+      production: {
+        title: "Production",
+        value: (count: number) => `${count} lines`,
+        body: "Installed production areas are ready on the map.",
+      },
+      staff: {
+        title: "Staff",
+        body: "Team planning will be tracked in a separate panel.",
+      },
+      lineMissing: {
+        title: "Line Details",
+        body: "The selected production line was not found.",
+      },
+      departmentMissing: {
+        title: "Department",
+        body: "The selected department was not found.",
+      },
+      departmentClean: "Clear",
+      departmentDatum: {
+        department: "Department",
+        dockId: "Dock ID",
+        icon: "Icon",
+        order: "Order",
+      },
+    },
+    shiftControl: {
+      pending: "Running",
+      playing: "Playing",
+      start: "Start shift",
+      day: (day: number) => `Day ${day}`,
+    },
+    snapshot: {
+      badges: {
+        activeTask: "Active task",
+        managementNote: "Manager note",
+        materialMissing: "Material warning",
+        newOrder: "New order",
+        pendingTask: "Pending work",
+        queueBottleneck: "Queue / bottleneck",
+        rewardWaiting: "Reward waiting",
+        shippingReady: "Ready to ship",
+        warehouseInbound: "Inbound",
+      },
+      dockLabels: {
+        shipping: "Shipping",
+        warehouse: "Warehouse",
+      },
+      investmentAction: {
+        title: "Invest",
+        subtitle: (groupTitle: string) => `${groupTitle} investments`,
+      },
+      lineTitle: (departmentName: string, lineNumber: number) =>
+        `${departmentName} Line ${lineNumber}`,
+      metrics: {
+        activeOrder: "Active Orders",
+        cash: "Cash",
+        clean: "Clear",
+        day: "Day",
+        financePeriod: (period: number) => `Finance period ${period}`,
+        installedLine: "Installed Lines",
+        late: "Late",
+        level: "Level",
+        maxLevel: "Max level",
+        productionArea: "Production area",
+        productionOrders: (count: number) => `${count} production orders`,
+        risk: "At risk",
+        xp: "Experience",
+        xpForNextLevel: (level: number, xp: string) => `${xp} XP for Lv. ${level}`,
+        xpRemaining: (xp: string) => `${xp} XP left`,
+      },
+      monthNames: [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ],
+      monthYear: (monthName: string, yearIndex: number) =>
+        `${monthName} - Year ${yearIndex}`,
+      notifications: {
+        factoryStableTitle: "Factory flow is calm",
+        factoryStableBody: "No urgent alert on the map.",
+        lateOrdersTitle: "Delivery risk",
+        lateOrdersBody: (count: number) => `${count} orders are at risk of delay.`,
+        productionActiveTitle: "Production orders active",
+        productionActiveBody: (count: number) => `${count} production orders are being tracked.`,
+        tierUnlockedTitle: (tier: string) => `${tier} orders unlocked`,
+        tierUnlockedBody: (tier: string) =>
+          `Your factory experience level now qualifies for ${tier} orders. New offers will start appearing.`,
+      },
+    },
+    taskCta: {
+      acceptOrder: "Go to Orders",
+      advanceShift: "Advance Shift",
+      finance: "Open Finance",
+      investment: "Review Investments",
+      productionQueue: "Go to Production Queue",
+      staff: "Review Staff",
+      warehouse: "Review Warehouse",
+    },
+    topStatus: {
+      messagesAria: "Messages, coming soon",
+      messagesTooltip: "Messages and Cooperation are coming soon",
+      openRankingAria: "Open ranking panel",
+      logoutAria: "Log out",
+      logoutTitle: "Log out",
+      logoutLabel: "Logout",
+    },
+    workload: {
+      daySuffix: "d",
+      noCapacity: "No Capacity",
+      states: {
+        balanced: "Balanced",
+        constrained: "Congestion Risk",
+        critical: "Critical Bottleneck",
+        empty: "Idle",
+        low: "Low Load",
+        thin: "Thin Load",
+      },
+    },
+  },
+} as const satisfies Record<
+  SupportedLocale,
+  {
+    dock: {
+      navLabel: string;
+      guideAria: string;
+      guideTitle: string;
+      guideSubtitle: string;
+    };
+    leftDock: {
+      navLabel: string;
+      items: Record<
+        "finance" | "management" | "orders" | "reports" | "tasks",
+        { label: string; tooltip: string }
+      >;
+    };
+    map: {
+      ariaLabel: string;
+      lineCount: (count: number) => string;
+      lineDetailAria: (title: string) => string;
+      workloadTitle: string;
+      noCapacity: string;
+      days: (days: number) => string;
+      investmentLabelFallback: string;
+      slotStatus: Record<"active" | "busy" | "idle" | "locked" | "risk", string>;
+      productionGrades: Record<
+        ProductionGrade,
+        { label: string; readyLabel: string; titleLabel: string }
+      >;
+    };
+    panels: {
+      closeAria: string;
+      titles: Record<GamePanelKey, string>;
+      production: {
+        title: string;
+        value: (count: number) => string;
+        body: string;
+      };
+      staff: {
+        title: string;
+        body: string;
+      };
+      lineMissing: {
+        title: string;
+        body: string;
+      };
+      departmentMissing: {
+        title: string;
+        body: string;
+      };
+      departmentClean: string;
+      departmentDatum: {
+        department: string;
+        dockId: string;
+        icon: string;
+        order: string;
+      };
+    };
+    shiftControl: {
+      pending: string;
+      playing: string;
+      start: string;
+      day: (day: number) => string;
+    };
+    snapshot: {
+      badges: Record<
+        | "activeTask"
+        | "managementNote"
+        | "materialMissing"
+        | "newOrder"
+        | "pendingTask"
+        | "queueBottleneck"
+        | "rewardWaiting"
+        | "shippingReady"
+        | "warehouseInbound",
+        string
+      >;
+      dockLabels: Record<"shipping" | "warehouse", string>;
+      investmentAction: {
+        title: string;
+        subtitle: (groupTitle: string) => string;
+      };
+      lineTitle: (departmentName: string, lineNumber: number) => string;
+      metrics: {
+        activeOrder: string;
+        cash: string;
+        clean: string;
+        day: string;
+        financePeriod: (period: number) => string;
+        installedLine: string;
+        late: string;
+        level: string;
+        maxLevel: string;
+        productionArea: string;
+        productionOrders: (count: number) => string;
+        risk: string;
+        xp: string;
+        xpForNextLevel: (level: number, xp: string) => string;
+        xpRemaining: (xp: string) => string;
+      };
+      monthNames: readonly string[];
+      monthYear: (monthName: string, yearIndex: number) => string;
+      notifications: {
+        factoryStableTitle: string;
+        factoryStableBody: string;
+        lateOrdersTitle: string;
+        lateOrdersBody: (count: number) => string;
+        productionActiveTitle: string;
+        productionActiveBody: (count: number) => string;
+        tierUnlockedTitle: (tier: string) => string;
+        tierUnlockedBody: (tier: string) => string;
+      };
+    };
+    taskCta: {
+      acceptOrder: string;
+      advanceShift: string;
+      finance: string;
+      investment: string;
+      productionQueue: string;
+      staff: string;
+      warehouse: string;
+    };
+    topStatus: {
+      messagesAria: string;
+      messagesTooltip: string;
+      openRankingAria: string;
+      logoutAria: string;
+      logoutTitle: string;
+      logoutLabel: string;
+    };
+    workload: {
+      daySuffix: string;
+      noCapacity: string;
+      states: Record<FactoryLineWorkloadState, string>;
+    };
+  }
+>;
+
+export type GameCopy = (typeof gameCopy)[SupportedLocale];

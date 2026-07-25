@@ -155,6 +155,7 @@ export function ProductionQueueRow({
         </div>
 
         <CompactMetric
+          frameless
           highlight
           isTargetActive={metricTargets?.planned === activeMetricTarget}
           label={labels.planned}
@@ -164,6 +165,7 @@ export function ProductionQueueRow({
         {layout === "default" ? (
           <>
             <CompactMetric
+              frameless
               label={labels.inputReady}
               value={item.inputReadyQuantityLabel}
             />
@@ -174,10 +176,11 @@ export function ProductionQueueRow({
           </>
         ) : null}
         <CompactMetric
+          frameless
+          highlight
           isTargetActive={metricTargets?.remaining === activeMetricTarget}
           label={labels.remaining}
           target={metricTargets?.remaining}
-          tone={item.dueTone}
           value={item.remainingQuantityLabel}
         />
         {layout === "default" ? (
@@ -195,6 +198,7 @@ export function ProductionQueueRow({
 }
 
 function CompactMetric({
+  frameless = false,
   highlight = false,
   isTargetActive = false,
   label,
@@ -202,6 +206,7 @@ function CompactMetric({
   tone,
   value,
 }: {
+  frameless?: boolean;
   highlight?: boolean;
   isTargetActive?: boolean;
   label: string;
@@ -212,9 +217,14 @@ function CompactMetric({
   return (
     <div
       className={cn(
-        "min-w-0 rounded-md border border-border bg-card/35 px-2 py-1 transition-[background-color,box-shadow] lg:border-0 lg:bg-transparent lg:px-0 lg:py-0",
+        "min-w-0 rounded-md transition-[background-color,box-shadow]",
+        frameless
+          ? "border-0 bg-transparent px-0 py-0"
+          : "border border-border bg-card/35 px-2 py-1 lg:border-0 lg:bg-transparent lg:px-0 lg:py-0",
         isTargetActive &&
-          "bg-primary/12 shadow-[0_0_0_1px_color-mix(in_srgb,var(--primary)_65%,transparent),0_0_20px_color-mix(in_srgb,var(--primary)_18%,transparent)]",
+          (frameless
+            ? "bg-primary/10"
+            : "bg-primary/12 shadow-[0_0_0_1px_color-mix(in_srgb,var(--primary)_65%,transparent),0_0_20px_color-mix(in_srgb,var(--primary)_18%,transparent)]"),
       )}
       data-highlighted={isTargetActive}
       data-showcase-target={target}

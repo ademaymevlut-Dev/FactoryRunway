@@ -6,6 +6,7 @@ import { purchaseProductionLine } from "@/features/investment/services/purchase-
 import type { PurchaseProductionLineResult } from "@/features/investment/types";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { getPlayerPreferredLocale } from "@/lib/i18n/player-locale";
 
 export async function purchaseProductionLineAction(
   _previousState: PurchaseProductionLineResult | null,
@@ -29,7 +30,9 @@ export async function purchaseProductionLineAction(
   }
 
   try {
+    const locale = await getPlayerPreferredLocale(user.id);
     const result = await purchaseProductionLine({
+      locale,
       prisma: getPrisma(),
       purchase: {
         factoryId,

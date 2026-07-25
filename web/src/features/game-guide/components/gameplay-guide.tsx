@@ -44,43 +44,15 @@ import { GameUiProvider } from "@/features/game/store/game-ui-store";
 import { TopStatusBar } from "@/features/game/components/top-status-bar";
 import type { GameSnapshot } from "@/features/game/types";
 
+import {
+  BOTTLENECK_QUEUE_ITEMS,
+  gameplayGuideCopy,
+  type FlowStep,
+  type GameplayGuideCopy,
+  type GuideSectionId,
+  type ProductPreview,
+} from "./gameplay-guide-copy";
 import styles from "./gameplay-guide.module.css";
-
-const GUIDE_SECTIONS = [
-  { id: "overview", label: "Başlangıç", shortLabel: "01" },
-  { id: "normal-flow", label: "Normal rota", shortLabel: "02" },
-  { id: "outsource-flow", label: "Fason rota", shortLabel: "03" },
-  { id: "bottleneck", label: "Kuyruk", shortLabel: "04" },
-  { id: "shift-check", label: "Kontrol", shortLabel: "05" },
-] as const;
-
-const BOTTLENECK_QUEUE_ITEMS = ["01", "02", "03", "04", "05", "06"] as const;
-
-type GuideSectionId = (typeof GUIDE_SECTIONS)[number]["id"];
-
-type FlowStep = {
-  id: string;
-  index: string;
-  eyebrow: string;
-  title: string;
-  description: string;
-  departmentImage: string;
-  departmentAlt: string;
-  productImage: string;
-  productAlt: string;
-  outputLabel: string;
-  x: number;
-  y: number;
-  tone?: "cyan" | "amber";
-  durationNote?: string;
-};
-
-type ProductPreview = {
-  alt: string;
-  eyebrow: string;
-  image: string;
-  title: string;
-};
 
 const NORMAL_ROUTE_PATH =
   "M 170 342 C 260 342 348 342 405 342 S 575 342 720 342 S 890 342 1035 342 S 1205 342 1430 342";
@@ -88,155 +60,18 @@ const NORMAL_ROUTE_PATH =
 const OUTSOURCE_ROUTE_PATH =
   "M 170 390 C 260 390 310 260 485 260 S 675 390 800 390 S 1045 390 1120 390 S 1320 390 1430 390";
 
-const normalFlowSteps: FlowStep[] = [
-  {
-    id: "warehouse",
-    index: "01",
-    eyebrow: "Hammadde",
-    title: "Kumaş Deposu",
-    description: "Siparişe ayrılan kumaş üretim rotasına çıkar.",
-    departmentImage: "/game-guide/fabric_warehouse.webp",
-    departmentAlt: "Kumaş deposu üretim alanı",
-    productImage: "/game-guide/kesime_giden_kumas.webp",
-    productAlt: "Kesime giden kumaş rulosu",
-    outputLabel: "Kesime hazır kumaş",
-    x: 170,
-    y: 342,
-  },
-  {
-    id: "cutting",
-    index: "02",
-    eyebrow: "1. operasyon",
-    title: "Kesim",
-    description: "Kumaş, ürünün kalıp parçalarına dönüşür.",
-    departmentImage: "/game-guide/cutting_department.webp",
-    departmentAlt: "Kesim departmanı",
-    productImage: "/game-guide/dikime_giden_basic.webp",
-    productAlt: "Dikime giden kesilmiş basic ürün parçaları",
-    outputLabel: "Kesilmiş parçalar",
-    x: 485,
-    y: 342,
-  },
-  {
-    id: "sewing",
-    index: "03",
-    eyebrow: "2. operasyon",
-    title: "Dikim",
-    description: "Parçalar birleşir; ürün ilk kez bütün hâle gelir.",
-    departmentImage: "/game-guide/sewing_department.webp",
-    departmentAlt: "Dikim departmanı",
-    productImage: "/game-guide/utupaket_giden_basic.webp",
-    productAlt: "Ütü pakete giden dikilmiş basic ürün",
-    outputLabel: "Dikilmiş ürün",
-    x: 800,
-    y: 342,
-  },
-  {
-    id: "iron-packing",
-    index: "04",
-    eyebrow: "Son operasyon",
-    title: "Ütü · Paket",
-    description: "Ürün ütülenir, katlanır ve sevke hazırlanır.",
-    departmentImage: "/game-guide/iron_packing_department.webp",
-    departmentAlt: "Ütü ve paket departmanı",
-    productImage: "/game-guide/utupaket_biten_basic.webp",
-    productAlt: "Paketlenmiş basic ürün",
-    outputLabel: "Paketlenmiş ürün",
-    x: 1115,
-    y: 342,
-  },
-  {
-    id: "shipping",
-    index: "05",
-    eyebrow: "Tamamlandı",
-    title: "Sevkiyat",
-    description: "Tamamlanan adetler paletlenir ve siparişe yazılır.",
-    departmentImage: "/game-guide/shipment.webp",
-    departmentAlt: "Sevkiyat departmanı",
-    productImage: "/game-guide/sevkiyat_pallet.webp",
-    productAlt: "Sevkiyata hazır palet",
-    outputLabel: "Teslime hazır",
-    x: 1430,
-    y: 342,
-  },
-];
-
-const outsourceFlowSteps: FlowStep[] = [
-  {
-    id: "outsource-cutting",
-    index: "01",
-    eyebrow: "Fabrika içinde",
-    title: "Kesim",
-    description: "Baskıdan önce ürün parçaları kesilir.",
-    departmentImage: "/game-guide/cutting_department.webp",
-    departmentAlt: "Kesim departmanı",
-    productImage: "/game-guide/baskiya_giden_parca.webp",
-    productAlt: "Baskıya giden kesilmiş ürün parçası",
-    outputLabel: "Baskısız kesilmiş parça",
-    x: 170,
-    y: 390,
-  },
-  {
-    id: "outsource-print",
-    index: "02",
-    eyebrow: "Fabrika dışında",
-    title: "Fason Baskı",
-    description: "Parça tesisten çıkar; fason süresi burada işler.",
-    departmentImage: "/game-guide/print_outsource_fason.webp",
-    departmentAlt: "Fason baskı işletmesi",
-    productImage: "/game-guide/baskidan_cikan.webp",
-    productAlt: "Baskıdan çıkan kesilmiş ürün parçası",
-    outputLabel: "Baskısı tamamlandı",
-    x: 485,
-    y: 260,
-    tone: "amber",
-    durationNote: "Fason işlem süresi 3 ile 6 iş günü sürer.",
-  },
-  {
-    id: "outsource-sewing",
-    index: "03",
-    eyebrow: "Fabrikaya dönüş",
-    title: "Dikim Kuyruğu",
-    description: "Baskı bitince parça döner ve ancak o zaman sıraya girer.",
-    departmentImage: "/game-guide/sewing_department.webp",
-    departmentAlt: "Dikim departmanı",
-    productImage: "/game-guide/utupaket_giden_baskili.webp",
-    productAlt: "Ütü pakete giden baskılı dikilmiş ürün",
-    outputLabel: "Dikilmiş baskılı ürün",
-    x: 800,
-    y: 390,
-  },
-  {
-    id: "outsource-iron",
-    index: "04",
-    eyebrow: "Son operasyon",
-    title: "Ütü · Paket",
-    description: "Dönen ürün normal fabrika akışına devam eder.",
-    departmentImage: "/game-guide/iron_packing_department.webp",
-    departmentAlt: "Ütü ve paket departmanı",
-    productImage: "/game-guide/utupaket_biten_baskili.webp",
-    productAlt: "Paketlenmiş baskılı ürün",
-    outputLabel: "Paketlenmiş baskılı ürün",
-    x: 1120,
-    y: 390,
-  },
-  {
-    id: "outsource-shipping",
-    index: "05",
-    eyebrow: "Tamamlandı",
-    title: "Sevkiyat",
-    description: "Fason bekleme dâhil tüm rota tamamlanmıştır.",
-    departmentImage: "/game-guide/shipment.webp",
-    departmentAlt: "Sevkiyat departmanı",
-    productImage: "/game-guide/sevkiyat_pallet.webp",
-    productAlt: "Sevkiyata hazır palet",
-    outputLabel: "Teslime hazır",
-    x: 1430,
-    y: 390,
-  },
-];
+const checklistIcons = {
+  boxes: Boxes,
+  gauge: Gauge,
+  gitBranch: GitBranch,
+  route: Route,
+} satisfies Record<
+  GameplayGuideCopy["checklist"]["items"][number]["iconKey"],
+  LucideIcon
+>;
 
 export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
+  const copy = gameplayGuideCopy[snapshot.locale];
   const rootRef = useRef<HTMLElement>(null);
   const [activeSection, setActiveSection] = useState<GuideSectionId>("overview");
   const [selectedProduct, setSelectedProduct] = useState<ProductPreview | null>(null);
@@ -245,7 +80,7 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
   useGuideSectionObserver(rootRef, setActiveSection);
   useGuideAnimations(rootRef, prefersReducedMotion, setActiveSection);
 
-  const activeSectionIndex = GUIDE_SECTIONS.findIndex(
+  const activeSectionIndex = copy.sections.findIndex(
     (section) => section.id === activeSection,
   );
 
@@ -263,12 +98,12 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
           <div className={styles.utilityBar}>
             <Link className={styles.backLink} href="/game">
               <ArrowLeft size={16} />
-              Fabrikaya dön
+              {copy.utility.back}
             </Link>
             <span className={styles.playerChip}>
               <span>{snapshot.player.displayName}</span>
               <span aria-hidden="true">·</span>
-              Oyun Rehberi
+              {copy.utility.playerChip}
             </span>
           </div>
 
@@ -279,6 +114,8 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
               setActiveSection(sectionId);
               scrollToGuideSection(sectionId);
             }}
+            sections={copy.sections}
+            sectionRailAria={copy.sectionRailAria}
           />
 
           <section
@@ -287,15 +124,13 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
             id="overview"
           >
             <div className={styles.heroCopy}>
-              <p className={styles.eyebrow}>OYUN REHBERİ · ÜRETİM AKIŞI</p>
+              <p className={styles.eyebrow}>{copy.hero.eyebrow}</p>
               <h1>
-                Bir departmandaki karar,
-                <span> bütün fabrikanın akışını değiştirir.</span>
+                {copy.hero.titlePrefix}
+                <span>{copy.hero.titleEmphasis}</span>
               </h1>
               <p className={styles.heroDescription}>
-                Sipariş yalnızca bir ürün değildir; departmanlardan, kuyruklardan
-                ve bekleme sürelerinden oluşan bir rotadır. Aşağı kaydırdıkça
-                ürünün fabrikada nasıl ilerlediğini ileri ve geri sarabilirsin.
+                {copy.hero.description}
               </p>
 
               <div className={styles.heroActions}>
@@ -307,80 +142,69 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
                   }}
                   type="button"
                 >
-                  Akışı başlat
+                  {copy.hero.action}
                   <ArrowDown size={17} />
                 </button>
-                <span>Kaydırma hareketi animasyonu kontrol eder.</span>
+                <span>{copy.hero.motionHint}</span>
               </div>
             </div>
 
             <div className={styles.routeChoiceGrid}>
-              <RouteChoiceCard
-                accent="cyan"
-                description="Kesimden sonra doğrudan dikim kuyruğuna girer."
-                image="/game-guide/basic_tshirt.webp"
-                imageAlt="Basic tişört"
-                route="Kesim → Dikim → Ütü · Paket"
-                title="Basic ürün"
-              />
-              <RouteChoiceCard
-                accent="amber"
-                description="Kesimden sonra fason işlemi bekler ve fabrikaya döner."
-                image="/game-guide/baskili_tshirt.webp"
-                imageAlt="Baskılı tişört"
-                route="Kesim → Fason Baskı → Dikim"
-                title="Baskılı ürün"
-              />
+              {copy.routeChoices.map((choice) => (
+                <RouteChoiceCard key={choice.title} {...choice} />
+              ))}
             </div>
           </section>
 
           <GuideStorySection
-            eyebrow="SENARYO 01 · DOĞRUDAN ÜRETİM"
+            eyebrow={copy.stories.normalFlow.eyebrow}
             id="normal-flow"
-            title="Her çıktı, bir sonraki departmanın girdisidir."
-            description="Basic ürün fabrikadan çıkmadan ilerler. Mavi rota tamamlandıkça aktif kartı ve o departmandan çıkan ürün biçimini takip et."
+            title={copy.stories.normalFlow.title}
+            description={copy.stories.normalFlow.description}
           >
             <FlowBoard
+              copy={copy.flowCard}
               markerId="normal-route-arrow"
               onPreviewProduct={setSelectedProduct}
               routePath={NORMAL_ROUTE_PATH}
-              steps={normalFlowSteps}
+              steps={copy.normalFlowSteps}
               travelerStart={{ x: 170, y: 342 }}
             />
           </GuideStorySection>
 
           <GuideStorySection
-            eyebrow="SENARYO 02 · FASON BASKI"
+            eyebrow={copy.stories.outsourceFlow.eyebrow}
             id="outsource-flow"
-            title="Ürün fabrikadan çıkar; dikim kuyruğu onu beklemez."
-            description="Kesilmiş parça önce fason baskıya gider. Baskı tamamlanıp ürün geri dönene kadar dikim kuyruğunda yer tutmaz."
+            title={copy.stories.outsourceFlow.title}
+            description={copy.stories.outsourceFlow.description}
             tone="amber"
           >
             <FlowBoard
               blockedPath="M 170 390 C 360 390 585 390 800 390"
+              copy={copy.flowCard}
               markerId="outsource-route-arrow"
               onPreviewProduct={setSelectedProduct}
               routePath={OUTSOURCE_ROUTE_PATH}
-              steps={outsourceFlowSteps}
+              steps={copy.outsourceFlowSteps}
               travelerStart={{ x: 170, y: 390 }}
             >
               <div className={styles.outsourceWaitMessage} data-guide-message>
                 <PauseCircle size={17} />
                 <span>
-                  <strong>Dikim beklemede:</strong> Baskıdan dönmeyen parça kuyruğa
-                  eklenmez.
+                  <strong>{copy.stories.outsourceFlow.waitPrefix}</strong>{" "}
+                  {copy.stories.outsourceFlow.waitBody}
                 </span>
               </div>
             </FlowBoard>
           </GuideStorySection>
 
           <GuideStorySection
-            eyebrow="SENARYO 03 · KUYRUK VE DARBOĞAZ"
+            eyebrow={copy.stories.bottleneck.eyebrow}
             id="bottleneck"
-            title="En yavaş departman, bütün rotanın hızını belirler."
-            description="Kesim hızlı üretse bile dikim aynı iş yükünü karşılayamıyorsa yarı mamuller dikim önünde birikir. Sonraki vardiyanın ilk kararı bu kuyruğu okumaktır."
+            title={copy.stories.bottleneck.title}
+            description={copy.stories.bottleneck.description}
           >
-            <BottleneckBoard />
+            <BottleneckBoard copy={copy.bottleneck} />
           </GuideStorySection>
 
           <section
@@ -390,39 +214,21 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
           >
             <div className={styles.checklistPanel}>
               <div className={styles.checklistIntro}>
-                <p className={styles.eyebrow}>VARDİYA ÖNCESİ · 20 SANİYELİK KONTROL</p>
-                <h2>Başlatmadan önce fabrikanın rotasını oku.</h2>
-                <p>
-                  İyi plan, bütün hatları doldurmak değildir. Doğru ürünü doğru
-                  sırada ve kaldırabileceğin iş yüküyle ilerletmektir.
-                </p>
+                <p className={styles.eyebrow}>{copy.checklist.eyebrow}</p>
+                <h2>{copy.checklist.title}</h2>
+                <p>{copy.checklist.description}</p>
               </div>
 
               <div className={styles.checklistGrid}>
-                <ChecklistItem
-                  icon={Route}
-                  index="01"
-                  text="Ürünün rotası doğrudan mı, fasonlu mu?"
-                  title="Rotayı kontrol et"
-                />
-                <ChecklistItem
-                  icon={Boxes}
-                  index="02"
-                  text="Önce hangi siparişin çıkması gerektiğini belirle."
-                  title="Kuyruğu sırala"
-                />
-                <ChecklistItem
-                  icon={Gauge}
-                  index="03"
-                  text="Adedi değil, hattın taşıyacağı iş yükünü karşılaştır."
-                  title="Kapasiteyi oku"
-                />
-                <ChecklistItem
-                  icon={GitBranch}
-                  index="04"
-                  text="Biriken yarı mamulün hangi departmanı beklediğini gör."
-                  title="Darboğazı bul"
-                />
+                {copy.checklist.items.map((item) => (
+                  <ChecklistItem
+                    icon={checklistIcons[item.iconKey]}
+                    index={item.index}
+                    key={item.index}
+                    text={item.text}
+                    title={item.title}
+                  />
+                ))}
               </div>
 
               <div className={styles.finalCallout}>
@@ -430,11 +236,11 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
                   <ClipboardCheck size={22} />
                 </span>
                 <div>
-                  <strong>Plan hazırsa vardiyayı başlat.</strong>
-                  <span>Sonuç ekranında aynı akışın gerçek sayılarını göreceksin.</span>
+                  <strong>{copy.checklist.finalTitle}</strong>
+                  <span>{copy.checklist.finalBody}</span>
                 </div>
                 <Link className={styles.primaryAction} href="/game">
-                  Fabrikaya dön
+                  {copy.checklist.finalAction}
                   <ArrowRight size={17} />
                 </Link>
               </div>
@@ -447,6 +253,7 @@ export function GameplayGuide({ snapshot }: { snapshot: GameSnapshot }) {
                 setSelectedProduct(null);
               }
             }}
+            copy={copy.productPreview}
             preview={selectedProduct}
           />
         </main>
@@ -459,22 +266,26 @@ function GuideSectionRail({
   activeSection,
   activeSectionIndex,
   onSelect,
+  sections,
+  sectionRailAria,
 }: {
   activeSection: GuideSectionId;
   activeSectionIndex: number;
   onSelect: (sectionId: GuideSectionId) => void;
+  sections: GameplayGuideCopy["sections"];
+  sectionRailAria: string;
 }) {
   const progress =
-    GUIDE_SECTIONS.length > 1
-      ? activeSectionIndex / (GUIDE_SECTIONS.length - 1)
+    sections.length > 1
+      ? activeSectionIndex / (sections.length - 1)
       : 0;
 
   return (
-    <nav aria-label="Rehber bölümleri" className={styles.sectionRail}>
+    <nav aria-label={sectionRailAria} className={styles.sectionRail}>
       <div className={styles.sectionTrack}>
         <span style={{ transform: `scaleY(${progress})` }} />
       </div>
-      {GUIDE_SECTIONS.map((section) => {
+      {sections.map((section) => {
         const isActive = section.id === activeSection;
 
         return (
@@ -562,6 +373,7 @@ function GuideStorySection({
 function FlowBoard({
   blockedPath,
   children,
+  copy,
   markerId,
   onPreviewProduct,
   routePath,
@@ -570,6 +382,7 @@ function FlowBoard({
 }: {
   blockedPath?: string;
   children?: ReactNode;
+  copy: GameplayGuideCopy["flowCard"];
   markerId: string;
   onPreviewProduct: (preview: ProductPreview) => void;
   routePath: string;
@@ -634,6 +447,7 @@ function FlowBoard({
 
       {steps.map((step) => (
         <FlowDepartmentCard
+          copy={copy}
           key={step.id}
           onPreviewProduct={onPreviewProduct}
           step={step}
@@ -646,9 +460,11 @@ function FlowBoard({
 }
 
 function FlowDepartmentCard({
+  copy,
   onPreviewProduct,
   step,
 }: {
+  copy: GameplayGuideCopy["flowCard"];
   onPreviewProduct: (preview: ProductPreview) => void;
   step: FlowStep;
 }) {
@@ -685,7 +501,7 @@ function FlowDepartmentCard({
       <p className={styles.flowDescription}>{step.description}</p>
 
       <button
-        aria-label={`${step.outputLabel} görselini büyüt`}
+        aria-label={copy.expandAria(step.outputLabel)}
         className={styles.productOutput}
         data-product-output
         onClick={() =>
@@ -707,7 +523,7 @@ function FlowDepartmentCard({
           />
         </div>
         <span>
-          <small>ÇIKTI</small>
+          <small>{copy.outputKicker}</small>
           <strong>{step.outputLabel}</strong>
         </span>
         <Maximize2
@@ -725,9 +541,11 @@ function FlowDepartmentCard({
 }
 
 function ProductPreviewDialog({
+  copy,
   onOpenChange,
   preview,
 }: {
+  copy: GameplayGuideCopy["productPreview"];
   onOpenChange: (open: boolean) => void;
   preview: ProductPreview | null;
 }) {
@@ -743,7 +561,7 @@ function ProductPreviewDialog({
             <DialogTitle>{preview?.title}</DialogTitle>
           </div>
           <DialogClose asChild>
-            <button aria-label="Görseli kapat" type="button">
+            <button aria-label={copy.closeAria} type="button">
               <X aria-hidden="true" size={18} />
             </button>
           </DialogClose>
@@ -762,14 +580,18 @@ function ProductPreviewDialog({
         </div>
 
         <p className={styles.productPreviewHint}>
-          Üretim adımından çıkan temsili ürün görünümü
+          {copy.hint}
         </p>
       </DialogContent>
     </Dialog>
   );
 }
 
-function BottleneckBoard() {
+function BottleneckBoard({
+  copy,
+}: {
+  copy: GameplayGuideCopy["bottleneck"];
+}) {
   return (
     <div className={styles.bottleneckBoard}>
       <svg
@@ -784,26 +606,27 @@ function BottleneckBoard() {
 
       <BottleneckStation
         icon={Scissors}
-        index="01"
-        label="Kesim"
+        index={copy.stations.cutting.index}
+        label={copy.stations.cutting.label}
         position="left"
-        status="Akış hızlı"
-        value="1.200 puan/gün"
+        stationKind={copy.stationKind}
+        status={copy.stations.cutting.status}
+        value={copy.stations.cutting.value}
       />
 
       <div className={styles.queueZone}>
         <div className={styles.queueZoneHeader}>
           <span>
             <Clock3 size={16} />
-            DİKİM KUYRUĞU
+            {copy.queueTitle}
           </span>
-          <strong>+6 iş paketi</strong>
+          <strong>{copy.queueCount}</strong>
         </div>
         <div className={styles.queueStack}>
           {BOTTLENECK_QUEUE_ITEMS.map((item) => (
             <div data-queue-card key={item}>
               <Image
-                alt="Dikim kuyruğunda bekleyen kesilmiş ürün"
+                alt={copy.queueImageAlt}
                 fill
                 sizes="70px"
                 src="/game-guide/dikime_giden_basic.webp"
@@ -812,38 +635,40 @@ function BottleneckBoard() {
             </div>
           ))}
         </div>
-        <p>Kesim çıktısı, dikimin tüketebildiğinden daha hızlı birikiyor.</p>
+        <p>{copy.queueDescription}</p>
       </div>
 
       <BottleneckStation
         icon={Shirt}
-        index="02"
-        label="Dikim"
+        index={copy.stations.sewing.index}
+        label={copy.stations.sewing.label}
         position="center"
-        status="Darboğaz"
+        stationKind={copy.stationKind}
+        status={copy.stations.sewing.status}
         tone="danger"
-        value="760 puan/gün"
+        value={copy.stations.sewing.value}
       />
 
       <BottleneckStation
         icon={PackageCheck}
-        index="03"
-        label="Ütü · Paket"
+        index={copy.stations.ironPacking.index}
+        label={copy.stations.ironPacking.label}
         position="right"
-        status="Girdi bekliyor"
-        value="980 puan/gün"
+        stationKind={copy.stationKind}
+        status={copy.stations.ironPacking.status}
+        value={copy.stations.ironPacking.value}
       />
 
       <div className={styles.capacityPanel} data-guide-message>
         <div>
-          <span>Kesim kapasitesi</span>
+          <span>{copy.capacity.cutting}</span>
           <strong>1.200</strong>
           <i>
             <span data-capacity-fill style={{ "--capacity": 1 } as CSSProperties} />
           </i>
         </div>
         <div className={styles.dangerCapacity}>
-          <span>Dikim kapasitesi</span>
+          <span>{copy.capacity.sewing}</span>
           <strong>760</strong>
           <i>
             <span
@@ -854,7 +679,7 @@ function BottleneckBoard() {
         </div>
         <p>
           <Sparkles size={15} />
-          Çözüm: Dikim hattı yatırımı, personel dengesi veya kuyruk önceliği.
+          {copy.capacity.solution}
         </p>
       </div>
     </div>
@@ -866,6 +691,7 @@ function BottleneckStation({
   index,
   label,
   position,
+  stationKind,
   status,
   tone,
   value,
@@ -874,6 +700,7 @@ function BottleneckStation({
   index: string;
   label: string;
   position: "center" | "left" | "right";
+  stationKind: string;
   status: string;
   tone?: "danger";
   value: string;
@@ -888,7 +715,9 @@ function BottleneckStation({
       <span className={styles.stationIcon}>
         <Icon size={22} />
       </span>
-      <small>{index} · DEPARTMAN</small>
+      <small>
+        {index} · {stationKind}
+      </small>
       <h3>{label}</h3>
       <strong>{value}</strong>
       <span className={styles.stationStatus}>{status}</span>

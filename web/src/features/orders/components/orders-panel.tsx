@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useMemo,
   useState,
   type CSSProperties,
@@ -36,14 +38,20 @@ import {
 } from "@/components/game-presentation/product-showcase-card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DEFAULT_LOCALE,
+  numberLocale as resolveNumberLocale,
+  type NumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 import { acceptMarketOrderAction } from "@/features/orders/actions/accept-market-order-action";
 import {
-  PRODUCT_TIER_LABELS,
   PRODUCT_TIER_MIN_LEVEL,
   isProductTierUnlocked,
   type ProductTier,
 } from "../product-tier-rules";
+import { ordersCopy, type OrdersCopy } from "../orders-copy";
 
 import type {
   ActiveOrderPriorityView,
@@ -54,43 +62,53 @@ import type {
 } from "../types";
 
 type MarketFilter = ProductTier;
-
-const marketFilters: Array<{
+type MarketFilterConfig = {
   description: string;
   hint: string;
   icon: LucideIcon;
   label: string;
   value: MarketFilter;
-}> = [
-  {
-    description: "Kolay üretim, yüksek adet ve düşük XP kademeli seri üretim işleri.",
-    hint: "LEVEL 1 · Seri üretim",
-    icon: Shirt,
-    label: "Basic",
-    value: "BASIC",
-  },
-  {
-    description: "Baskı, nakış, boyama, yıkama veya fason süreçli ikinci kademe işler.",
-    hint: "LEVEL 5 · Ek işlemli",
-    icon: TagPlus,
-    label: "Standard",
-    value: "STANDARD",
-  },
-  {
-    description: "Daha yüksek üretim yükü, kalite beklentisi ve üçüncü kademe XP.",
-    hint: "LEVEL 20 · Yüksek kalite",
-    icon: StarCheck,
-    label: "Premium",
-    value: "PREMIUM",
-  },
-  {
-    description: "Düşük adet, yüksek fiyat, yüksek kar ve en yüksek XP kademesi.",
-    hint: "LEVEL 50 · Zirve grup",
-    icon: Gem,
-    label: "Luxury",
-    value: "LUXURY",
-  },
-];
+};
+
+const marketFilterIcons = {
+  BASIC: Shirt,
+  LUXURY: Gem,
+  PREMIUM: StarCheck,
+  STANDARD: TagPlus,
+} satisfies Record<MarketFilter, LucideIcon>;
+
+const marketFilterOrder = [
+  "BASIC",
+  "STANDARD",
+  "PREMIUM",
+  "LUXURY",
+] as const satisfies MarketFilter[];
+
+type OrdersUiContextValue = {
+  copy: OrdersCopy["ui"];
+  locale: SupportedLocale;
+  numberLocale: NumberLocale;
+};
+
+const OrdersUiContext = createContext<OrdersUiContextValue>({
+  copy: ordersCopy[DEFAULT_LOCALE].ui,
+  locale: DEFAULT_LOCALE,
+  numberLocale: resolveNumberLocale(DEFAULT_LOCALE),
+});
+
+function useOrdersUi() {
+  return useContext(OrdersUiContext);
+}
+
+function getMarketFilters(locale: SupportedLocale): MarketFilterConfig[] {
+  const filterCopy = ordersCopy[locale].filters;
+
+  return marketFilterOrder.map((value) => ({
+    ...filterCopy[value],
+    icon: marketFilterIcons[value],
+    value,
+  }));
+}
 
 const offerAccentClasses = {
   EXPRESS: {
@@ -134,10 +152,19 @@ const marketFilterAccentClasses: Record<
 };
 
 type OrdersPanelProps = {
+  locale: SupportedLocale;
   orderMarket: OrderMarketView;
 };
 
-export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
+export function OrdersPanel({ locale, orderMarket }: OrdersPanelProps) {
+  const uiContext = useMemo<OrdersUiContextValue>(
+    () => ({
+      copy: ordersCopy[locale].ui,
+      locale,
+      numberLocale: resolveNumberLocale(locale),
+    }),
+    [locale],
+  );
   const [selectedFilter, setSelectedFilter] = useState<MarketFilter | null>(null);
   const [selectedId, setSelectedId] = useState("");
   const filteredOffers = useMemo(
@@ -172,36 +199,38 @@ export function OrdersPanel({ orderMarket }: OrdersPanelProps) {
     : false;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
-        <OrderSidebarPanel
-          currentLevel={orderMarket.currentLevel}
-          offers={filteredOffers}
-          selectedFilter={selectedFilter}
-          onSelect={setSelectedId}
-          onBack={resetFilter}
-          onSelectFilter={selectFilter}
-          selectedId={selectedOffer?.id ?? ""}
-          sourceOffers={orderMarket.offers}
-        />
-        {selectedFilter === null ? (
-          <OrdersEmptyState availableCount={orderMarket.availableCount} />
-        ) : !selectedTierUnlocked ? (
-          <LockedProductTierState
+    <OrdersUiContext.Provider value={uiContext}>
+      <div className="flex h-full min-h-0 flex-col gap-2">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
+          <OrderSidebarPanel
             currentLevel={orderMarket.currentLevel}
-            tier={selectedFilter}
+            offers={filteredOffers}
+            selectedFilter={selectedFilter}
+            onSelect={setSelectedId}
+            onBack={resetFilter}
+            onSelectFilter={selectFilter}
+            selectedId={selectedOffer?.id ?? ""}
+            sourceOffers={orderMarket.offers}
           />
-        ) : selectedOffer ? (
-          <SelectedOrderPanels
-            activeOrders={orderMarket.activeOrders}
-            key={selectedOffer.id}
-            offer={selectedOffer}
-          />
-        ) : (
-          <ProductTierEmptyState tier={selectedFilter} />
-        )}
+          {selectedFilter === null ? (
+            <OrdersEmptyState availableCount={orderMarket.availableCount} />
+          ) : !selectedTierUnlocked ? (
+            <LockedProductTierState
+              currentLevel={orderMarket.currentLevel}
+              tier={selectedFilter}
+            />
+          ) : selectedOffer ? (
+            <SelectedOrderPanels
+              activeOrders={orderMarket.activeOrders}
+              key={selectedOffer.id}
+              offer={selectedOffer}
+            />
+          ) : (
+            <ProductTierEmptyState tier={selectedFilter} />
+          )}
+        </div>
       </div>
-    </div>
+    </OrdersUiContext.Provider>
   );
 }
 
@@ -233,6 +262,8 @@ function SelectedOrderPanels({
 }
 
 function OrdersEmptyState({ availableCount }: { availableCount: number }) {
+  const { copy } = useOrdersUi();
+
   return (
     <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center xl:col-span-2">
       <div className="max-w-md">
@@ -240,15 +271,15 @@ function OrdersEmptyState({ availableCount }: { availableCount: number }) {
           <PackageCheck size={24} />
         </span>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-          Sipariş Pazarı
+          {copy.empty.market}
         </p>
         <h2 className="mt-2 text-2xl font-semibold text-foreground">
-          Ürün grubunu seç
+          {copy.empty.selectTier}
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {availableCount > 0
-            ? `${availableCount} açık teklif ürün gruplarına ayrılmış durumda.`
-            : "Yeni teklifler vardiya ilerledikçe uygun ürün gruplarında oluşacak."}
+            ? copy.empty.offersAvailable(availableCount)
+            : copy.empty.noOffers}
         </p>
       </div>
     </div>
@@ -262,7 +293,9 @@ function LockedProductTierState({
   currentLevel: number;
   tier: ProductTier;
 }) {
+  const { copy, locale } = useOrdersUi();
   const minimumLevel = PRODUCT_TIER_MIN_LEVEL[tier];
+  const tierLabel = ordersCopy[locale].filters[tier].label;
 
   return (
     <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-amber-400/25 bg-card/70 p-8 text-center xl:col-span-2">
@@ -271,14 +304,13 @@ function LockedProductTierState({
           <LockKeyhole size={23} />
         </span>
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">
-          Kilitli Ürün Grubu
+          {copy.locked.eyebrow}
         </p>
         <h2 className="mt-2 text-2xl font-semibold text-foreground">
-          {PRODUCT_TIER_LABELS[tier]} siparişleri için LEVEL {minimumLevel}
+          {copy.locked.title(tierLabel, minimumLevel)}
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Mevcut seviyen LEVEL {currentLevel}. Bu seviyeye ulaştığında uygun
-          ürünlerin ve bu gruba bağlı müşterilerin siparişleri gelmeye başlayacak.
+          {copy.locked.body(currentLevel)}
         </p>
       </div>
     </div>
@@ -286,6 +318,9 @@ function LockedProductTierState({
 }
 
 function ProductTierEmptyState({ tier }: { tier: ProductTier }) {
+  const { copy, locale } = useOrdersUi();
+  const tierLabel = ordersCopy[locale].filters[tier].label;
+
   return (
     <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center xl:col-span-2">
       <div className="max-w-lg">
@@ -293,11 +328,10 @@ function ProductTierEmptyState({ tier }: { tier: ProductTier }) {
           <PackageCheck size={24} />
         </span>
         <h2 className="mt-5 text-2xl font-semibold text-foreground">
-          Açık {PRODUCT_TIER_LABELS[tier]} teklifi yok
+          {copy.tierEmpty.title(tierLabel)}
         </h2>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
-          Motor, oyuncu seviyene ve üretim kapasitesine uygun yeni teklifleri
-          vardiya ilerledikçe oluşturacak.
+          {copy.tierEmpty.body}
         </p>
       </div>
     </div>
@@ -323,8 +357,12 @@ function OrderSidebarPanel({
   onBack: () => void;
   onSelectFilter: (filter: MarketFilter) => void;
 }) {
+  const { copy, locale } = useOrdersUi();
+  const marketFilters = getMarketFilters(locale);
   const selectedMarketFilter =
-    selectedFilter === null ? null : getMarketFilter(selectedFilter);
+    selectedFilter === null
+      ? null
+      : getMarketFilter(selectedFilter, marketFilters);
   const visibleOfferCount =
     selectedFilter === null ? sourceOffers.length : offers.length;
 
@@ -332,12 +370,12 @@ function OrderSidebarPanel({
     <aside className="flex min-h-0 flex-col rounded-lg border border-border bg-card/70 p-3">
       <div className="mb-3">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-          Sipariş Pazarı
+          {copy.marketTitle}
         </p>
         {selectedMarketFilter ? (
           <div className="mt-3 flex items-center gap-2">
             <Button
-              aria-label="Filtreyi değiştir"
+              aria-label={copy.sidebar.changeFilterAria}
               className="shrink-0"
               onClick={onBack}
               size="icon-sm"
@@ -351,7 +389,7 @@ function OrderSidebarPanel({
           </div>
         ) : null}
         <p className="mt-2 text-sm text-muted-foreground">
-          {visibleOfferCount} açık teklif
+          {copy.sidebar.openOffers(visibleOfferCount)}
         </p>
       </div>
 
@@ -387,7 +425,7 @@ function OrderSidebarPanel({
             ))
           ) : (
             <p className="rounded-lg border border-dashed border-border bg-background/40 p-3 text-center text-xs text-muted-foreground">
-              Bu grupta teklif bulunmuyor.
+              {copy.list.noOffersInTier}
             </p>
           )}
         </div>
@@ -404,7 +442,7 @@ function MarketFilterButton({
 }: {
   count: number;
   currentLevel: number;
-  filter: (typeof marketFilters)[number];
+  filter: MarketFilterConfig;
   onSelect: (filter: MarketFilter) => void;
 }) {
   const Icon = filter.icon;
@@ -448,7 +486,7 @@ function MarketFilterButton({
 function MarketFilterBrief({
   filter,
 }: {
-  filter: (typeof marketFilters)[number];
+  filter: MarketFilterConfig;
 }) {
   const Icon = filter.icon;
   const accent = marketFilterAccentClasses[filter.value];
@@ -483,6 +521,7 @@ function OrderListCard({
   selected: boolean;
   onSelect: (id: string) => void;
 }) {
+  const { copy } = useOrdersUi();
   const primaryItem = offer.items[0];
   const primaryColor = primaryItem?.colors[0]?.hexCode ?? "#006D8F";
   const accent = offerAccentClasses[offer.offerType];
@@ -511,7 +550,7 @@ function OrderListCard({
           </span>
           <span className="mt-1 block truncate text-xs text-muted-foreground">
             {offer.isCollection
-              ? `Koleksiyon · ${offer.items.length} ürün`
+              ? copy.list.collection(offer.items.length)
               : primaryItem?.productName ?? offer.offerNo}
           </span>
           <span className="mt-1.5 flex flex-wrap gap-1">
@@ -522,7 +561,7 @@ function OrderListCard({
           </span>
           <span className="mt-1.5 flex items-center justify-between gap-2">
             <span className="text-xs text-muted-foreground">
-              Teslim: {offer.targetDeliveryDay}. gün
+              {copy.list.delivery(offer.targetDeliveryDay)}
             </span>
             <span className="text-sm font-semibold text-primary">
               {offer.totalRevenueLabel}
@@ -545,13 +584,15 @@ function SelectedOrderDetail({
   offer: OrderOfferView;
   onActiveItemChange: (index: number) => void;
 }) {
+  const { copy } = useOrdersUi();
+
   return (
     <section className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border border-border border-t-2 bg-card/70", offerAccentClasses[offer.offerType].border.replace("border-l", "border-t"))}>
       <div className="border-b border-border p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-              Seçili Sipariş
+              {copy.detail.selectedOrder}
             </p>
             <h2 className="mt-2 truncate text-2xl font-semibold text-foreground">
               {offer.customerName}
@@ -563,7 +604,7 @@ function SelectedOrderDetail({
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           <InfoPill icon={PackageCheck} label={offer.totalQuantityLabel} />
-          <InfoPill icon={Clock} label={`Son: ${offer.expiresDay}. gün`} />
+          <InfoPill icon={Clock} label={copy.detail.expires(offer.expiresDay)} />
           <InfoPill icon={Factory} label={offer.segmentLabel} />
           <OfferTypeBadge offer={offer} />
         </div>
@@ -596,7 +637,7 @@ function SelectedOrderDetail({
           </>
         ) : (
           <p className="rounded-lg border border-border bg-background/60 p-4 text-sm text-muted-foreground">
-            Bu teklifte ürün kalemi bulunmuyor.
+            {copy.detail.emptyItem}
           </p>
         )}
       </div>
@@ -613,6 +654,7 @@ function CollectionCarouselControls({
   items: OrderOfferItemView[];
   onSelect: (index: number) => void;
 }) {
+  const { copy } = useOrdersUi();
   const itemCount = items.length;
   const activeItem = items[activeIndex] ?? items[0];
   const selectPrevious = () =>
@@ -621,13 +663,13 @@ function CollectionCarouselControls({
 
   return (
     <div
-      aria-label="Koleksiyon ürün gezgini"
+      aria-label={copy.carousel.ariaLabel}
       className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-border bg-background/60 px-2.5 py-2"
       role="group"
     >
       <div className="min-w-0">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Koleksiyon Ürünü
+          {copy.carousel.title}
         </p>
         <p className="mt-0.5 truncate text-xs font-medium text-foreground">
           {activeIndex + 1} / {itemCount} · {activeItem?.productName}
@@ -635,7 +677,7 @@ function CollectionCarouselControls({
       </div>
       <div className="flex shrink-0 items-center gap-1.5">
         <Button
-          aria-label="Önceki koleksiyon ürünü"
+          aria-label={copy.carousel.previousAria}
           onClick={selectPrevious}
           size="icon-sm"
           type="button"
@@ -646,7 +688,7 @@ function CollectionCarouselControls({
         <div className="flex items-center gap-1" role="tablist">
           {items.map((item, index) => (
             <button
-              aria-label={`${index + 1}. ürün: ${item.productName}`}
+              aria-label={copy.carousel.itemAria(index + 1, item.productName)}
               aria-selected={index === activeIndex}
               className={cn(
                 "size-1.5 rounded-full bg-muted-foreground/35 transition-all hover:bg-primary/70",
@@ -660,7 +702,7 @@ function CollectionCarouselControls({
           ))}
         </div>
         <Button
-          aria-label="Sonraki koleksiyon ürünü"
+          aria-label={copy.carousel.nextAria}
           onClick={selectNext}
           size="icon-sm"
           type="button"
@@ -680,23 +722,24 @@ function ProductShowcase({
   offer: OrderOfferView;
   item: OrderOfferItemView;
 }) {
+  const { copy } = useOrdersUi();
   const metrics: ProductShowcaseMetric[] = [
     {
       icon: Hash,
       key: "code",
-      label: "Kod",
+      label: copy.metrics.code,
       value: item.productCode,
     },
     {
       icon: CalendarDays,
       key: "delivery",
-      label: "Teslim",
+      label: copy.metrics.delivery,
       value: offer.deliveryLabel,
     },
     {
       icon: Route,
       key: "route",
-      label: "Rota",
+      label: copy.metrics.route,
       value: (
         <ProductRouteTimeline
           steps={item.route}
@@ -707,25 +750,25 @@ function ProductShowcase({
     {
       icon: Palette,
       key: "colors",
-      label: "Renk",
-      value: `${item.colors.length} varyant`,
+      label: copy.metrics.colors,
+      value: copy.metrics.variants(item.colors.length),
     },
     {
       icon: PackageCheck,
       key: "quantity",
-      label: "Adet",
+      label: copy.metrics.quantity,
       value: item.quantityLabel,
     },
     {
       icon: Factory,
       key: "segment",
-      label: "Segment",
+      label: copy.metrics.segment,
       value: offer.segmentLabel,
     },
     {
       icon: Hash,
       key: "volume",
-      label: "Hacim",
+      label: copy.metrics.volume,
       value: offer.volumeLabel,
     },
   ];
@@ -756,10 +799,12 @@ function CollectionItems({
   items: OrderOfferItemView[];
   onSelect: (index: number) => void;
 }) {
+  const { copy } = useOrdersUi();
+
   return (
     <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Koleksiyon Kalemleri
+        {copy.collectionItemsTitle}
       </p>
       <div className="mt-2 space-y-1.5">
         {items.map((item, index) => (
@@ -786,6 +831,8 @@ function CollectionItems({
 }
 
 function ColorDetails({ item }: { item: OrderOfferItemView }) {
+  const { copy } = useOrdersUi();
+
   return (
     <ProductColorChips
       colors={item.colors.map((color) => ({
@@ -794,7 +841,7 @@ function ColorDetails({ item }: { item: OrderOfferItemView }) {
         label: color.name,
         quantityLabel: color.quantityLabel,
       }))}
-      title="Renk Dağılımı"
+      title={copy.colorDistributionTitle}
     />
   );
 }
@@ -808,6 +855,7 @@ function OrderCostPanel({
   activeOrders: ActiveOrderPriorityView[];
   offer: OrderOfferView;
 }) {
+  const { copy } = useOrdersUi();
   const hasMultipleItems = offer.items.length > 1;
   const isProfitPositive = Number(
     activeItem?.plannedProfitCents ?? offer.plannedProfitCents,
@@ -817,14 +865,16 @@ function OrderCostPanel({
     <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card/70">
       <div className="border-b border-border p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-          Maliyet Planı
+          {copy.cost.planTitle}
         </p>
         {hasMultipleItems && activeItem ? (
           <p className="mt-1 truncate text-xs font-medium text-foreground">
             {activeItem.productName}
           </p>
         ) : null}
-        <p className="mt-2 text-xs text-muted-foreground">Planlanan Marj</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {copy.cost.margin}
+        </p>
         <h2
           className={cn(
             "mt-2 text-2xl font-semibold",
@@ -837,21 +887,27 @@ function OrderCostPanel({
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         <div className="grid gap-2">
           <CostPairMetric
-            firstLabel="Birim Fiyat"
+            firstLabel={copy.cost.unitPrice}
             firstValue={activeItem?.unitPriceLabel ?? "-"}
-            secondLabel={hasMultipleItems ? "Kalem Tutarı" : "Toplam Tutar"}
+            secondLabel={
+              hasMultipleItems ? copy.cost.itemTotal : copy.cost.totalRevenue
+            }
             secondValue={activeItem?.totalPriceLabel ?? offer.totalRevenueLabel}
           />
           <CostPairMetric
-            firstLabel="Birim Maliyet"
+            firstLabel={copy.cost.unitCost}
             firstValue={activeItem?.plannedUnitCostLabel ?? "-"}
-            secondLabel={hasMultipleItems ? "Kalem Maliyeti" : "Toplam Maliyet"}
+            secondLabel={
+              hasMultipleItems ? copy.cost.itemCost : copy.cost.totalCost
+            }
             secondValue={activeItem?.plannedTotalCostLabel ?? offer.plannedCostLabel}
           />
           <CostPairMetric
-            firstLabel="Birim Kar"
+            firstLabel={copy.cost.unitProfit}
             firstValue={activeItem?.plannedUnitProfitLabel ?? "-"}
-            secondLabel={hasMultipleItems ? "Kalem Karı" : "Toplam Kar"}
+            secondLabel={
+              hasMultipleItems ? copy.cost.itemProfit : copy.cost.totalProfit
+            }
             secondValue={activeItem?.plannedProfitLabel ?? offer.plannedProfitLabel}
             tone={isProfitPositive ? "profit" : "loss"}
           />
@@ -859,11 +915,11 @@ function OrderCostPanel({
 
         <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
           <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="text-muted-foreground">Kapasite riski</span>
+            <span className="text-muted-foreground">{copy.cost.capacityRisk}</span>
             <strong className="text-foreground">{offer.capacityRiskLabel}</strong>
           </div>
           <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-            <span className="text-muted-foreground">Teslimat riski</span>
+            <span className="text-muted-foreground">{copy.cost.deliveryRisk}</span>
             <strong className="text-foreground">{offer.deliveryRiskLabel}</strong>
           </div>
         </div>
@@ -878,6 +934,7 @@ function OrderCostPanel({
 }
 
 function CustomerRelationshipCard({ offer }: { offer: OrderOfferView }) {
+  const { copy } = useOrdersUi();
   const relationship = offer.customerRelationship;
 
   if (!relationship) {
@@ -889,13 +946,15 @@ function CustomerRelationshipCard({ offer }: { offer: OrderOfferView }) {
           </span>
           <span className="min-w-0">
             <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Müşteri İlişkisi
+              {copy.relationship.title}
             </span>
-            <strong className="block text-xs text-foreground">Yeni müşteri</strong>
+            <strong className="block text-xs text-foreground">
+              {copy.relationship.newCustomer}
+            </strong>
           </span>
         </div>
         <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
-          İlk teslim performansı sonrası güven ve RPT ihtimali oluşacak.
+          {copy.relationship.noHistory}
         </p>
       </div>
     );
@@ -910,7 +969,7 @@ function CustomerRelationshipCard({ offer }: { offer: OrderOfferView }) {
           </span>
           <span className="min-w-0">
             <span className="block text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              Müşteri İlişkisi
+              {copy.relationship.title}
             </span>
             <strong className="block text-xs text-foreground">
               {relationship.statusLabel}
@@ -924,12 +983,12 @@ function CustomerRelationshipCard({ offer }: { offer: OrderOfferView }) {
 
       <div className="mt-2 grid grid-cols-3 gap-1.5">
         <RelationshipMiniMetric
-          label="Güven"
+          label={copy.relationship.trust}
           value={relationship.relationshipScoreLabel}
         />
         <RelationshipMiniMetric
-          label="Geçmiş"
-          value={`${relationship.completedOrderCount} iş`}
+          label={copy.relationship.history}
+          value={copy.relationship.completedWork(relationship.completedOrderCount)}
         />
         <RelationshipMiniMetric
           label="RPT"
@@ -939,8 +998,11 @@ function CustomerRelationshipCard({ offer }: { offer: OrderOfferView }) {
 
       <p className="mt-2 text-[11px] leading-5 text-muted-foreground">
         {relationship.lateOrderCount > 0
-          ? `${relationship.lateOrderCount} gecikmeli teslim, toplam ${relationship.totalLateDays} gün güven kaybı yarattı.`
-          : "Zamanında teslim geçmişi tekrar sipariş ihtimalini güçlendiriyor."}
+          ? copy.relationship.lateSummary(
+              relationship.lateOrderCount,
+              relationship.totalLateDays,
+            )
+          : copy.relationship.onTimeHistory}
       </p>
     </div>
   );
@@ -962,6 +1024,7 @@ function RelationshipMiniMetric({
 }
 
 function CapacityPlanCard({ offer }: { offer: OrderOfferView }) {
+  const { copy } = useOrdersUi();
   const visibleRows = offer.capacityPlan.rows.slice(0, 5);
   const hiddenCount = Math.max(0, offer.capacityPlan.rows.length - visibleRows.length);
 
@@ -970,10 +1033,10 @@ function CapacityPlanCard({ offer }: { offer: OrderOfferView }) {
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Planlanan Yük
+            {copy.capacity.plannedLoad}
           </p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Darboğaz:{" "}
+            {copy.capacity.bottleneck}:{" "}
             <strong className="text-foreground">
               {offer.capacityPlan.bottleneckDepartmentLabel}
             </strong>
@@ -991,15 +1054,15 @@ function CapacityPlanCard({ offer }: { offer: OrderOfferView }) {
 
       <div className="mt-2 grid grid-cols-3 gap-1.5">
         <CapacityMiniMetric
-          label="Mevcut"
+          label={copy.capacity.current}
           value={offer.capacityPlan.currentLoadDaysLabel}
         />
         <CapacityMiniMetric
-          label="Teklif"
+          label={copy.capacity.offer}
           value={offer.capacityPlan.offerLoadDaysLabel}
         />
         <CapacityMiniMetric
-          label="Sonrası"
+          label={copy.capacity.targetAfter}
           tone={offer.capacityPlan.state}
           value={offer.capacityPlan.afterAcceptLoadDaysLabel}
         />
@@ -1007,13 +1070,13 @@ function CapacityPlanCard({ offer }: { offer: OrderOfferView }) {
 
       <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px]">
         <span className="rounded-md border border-border bg-card/50 px-2 py-1 text-muted-foreground">
-          Tahmin:{" "}
+          {copy.capacity.prediction}:{" "}
           <strong className="text-foreground">
             {offer.capacityPlan.plannedCompletionLabel}
           </strong>
         </span>
         <span className="rounded-md border border-border bg-card/50 px-2 py-1 text-muted-foreground">
-          Termin:{" "}
+          {copy.capacity.deadline}:{" "}
           <strong className="text-foreground">
             {offer.capacityPlan.targetDeliveryLabel}
           </strong>
@@ -1058,7 +1121,7 @@ function CapacityPlanCard({ offer }: { offer: OrderOfferView }) {
           ))}
           {hiddenCount > 0 ? (
             <p className="text-[10px] text-muted-foreground">
-              +{hiddenCount} bölüm daha var.
+              {copy.capacity.hiddenDepartments(hiddenCount)}
             </p>
           ) : null}
         </div>
@@ -1091,16 +1154,17 @@ function ActiveOrdersSnapshot({
 }: {
   activeOrders: ActiveOrderPriorityView[];
 }) {
+  const { copy, numberLocale } = useOrdersUi();
   const visibleOrders = activeOrders.slice(0, 3);
 
   return (
     <div className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Aktif Üretim
+          {copy.activeOrders.title}
         </p>
         <span className="text-[10px] text-muted-foreground">
-          {activeOrders.length} iş
+          {copy.activeOrders.workCount(activeOrders.length)}
         </span>
       </div>
       {visibleOrders.length > 0 ? (
@@ -1120,16 +1184,18 @@ function ActiveOrdersSnapshot({
               </span>
               <span className="shrink-0 text-right text-muted-foreground">
                 <strong className="block text-foreground">
-                  {order.remainingQuantity.toLocaleString("tr-TR")} adet
+                  {copy.activeOrders.remaining(
+                    order.remainingQuantity.toLocaleString(numberLocale),
+                  )}
                 </strong>
-                {order.targetDeliveryDay}. gün
+                {copy.activeOrders.targetDay(order.targetDeliveryDay)}
               </span>
             </div>
           ))}
         </div>
       ) : (
         <p className="mt-2 rounded-md border border-dashed border-border bg-card/40 px-2 py-2 text-[11px] text-muted-foreground">
-          Aktif üretim emri yok.
+          {copy.activeOrders.empty}
         </p>
       )}
     </div>
@@ -1137,16 +1203,27 @@ function ActiveOrdersSnapshot({
 }
 
 function OrderAcceptPlan({ offer }: { offer: OrderOfferView }) {
+  const { copy } = useOrdersUi();
+
   return (
     <form action={acceptMarketOrderAction} className="mt-2 rounded-lg border border-border bg-background/60 p-2.5">
       <input name="offerId" type="hidden" value={offer.id} />
       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Kabul Planı
+        {copy.acceptPlan.title}
       </p>
       <div className="mt-2 space-y-1.5 text-[11px]">
-        <AcceptPlanRow label="Stok" value={offer.acceptPlan.materialReadyLabel} />
-        <AcceptPlanRow label="Kesim" value={offer.acceptPlan.cuttingStartLabel} />
-        <AcceptPlanRow label="Üretim" value={offer.acceptPlan.productionOrderLabel} />
+        <AcceptPlanRow
+          label={copy.acceptPlan.material}
+          value={offer.acceptPlan.materialReadyLabel}
+        />
+        <AcceptPlanRow
+          label={copy.acceptPlan.cutting}
+          value={offer.acceptPlan.cuttingStartLabel}
+        />
+        <AcceptPlanRow
+          label={copy.acceptPlan.production}
+          value={offer.acceptPlan.productionOrderLabel}
+        />
       </div>
       <AcceptOrderButton />
     </form>
@@ -1163,12 +1240,13 @@ function AcceptPlanRow({ label, value }: { label: string; value: string }) {
 }
 
 function AcceptOrderButton() {
+  const { copy } = useOrdersUi();
   const { pending } = useFormStatus();
 
   return (
     <Button className="mt-2 w-full" disabled={pending} size="sm" type="submit">
       <Check size={16} />
-      {pending ? "Hazırlanıyor..." : "Siparişi Kabul Et"}
+      {pending ? copy.acceptButton.pending : copy.acceptButton.idle}
     </Button>
   );
 }
@@ -1245,7 +1323,10 @@ function OfferTypeBadge({ offer }: { offer: OrderOfferView }) {
   );
 }
 
-function getMarketFilter(filter: MarketFilter) {
+function getMarketFilter(
+  filter: MarketFilter,
+  marketFilters: MarketFilterConfig[],
+) {
   return marketFilters.find((item) => item.value === filter) ?? marketFilters[0];
 }
 

@@ -7,14 +7,19 @@ import {
   type ProductionGrade,
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
+import {
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
+import { rankingCopy } from "../ranking-copy";
 import type {
   FactoryVisitLine,
   FactoryVisitSection,
   FactoryVisitView,
 } from "../types";
-
-const locale = "tr";
 
 const factoryVisitSelect = {
   currentLevel: true,
@@ -27,11 +32,6 @@ const factoryVisitSelect = {
         select: {
           key: true,
           translations: {
-            where: {
-              locale: {
-                in: [locale, "en"],
-              },
-            },
             select: {
               locale: true,
               name: true,
@@ -59,11 +59,6 @@ const factoryVisitSelect = {
               key: true,
               sortOrder: true,
               translations: {
-                where: {
-                  locale: {
-                    in: [locale, "en"],
-                  },
-                },
                 select: {
                   locale: true,
                   name: true,
@@ -75,11 +70,6 @@ const factoryVisitSelect = {
           key: true,
           routeOrder: true,
           translations: {
-            where: {
-              locale: {
-                in: [locale, "en"],
-              },
-            },
             select: {
               locale: true,
               name: true,
@@ -118,11 +108,6 @@ const factoryVisitSelect = {
     select: {
       key: true,
       translations: {
-        where: {
-          locale: {
-            in: [locale, "en"],
-          },
-        },
         select: {
           locale: true,
           name: true,
@@ -138,7 +123,9 @@ type FactoryVisitRecord = Prisma.FactoryGetPayload<{
 
 export async function getFactoryVisitView(input: {
   factoryId: string;
+  locale?: SupportedLocale;
 }): Promise<FactoryVisitView | null> {
+  const locale = normalizeLocale(input.locale);
   const factory = await getPrisma().factory.findFirst({
     select: factoryVisitSelect,
     where: {
@@ -151,7 +138,7 @@ export async function getFactoryVisitView(input: {
     return null;
   }
 
-  const sections = buildFactoryVisitSections(factory);
+  const sections = buildFactoryVisitSections(factory, locale);
 
   return {
     factory: {
@@ -162,6 +149,7 @@ export async function getFactoryVisitView(input: {
       operatingStageName: pickTranslation(
         factory.operatingStageState?.currentStage.translations ?? [],
         factory.operatingStageState?.currentStage.key ?? "factory",
+        locale,
       ),
       productionLineCount: sections.reduce(
         (total, section) => total + section.lines.length,
@@ -171,6 +159,7 @@ export async function getFactoryVisitView(input: {
       sectorName: pickTranslation(
         factory.sector.translations,
         factory.sector.key,
+        locale,
       ),
     },
     player: {
@@ -184,7 +173,9 @@ export async function getFactoryVisitView(input: {
 
 export function buildFactoryVisitSections(
   factory: FactoryVisitRecord,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): FactoryVisitSection[] {
+  const copy = rankingCopy[locale].service;
   const sections = new Map<
     string,
     Omit<FactoryVisitSection, "lines" | "tone"> & {
@@ -221,8 +212,14 @@ export function buildFactoryVisitSections(
         title: pickTranslation(
           group?.translations ?? line.department.translations,
           sectionKey,
+          locale,
         ),
       };
+    const departmentName = pickTranslation(
+      line.department.translations,
+      line.department.key,
+      locale,
+    );
 
     section.lines.push({
       code: `${getDepartmentCode(line.department.key)}-${String(
@@ -230,10 +227,7 @@ export function buildFactoryVisitSections(
       ).padStart(2, "0")}`,
       departmentId: line.department.id,
       departmentKey: line.department.key,
-      departmentName: pickTranslation(
-        line.department.translations,
-        line.department.key,
-      ),
+      departmentName,
       grade: line.productionLineTemplate.grade,
       id: line.id,
       imageUrl: getLineImageUrl(line),
@@ -241,10 +235,7 @@ export function buildFactoryVisitSections(
       sortOrder: line.sortOrder,
       title:
         line.customName ??
-        `${pickTranslation(
-          line.department.translations,
-          line.department.key,
-        )} Hattı ${line.lineNumber}`,
+        copy.lineTitle(departmentName, line.lineNumber),
     });
     sections.set(sectionId, section);
   }
@@ -393,10 +384,10 @@ function getSectionTone(
 function pickTranslation(
   translations: Array<{ locale: string; name: string }>,
   fallback: string,
+  locale: SupportedLocale,
 ) {
   return (
-    translations.find((translation) => translation.locale === locale)?.name ??
-    translations.find((translation) => translation.locale === "en")?.name ??
+    preferredTranslation(translations, locale)?.name ??
     toTitle(fallback)
   );
 }

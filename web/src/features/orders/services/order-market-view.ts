@@ -6,13 +6,19 @@ import {
   ProductionOrderStatus,
   RouteProcessingMode,
   type CurrencyCode,
-  type ProductTier,
 } from "@/generated/prisma/enums";
 import { getPrisma } from "@/lib/db";
+import {
+  normalizeLocale,
+  numberLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import {
   getEffectiveProductRequiredLevel,
   isProductTierUnlocked,
 } from "../product-tier-rules";
+import { ordersCopy } from "../orders-copy";
 
 import type {
   OrderMarketView,
@@ -26,7 +32,6 @@ import type {
   OrderOfferView,
 } from "../types";
 
-const locale = "tr";
 const COST_LINE_STATUSES = [
   FactoryProductionLineStatus.IDLE,
   FactoryProductionLineStatus.RUNNING,
@@ -76,12 +81,14 @@ export async function getOrderMarketView(input: {
   currentLevel: number;
   factoryId: string;
   currencyCode: CurrencyCode;
+  locale?: SupportedLocale | string;
 }): Promise<OrderMarketView> {
+  const locale = normalizeLocale(input.locale);
   const [offers, departmentCosts, activeOrders, capacityContext] = await Promise.all([
-    fetchMarketOffers(input.factoryId, input.currentDay),
+    fetchMarketOffers(input.factoryId, input.currentDay, locale),
     fetchFactoryDepartmentCosts(input.factoryId),
-    fetchActiveProductionOrders(input.factoryId),
-    fetchFactoryCapacityContext(input.factoryId),
+    fetchActiveProductionOrders(input.factoryId, locale),
+    fetchFactoryCapacityContext(input.factoryId, locale),
   ]);
   const visibleOffers = offers.filter((offer) =>
     isMarketOfferVisibleForLevel(offer, input.currentLevel),
@@ -92,19 +99,30 @@ export async function getOrderMarketView(input: {
       currencyCode: input.currencyCode,
       currentDay: input.currentDay,
       departmentCosts,
+      locale,
       offer,
     }),
   );
 
   return {
-    activeOrders: activeOrders.map(toActiveOrderPriorityView),
+    activeOrders: activeOrders.map((order) =>
+      toActiveOrderPriorityView(order, locale),
+    ),
     availableCount: offerViews.length,
     currentLevel: input.currentLevel,
     offers: offerViews,
   };
 }
 
-async function fetchActiveProductionOrders(factoryId: string) {
+function getTranslationLocaleFallbacks(locale: SupportedLocale) {
+  return locale === "tr" ? ["tr", "en"] : ["en", "tr"];
+}
+
+async function fetchActiveProductionOrders(
+  factoryId: string,
+  locale: SupportedLocale,
+) {
+  void locale;
   const prisma = getPrisma();
 
   return prisma.productionOrder.findMany({
@@ -139,16 +157,23 @@ async function fetchActiveProductionOrders(factoryId: string) {
           virtualCustomer: { select: { name: true } },
         },
       },
-      product: { select: { name: true } },
+      product: {
+        select: {
+          name: true,
+        },
+      },
     },
   });
 }
 
 function toActiveOrderPriorityView(
   order: Awaited<ReturnType<typeof fetchActiveProductionOrders>>[number],
+  locale: SupportedLocale,
 ): ActiveOrderPriorityView {
   return {
-    customerName: order.customerOrder.virtualCustomer?.name ?? "-",
+    customerName:
+      order.customerOrder.virtualCustomer?.name ??
+      ordersCopy[locale].service.activeOrderFallbackCustomer,
     id: order.id,
     orderNo: order.customerOrder.orderNo,
     priority: order.priority,
@@ -158,8 +183,12 @@ function toActiveOrderPriorityView(
   };
 }
 
-async function fetchFactoryCapacityContext(factoryId: string) {
+async function fetchFactoryCapacityContext(
+  factoryId: string,
+  locale: SupportedLocale,
+) {
   const prisma = getPrisma();
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
   const [factory, lines, queueRows] = await Promise.all([
     prisma.factory.findUnique({
       where: { id: factoryId },
@@ -213,7 +242,7 @@ async function fetchFactoryCapacityContext(factoryId: string) {
           key: true,
           routeOrder: true,
           translations: {
-            where: { locale },
+            where: { locale: translationLocaleFilter },
             select: { locale: true, name: true },
           },
         },
@@ -226,7 +255,7 @@ async function fetchFactoryCapacityContext(factoryId: string) {
   const departmentNameById = new Map(
     departments.map((department) => [
       department.id,
-      pickTranslation(department.translations, department.key),
+      pickTranslation(department.translations, department.key, locale),
     ]),
   );
   const departmentSortOrderById = new Map(
@@ -241,8 +270,13 @@ async function fetchFactoryCapacityContext(factoryId: string) {
   };
 }
 
-async function fetchMarketOffers(factoryId: string, currentDay: number) {
+async function fetchMarketOffers(
+  factoryId: string,
+  currentDay: number,
+  locale: SupportedLocale,
+) {
   const prisma = getPrisma();
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
 
   return prisma.marketOrderOffer.findMany({
     where: {
@@ -256,14 +290,14 @@ async function fetchMarketOffers(factoryId: string, currentDay: number) {
       customerSegment: {
         include: {
           translations: {
-            where: { locale },
+            where: { locale: translationLocaleFilter },
           },
         },
       },
       customerVolumeClass: {
         include: {
           translations: {
-            where: { locale },
+            where: { locale: translationLocaleFilter },
           },
         },
       },
@@ -274,7 +308,7 @@ async function fetchMarketOffers(factoryId: string, currentDay: number) {
           bottleneckDepartment: {
             include: {
               translations: {
-                where: { locale },
+                where: { locale: translationLocaleFilter },
               },
             },
           },
@@ -284,7 +318,7 @@ async function fetchMarketOffers(factoryId: string, currentDay: number) {
               colorVariant: {
                 include: {
                   translations: {
-                    where: { locale },
+                    where: { locale: translationLocaleFilter },
                   },
                 },
               },
@@ -306,7 +340,7 @@ async function fetchMarketOffers(factoryId: string, currentDay: number) {
                   department: {
                     include: {
                       translations: {
-                        where: { locale },
+                        where: { locale: translationLocaleFilter },
                       },
                     },
                   },
@@ -407,16 +441,19 @@ function toOrderOfferView({
   currencyCode,
   currentDay,
   departmentCosts,
+  locale,
   offer,
 }: {
   capacityContext: CapacityContext;
   currencyCode: CurrencyCode;
   currentDay: number;
   departmentCosts: Map<string, number>;
+  locale: SupportedLocale;
   offer: MarketOfferRecord;
 }): OrderOfferView {
+  const copy = ordersCopy[locale].service;
   const items = offer.items.map((item) =>
-    toOrderOfferItemView({ currencyCode, departmentCosts, item }),
+    toOrderOfferItemView({ currencyCode, departmentCosts, item, locale }),
   );
   const plannedCostCents = items.reduce(
     (total, item) => total + Number(item.plannedTotalCostLabelRaw),
@@ -433,42 +470,44 @@ function toOrderOfferView({
     id: offer.id,
     offerNo: offer.offerNo,
     customerName: offer.virtualCustomer.name,
-    customerRelationship: buildCustomerRelationshipView(offer.metadata),
+    customerRelationship: buildCustomerRelationshipView(offer.metadata, locale),
     offerType: offer.offerType,
-    offerTypeLabel: formatOfferType(offer.offerType),
+    offerTypeLabel: copy.offerType[offer.offerType],
     productTier: offer.productTier,
     isCollection: offer.items.length > 1,
     segmentLabel: pickTranslation(
       offer.customerSegment.translations,
       offer.customerSegment.key,
+      locale,
     ),
     volumeLabel: pickTranslation(
       offer.customerVolumeClass.translations,
       offer.customerVolumeClass.key,
+      locale,
     ),
     status: offer.status,
     offeredDay: offer.offeredDay,
     expiresDay: offer.expiresDay,
     targetDeliveryDay: offer.targetDeliveryDay,
-    deliveryLabel: `${offer.targetDeliveryDays} gün`,
+    deliveryLabel: copy.days(formatNumber(offer.targetDeliveryDays, locale)),
     totalQuantity: offer.totalQuantity,
-    totalQuantityLabel: `${formatNumber(offer.totalQuantity)} adet`,
+    totalQuantityLabel: copy.pieces(formatNumber(offer.totalQuantity, locale)),
     totalRevenueCents: offer.totalRevenueCents.toString(),
-    totalRevenueLabel: formatMoney(totalRevenueCents, currencyCode),
+    totalRevenueLabel: formatMoney(totalRevenueCents, currencyCode, locale),
     acceptPlan: {
-      cuttingStartLabel: `${currentDay + 1}. gün kesim başlayabilir`,
-      materialReadyLabel: `${currentDay + 1}. gün kumaş ve aksesuar stokta`,
-      productionOrderLabel: `${offer.items.length} üretim emri hazırlanacak`,
+      cuttingStartLabel: copy.acceptPlan.cuttingStart(currentDay + 1),
+      materialReadyLabel: copy.acceptPlan.materialReady(currentDay + 1),
+      productionOrderLabel: copy.acceptPlan.productionOrder(offer.items.length),
     },
     plannedCostCents: String(plannedCostCents),
-    plannedCostLabel: formatMoney(plannedCostCents, currencyCode),
+    plannedCostLabel: formatMoney(plannedCostCents, currencyCode, locale),
     plannedProfitCents: String(plannedProfitCents),
-    plannedProfitLabel: formatMoney(plannedProfitCents, currencyCode),
+    plannedProfitLabel: formatMoney(plannedProfitCents, currencyCode, locale),
     plannedMarginBps,
-    plannedMarginLabel: formatMarginPercent(plannedMarginBps),
-    capacityRiskLabel: formatBpsNumber(offer.capacityRiskBps),
-    deliveryRiskLabel: formatBpsNumber(offer.deliveryRiskBps),
-    capacityPlan: buildCapacityPlanView({ capacityContext, offer }),
+    plannedMarginLabel: formatMarginPercent(plannedMarginBps, locale),
+    capacityRiskLabel: formatBpsNumber(offer.capacityRiskBps, locale),
+    deliveryRiskLabel: formatBpsNumber(offer.deliveryRiskBps, locale),
+    capacityPlan: buildCapacityPlanView({ capacityContext, locale, offer }),
     items: items.map(toPublicOrderOfferItemView),
   };
 }
@@ -477,11 +516,14 @@ function toOrderOfferItemView({
   currencyCode,
   departmentCosts,
   item,
+  locale,
 }: {
   currencyCode: CurrencyCode;
   departmentCosts: Map<string, number>;
   item: MarketOfferItemRecord;
+  locale: SupportedLocale;
 }): OrderOfferItemView & { plannedTotalCostLabelRaw: string } {
+  const copy = ordersCopy[locale].service;
   const plannedUnitCostCents =
     item.estimatedUnitCostCents ??
     calculateRouteUnitCostCents(item, departmentCosts);
@@ -505,33 +547,36 @@ function toOrderOfferItemView({
     productName: item.product.name,
     productCode: item.product.code ?? item.product.key,
     productTier: item.productTier,
-    productTierLabel: formatTier(item.productTier),
+    productTierLabel: ordersCopy[locale].filters[item.productTier].label,
     quantity: item.quantity,
-    quantityLabel: `${formatNumber(item.quantity)} adet`,
+    quantityLabel: copy.pieces(formatNumber(item.quantity, locale)),
     unitPriceCents: String(item.unitPriceCents),
-    unitPriceLabel: formatMoney(item.unitPriceCents, currencyCode),
+    unitPriceLabel: formatMoney(item.unitPriceCents, currencyCode, locale),
     totalPriceCents: String(totalPriceCents),
-    totalPriceLabel: formatMoney(totalPriceCents, currencyCode),
+    totalPriceLabel: formatMoney(totalPriceCents, currencyCode, locale),
     plannedUnitCostCents: String(plannedUnitCostCents),
-    plannedUnitCostLabel: formatMoney(plannedUnitCostCents, currencyCode),
+    plannedUnitCostLabel: formatMoney(plannedUnitCostCents, currencyCode, locale),
     plannedTotalCostCents: String(plannedTotalCostCents),
-    plannedTotalCostLabel: formatMoney(plannedTotalCostCents, currencyCode),
+    plannedTotalCostLabel: formatMoney(plannedTotalCostCents, currencyCode, locale),
     plannedTotalCostLabelRaw: String(plannedTotalCostCents),
     plannedUnitProfitCents: String(plannedUnitProfitCents),
-    plannedUnitProfitLabel: formatMoney(plannedUnitProfitCents, currencyCode),
+    plannedUnitProfitLabel: formatMoney(plannedUnitProfitCents, currencyCode, locale),
     plannedProfitCents: String(plannedProfitCents),
-    plannedProfitLabel: formatMoney(plannedProfitCents, currencyCode),
-    plannedMarginLabel: formatMarginPercent(plannedMarginBps),
-    routeLabel: buildRouteLabel(item),
-    route: buildRouteSteps(item),
+    plannedProfitLabel: formatMoney(plannedProfitCents, currencyCode, locale),
+    plannedMarginLabel: formatMarginPercent(plannedMarginBps, locale),
+    routeLabel: buildRouteLabel(item, locale),
+    route: buildRouteSteps(item, locale),
     bottleneckLabel: item.bottleneckDepartment
       ? pickTranslation(
           item.bottleneckDepartment.translations,
           item.bottleneckDepartment.key,
+          locale,
         )
       : "-",
     imageUrl: getProductImageUrl(item),
-    colors: item.colors.map(toOrderOfferItemColorView),
+    colors: item.colors.map((color) =>
+      toOrderOfferItemColorView(color, locale),
+    ),
   };
 }
 
@@ -546,7 +591,9 @@ function toPublicOrderOfferItemView({
 
 function buildCustomerRelationshipView(
   metadata: unknown,
+  locale: SupportedLocale,
 ): OrderOfferCustomerRelationshipView | null {
+  const copy = ordersCopy[locale].service;
   const source = isRecord(metadata) ? metadata.customerRelationship : null;
 
   if (!isRecord(source)) return null;
@@ -580,23 +627,26 @@ function buildCustomerRelationshipView(
     completedOrderCount,
     lateOrderCount,
     relationshipScoreBps,
-    relationshipScoreLabel: formatBpsPercent(relationshipScoreBps),
+    relationshipScoreLabel: formatBpsPercent(relationshipScoreBps, locale),
     repeatEligible,
-    repeatLabel: repeatEligible ? "RPT uygun" : "RPT beklemede",
-    repeatWeightLabel: formatBpsPercent(repeatWeightBps),
+    repeatLabel: repeatEligible ? copy.repeatEligible : copy.repeatPending,
+    repeatWeightLabel: formatBpsPercent(repeatWeightBps, locale),
     status,
-    statusLabel: formatCustomerRelationshipStatus(status),
+    statusLabel: copy.customerStatus[status],
     totalLateDays,
   };
 }
 
 function buildCapacityPlanView({
   capacityContext,
+  locale,
   offer,
 }: {
   capacityContext: CapacityContext;
+  locale: SupportedLocale;
   offer: MarketOfferRecord;
 }): OrderOfferCapacityPlanView {
+  const copy = ordersCopy[locale].service;
   const snapshot = parseDepartmentLoadSnapshot(offer.departmentLoadSnapshot);
   const snapshotByDepartmentId = new Map(
     (snapshot?.departments ?? []).map((department) => [
@@ -644,47 +694,47 @@ function buildCapacityPlanView({
     );
 
     return {
-      afterAcceptLoadDaysLabel: formatDays(afterAcceptLoadDaysValue),
+      afterAcceptLoadDaysLabel: formatDays(afterAcceptLoadDaysValue, locale),
       afterAcceptLoadDaysValue,
       afterAcceptLoadPercent: getLoadPercent(afterAcceptLoadDaysValue, state),
-      currentLoadDaysLabel: formatDays(currentLoadDaysValue),
+      currentLoadDaysLabel: formatDays(currentLoadDaysValue, locale),
       currentLoadDaysValue,
       dailyCapacityLabel:
         dailyPointCapacity > 0
-          ? `${formatNumber(dailyPointCapacity)} point/gün`
-          : "Planlı hat yok",
+          ? copy.pointsPerDay(formatNumber(dailyPointCapacity, locale))
+          : copy.noPlannedLine,
       departmentId,
       departmentName:
-        capacityContext.departmentNameById.get(departmentId) ?? "Bölüm",
+        capacityContext.departmentNameById.get(departmentId) ?? toTitle(departmentId),
       lineCountLabel:
         (capacityInfo?.lineCount ?? 0) > 0
-          ? `${formatNumber(capacityInfo?.lineCount ?? 0)} hat`
+          ? copy.lineCount(formatNumber(capacityInfo?.lineCount ?? 0, locale))
           : dailyPointCapacity > 0
-            ? "Hat bilgisi yok"
-            : "Hat yok",
-      offerLoadDaysLabel: formatDays(offerLoadDaysValue),
+            ? copy.noLineInfo
+            : copy.noLine,
+      offerLoadDaysLabel: formatDays(offerLoadDaysValue, locale),
       offerLoadDaysValue,
       sortOrder: capacityContext.departmentSortOrderById.get(departmentId) ?? 999,
       state,
-      stateLabel: getCapacityStateLabel(state),
+      stateLabel: copy.capacityState[state],
     };
   }).sort((a, b) => {
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
 
-    return a.departmentName.localeCompare(b.departmentName, "tr");
+    return a.departmentName.localeCompare(b.departmentName, numberLocale(locale));
   });
 
   if (rows.length === 0) {
     return {
       afterAcceptLoadDaysLabel: "-",
-      bottleneckDepartmentLabel: "Darboğaz yok",
+      bottleneckDepartmentLabel: copy.noBottleneck,
       currentLoadDaysLabel: "-",
       offerLoadDaysLabel: "-",
       plannedCompletionLabel: "-",
       rows: [],
       state: "NO_CAPACITY",
-      stateLabel: getCapacityStateLabel("NO_CAPACITY"),
-      targetDeliveryLabel: `${offer.targetDeliveryDays} gün termin`,
+      stateLabel: copy.capacityState.NO_CAPACITY,
+      targetDeliveryLabel: copy.deadlineDays(offer.targetDeliveryDays),
     };
   }
 
@@ -713,20 +763,20 @@ function buildCapacityPlanView({
       : null);
 
   return {
-    afterAcceptLoadDaysLabel: formatDays(afterAcceptLoadDaysValue),
+    afterAcceptLoadDaysLabel: formatDays(afterAcceptLoadDaysValue, locale),
     bottleneckDepartmentLabel: bottleneck.departmentName,
-    currentLoadDaysLabel: formatDays(currentLoadDaysValue),
-    offerLoadDaysLabel: formatDays(offerLoadDaysValue),
+    currentLoadDaysLabel: formatDays(currentLoadDaysValue, locale),
+    offerLoadDaysLabel: formatDays(offerLoadDaysValue, locale),
     plannedCompletionLabel:
       plannedCompletionDays === null
         ? "-"
-        : `${formatNumber(plannedCompletionDays)} gün tahmini`,
+        : copy.estimatedDays(formatNumber(plannedCompletionDays, locale)),
     rows,
     state,
-    stateLabel: getCapacityStateLabel(state),
-    targetDeliveryLabel: `${
-      snapshot?.targetDeliveryDays ?? offer.targetDeliveryDays
-    } gün termin`,
+    stateLabel: copy.capacityState[state],
+    targetDeliveryLabel: copy.deadlineDays(
+      snapshot?.targetDeliveryDays ?? offer.targetDeliveryDays,
+    ),
   };
 }
 
@@ -871,19 +921,6 @@ function getCapacityState(
   return "CRITICAL";
 }
 
-function getCapacityStateLabel(state: OrderOfferCapacityState) {
-  const labels: Record<OrderOfferCapacityState, string> = {
-    BALANCED: "Dengeli",
-    CRITICAL: "Kritik",
-    NO_CAPACITY: "Hat yok",
-    RISKY: "Riskli",
-    SAFE: "Rahat",
-    STRETCH: "Yoğun",
-  };
-
-  return labels[state];
-}
-
 function getLoadPercent(loadDays: number, state: OrderOfferCapacityState) {
   if (state === "NO_CAPACITY") return 100;
 
@@ -894,14 +931,16 @@ function getLoadPercent(loadDays: number, state: OrderOfferCapacityState) {
   );
 }
 
-function formatDays(value: number) {
+function formatDays(value: number, locale: SupportedLocale) {
   if (!Number.isFinite(value)) return "-";
-  if (value === 0) return "0 gün";
+  if (value === 0) return ordersCopy[locale].service.days("0");
 
-  return `${new Intl.NumberFormat("tr-TR", {
+  const formatted = new Intl.NumberFormat(numberLocale(locale), {
     maximumFractionDigits: value < 10 ? 1 : 0,
     minimumFractionDigits: value < 1 ? 1 : 0,
-  }).format(value)} gün`;
+  }).format(value);
+
+  return ordersCopy[locale].service.days(formatted);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -936,28 +975,35 @@ function calculateRouteUnitCostCents(
 
 function toOrderOfferItemColorView(
   color: MarketOfferItemRecord["colors"][number],
+  locale: SupportedLocale,
 ): OrderOfferItemColorView {
+  const copy = ordersCopy[locale].service;
+
   return {
     id: color.id,
     name: pickTranslation(
       color.colorVariant.translations,
       color.colorVariant.key,
+      locale,
     ),
     hexCode: color.colorVariant.hexCode,
     quantity: color.quantity,
-    quantityLabel: `${formatNumber(color.quantity)} adet`,
+    quantityLabel: copy.pieces(formatNumber(color.quantity, locale)),
   };
 }
 
-function buildRouteLabel(item: MarketOfferItemRecord) {
+function buildRouteLabel(item: MarketOfferItemRecord, locale: SupportedLocale) {
   return item.product.routeSteps
     .filter((step) => step.isRequired)
-    .map((step) => pickTranslation(step.department.translations, step.department.key))
+    .map((step) =>
+      pickTranslation(step.department.translations, step.department.key, locale),
+    )
     .join(" > ");
 }
 
 function buildRouteSteps(
   item: MarketOfferItemRecord,
+  locale: SupportedLocale,
 ): OrderOfferItemRouteStepView[] {
   return item.product.routeSteps
     .filter((step) => step.isRequired)
@@ -967,6 +1013,7 @@ function buildRouteSteps(
       label: pickTranslation(
         step.department.translations,
         step.department.key,
+        locale,
       ),
       sequence: step.sequence,
       workloadPointsPerUnit: step.workloadPointsPerUnit,
@@ -982,11 +1029,13 @@ function getProductImageUrl(item: MarketOfferItemRecord) {
   return image?.url ?? image?.pathname ?? null;
 }
 
-function pickTranslation(translations: TranslationRecord[], fallbackKey: string) {
+function pickTranslation(
+  translations: TranslationRecord[],
+  fallbackKey: string,
+  locale: SupportedLocale,
+) {
   return (
-    translations.find((translation) => translation.locale === locale)?.name ??
-    translations[0]?.name ??
-    toTitle(fallbackKey)
+    preferredTranslation(translations, locale)?.name ?? toTitle(fallbackKey)
   );
 }
 
@@ -1004,24 +1053,26 @@ function calculateMarginBps(profitCents: number, revenueCents: number) {
   return Math.round((profitCents / revenueCents) * 10_000);
 }
 
-function formatMarginPercent(value: number) {
-  const formatted = new Intl.NumberFormat("tr-TR", {
+function formatMarginPercent(value: number, locale: SupportedLocale) {
+  const formatted = new Intl.NumberFormat(numberLocale(locale), {
     maximumFractionDigits: 1,
     minimumFractionDigits: 0,
   }).format(value / 100);
 
-  return `%${formatted}`;
+  return locale === "tr" ? `%${formatted}` : `${formatted}%`;
 }
 
-function formatBpsNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatBpsNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale), {
     maximumFractionDigits: 1,
     minimumFractionDigits: 0,
   }).format(value / 100);
 }
 
-function formatBpsPercent(value: number) {
-  return `%${formatBpsNumber(value)}`;
+function formatBpsPercent(value: number, locale: SupportedLocale) {
+  const formatted = formatBpsNumber(value, locale);
+
+  return locale === "tr" ? `%${formatted}` : `${formatted}%`;
 }
 
 function readCustomerRelationshipStatus(value: unknown) {
@@ -1037,21 +1088,12 @@ function readCustomerRelationshipStatus(value: unknown) {
   return "new";
 }
 
-function formatCustomerRelationshipStatus(
-  status: OrderOfferCustomerRelationshipView["status"],
+function formatMoney(
+  cents: number,
+  currencyCode: CurrencyCode,
+  locale: SupportedLocale,
 ) {
-  const labels: Record<OrderOfferCustomerRelationshipView["status"], string> = {
-    at_risk: "Riskli",
-    new: "Yeni",
-    trusted: "Güvenilir",
-    warm: "Sıcak",
-  };
-
-  return labels[status];
-}
-
-function formatMoney(cents: number, currencyCode: CurrencyCode) {
-  return new Intl.NumberFormat("tr-TR", {
+  return new Intl.NumberFormat(numberLocale(locale), {
     currency: currencyCode,
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
@@ -1059,30 +1101,6 @@ function formatMoney(cents: number, currencyCode: CurrencyCode) {
   }).format(cents / 100);
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
-}
-
-function formatTier(tier: ProductTier) {
-  const labels: Record<ProductTier, string> = {
-    BASIC: "Basic",
-    LUXURY: "Luxury",
-    PREMIUM: "Premium",
-    STANDARD: "Standard",
-  };
-
-  return labels[tier];
-}
-
-function formatOfferType(offerType: OrderOfferView["offerType"]) {
-  switch (offerType) {
-    case "OPPORTUNITY":
-      return "Fırsat";
-    case "EXPRESS":
-      return "Express";
-    case "REPEAT":
-      return "RPT";
-    default:
-      return "Normal";
-  }
+function formatNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale)).format(value);
 }

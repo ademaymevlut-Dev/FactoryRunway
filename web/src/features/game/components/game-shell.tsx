@@ -19,7 +19,10 @@ export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }
   return (
     <GameUiProvider initialShiftPlayback={initialSnapshot.activeShiftPlayback}>
       <TooltipProvider>
-        <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+        <main
+          className="relative min-h-screen overflow-hidden bg-background text-foreground"
+          lang={initialSnapshot.locale}
+        >
           <FactoryMap snapshot={initialSnapshot} />
           <TopStatusBar snapshot={initialSnapshot} />
           <LeftDockMenu snapshot={initialSnapshot} />
@@ -27,9 +30,12 @@ export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }
           <DockMenu snapshot={initialSnapshot} />
           <ShiftControlBar snapshot={initialSnapshot} />
           <OverlayLayerManager snapshot={initialSnapshot} />
-          <ShiftPlaybackInteractionLock />
-          <DailyEventPanel />
-          <ShiftPlaybackHud />
+          <ShiftPlaybackInteractionLock locale={initialSnapshot.locale} />
+          <DailyEventPanel
+            currencyCode={initialSnapshot.factory.currencyCode}
+            locale={initialSnapshot.locale}
+          />
+          <ShiftPlaybackHud locale={initialSnapshot.locale} />
         </main>
       </TooltipProvider>
     </GameUiProvider>

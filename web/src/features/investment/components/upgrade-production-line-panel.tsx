@@ -40,7 +40,17 @@ import type {
   UpgradeProductionLineResult,
 } from "@/features/investment/types";
 import type { CurrencyCode, ProductionGrade } from "@/generated/prisma/enums";
+import {
+  numberLocale as resolveNumberLocale,
+  type NumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
+
+import {
+  investmentCopy,
+  type InvestmentUpgradeCopy,
+} from "../investment-copy";
 
 type ProductionLineMapItem = Extract<
   FactoryMapItem,
@@ -51,14 +61,19 @@ export function UpgradeProductionLinePanel({
   currencyCode,
   factoryId,
   line,
+  locale,
   nextTemplate,
 }: {
   currencyCode: CurrencyCode;
   factoryId: string;
   line: ProductionLineMapItem;
+  locale: SupportedLocale;
   nextTemplate: ProductionLineInvestmentTemplate | null;
 }) {
   const router = useRouter();
+  const copy = investmentCopy[locale];
+  const upgradeCopy = copy.upgrade;
+  const numberLocale = resolveNumberLocale(locale);
   const { isShiftPlaybackActive } = useGameUiStore();
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const pricing = useMemo(
@@ -105,13 +120,13 @@ export function UpgradeProductionLinePanel({
     Math.min(100, 50 + capacityIncreaseBps / 200),
   );
   const errorMessage =
-    result?.ok === false ? upgradeErrorLabels[result.code] : null;
+    result?.ok === false ? upgradeCopy.errors[result.code] : null;
 
   return (
     <div className="flex min-h-0 flex-col gap-4">
       <section className="rounded-lg border border-white/10 bg-background/35 p-3">
         <div className="grid gap-3 sm:grid-cols-[128px_minmax(0,1fr)]">
-          <LineImagePreview line={line} />
+          <LineImagePreview copy={upgradeCopy} line={line} />
           <div className="min-w-0">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -125,10 +140,24 @@ export function UpgradeProductionLinePanel({
               <Badge className="shrink-0" variant="outline">{line.code}</Badge>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <CompactDatum label="Standart" value={gradeLabels[line.grade]} />
-              <CompactDatum label="Kapasite" value={`${formatNumber(line.dailyPointCapacity)} puan`} />
-              <CompactDatum label="Personel" value={`${line.assignedStaff}/${line.idealStaff}`} />
-              <CompactDatum label="Alan" value={`${formatNumber(line.areaM2)} m²`} />
+              <CompactDatum
+                label={upgradeCopy.labels.standard}
+                value={copy.gradeLabels[line.grade]}
+              />
+              <CompactDatum
+                label={upgradeCopy.labels.capacity}
+                value={upgradeCopy.labels.points(
+                  formatNumber(line.dailyPointCapacity, numberLocale),
+                )}
+              />
+              <CompactDatum
+                label={upgradeCopy.labels.staff}
+                value={`${line.assignedStaff}/${line.idealStaff}`}
+              />
+              <CompactDatum
+                label={upgradeCopy.labels.area}
+                value={`${formatNumber(line.areaM2, numberLocale)} m²`}
+              />
             </div>
           </div>
         </div>
@@ -136,19 +165,25 @@ export function UpgradeProductionLinePanel({
 
       <section className="rounded-lg border border-white/10 bg-background/35 p-3">
         <div className="flex items-center justify-between gap-3">
-          <GradePill grade={line.grade} />
+          <GradePill grade={line.grade} gradeLabels={copy.gradeLabels} />
           <ArrowRight className="size-4 text-muted-foreground" />
-          <GradePill grade={nextTemplate?.grade ?? line.grade} muted={!nextTemplate} />
+          <GradePill
+            grade={nextTemplate?.grade ?? line.grade}
+            gradeLabels={copy.gradeLabels}
+            muted={!nextTemplate}
+          />
         </div>
 
         <div className="mt-4 space-y-2">
           <div className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-2 text-sm font-medium text-white">
               <Gauge size={15} />
-              İş gücü artışı
+              {upgradeCopy.labels.capacityIncrease}
             </span>
             <strong className="font-mono text-lg text-emerald-300">
-              {nextTemplate ? formatSignedPercentBps(capacityIncreaseBps) : "-"}
+              {nextTemplate
+                ? formatSignedPercentBps(capacityIncreaseBps, numberLocale)
+                : "-"}
             </strong>
           </div>
           <Progress value={nextTemplate ? capacityProgress : 0} />
@@ -158,23 +193,38 @@ export function UpgradeProductionLinePanel({
       <dl className="grid grid-cols-3 gap-2">
         <Metric
           icon={<Users size={14} />}
-          label="Personel"
-          value={nextTemplate ? formatSignedNumber(nextTemplate.idealStaff - line.idealStaff) : "-"}
+          label={upgradeCopy.labels.staff}
+          value={
+            nextTemplate
+              ? formatSignedNumber(
+                  nextTemplate.idealStaff - line.idealStaff,
+                  numberLocale,
+                )
+              : "-"
+          }
         />
         <Metric
           icon={<Ruler size={14} />}
-          label="Alan"
-          value={nextTemplate ? `${formatSignedNumber(nextTemplate.areaM2 - line.areaM2)} m²` : "-"}
+          label={upgradeCopy.labels.area}
+          value={
+            nextTemplate
+              ? `${formatSignedNumber(
+                  nextTemplate.areaM2 - line.areaM2,
+                  numberLocale,
+                )} m²`
+              : "-"
+          }
         />
         <Metric
           icon={<Zap size={14} />}
-          label="Elektrik"
+          label={upgradeCopy.labels.electricity}
           value={
             nextTemplate
               ? formatSignedMoney(
                   nextTemplate.monthlyElectricityBaseCents -
                     line.monthlyElectricityBaseCents,
                   currencyCode,
+                  numberLocale,
                 )
               : "-"
           }
@@ -184,23 +234,35 @@ export function UpgradeProductionLinePanel({
       {pricing ? (
         <section className="rounded-lg border border-white/10 bg-card/70 p-3">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-            Upgrade Bütçesi
+            {upgradeCopy.budgetTitle}
           </p>
           <dl className="mt-3 space-y-2 text-sm">
             <SummaryRow
-              label="Yeni hat bedeli"
-              value={formatMoney(pricing.grossUpgradeCostCents, currencyCode)}
+              label={upgradeCopy.budgetRows.gross}
+              value={formatMoney(
+                pricing.grossUpgradeCostCents,
+                currencyCode,
+                numberLocale,
+              )}
             />
             <SummaryRow
-              label="2. el hat iadesi"
+              label={upgradeCopy.budgetRows.refund}
               tone="positive"
-              value={`-${formatMoney(pricing.tradeInRefundCents, currencyCode)}`}
+              value={`-${formatMoney(
+                pricing.tradeInRefundCents,
+                currencyCode,
+                numberLocale,
+              )}`}
             />
             <div className="border-t border-white/10 pt-2">
               <SummaryRow
-                label="Kasadan çıkacak"
+                label={upgradeCopy.budgetRows.net}
                 strong
-                value={formatMoney(pricing.netUpgradeCostCents, currencyCode)}
+                value={formatMoney(
+                  pricing.netUpgradeCostCents,
+                  currencyCode,
+                  numberLocale,
+                )}
               />
             </div>
           </dl>
@@ -209,23 +271,23 @@ export function UpgradeProductionLinePanel({
 
       {lockedByLeasing ? (
         <Alert>
-          <AlertTitle>Leasing sözleşmesi aktif</AlertTitle>
+          <AlertTitle>{upgradeCopy.alerts.leasingTitle}</AlertTitle>
           <AlertDescription>
-            Leasing süresi tamamlanmadan bu hat yükseltilemez.
+            {upgradeCopy.alerts.leasingBody}
           </AlertDescription>
         </Alert>
       ) : reachedMaxGrade ? (
         <Alert>
-          <AlertTitle>SMART teknoloji</AlertTitle>
+          <AlertTitle>{upgradeCopy.alerts.maxTitle}</AlertTitle>
           <AlertDescription>
-            Bu üretim hattı en yüksek teknoloji seviyesinde.
+            {upgradeCopy.alerts.maxBody}
           </AlertDescription>
         </Alert>
       ) : !nextTemplate ? (
         <Alert variant="destructive">
-          <AlertTitle>Upgrade seçeneği yok</AlertTitle>
+          <AlertTitle>{upgradeCopy.alerts.missingTitle}</AlertTitle>
           <AlertDescription>
-            Bu departman için sıradaki aktif üretim hattı bulunamadı.
+            {upgradeCopy.alerts.missingBody}
           </AlertDescription>
         </Alert>
       ) : null}
@@ -233,17 +295,19 @@ export function UpgradeProductionLinePanel({
       {result?.ok ? (
         <Alert className="border-emerald-500/30 bg-emerald-500/10">
           <Sparkles className="size-4" />
-          <AlertTitle>Upgrade tamamlandı</AlertTitle>
+          <AlertTitle>{upgradeCopy.alerts.successTitle}</AlertTitle>
           <AlertDescription>
-            +{result.xpAwarded} XP eklendi. Yeni teknoloji seviyesi{" "}
-            {gradeLabels[result.nextGrade]}.
+            {upgradeCopy.alerts.successBody(
+              result.xpAwarded,
+              copy.gradeLabels[result.nextGrade],
+            )}
           </AlertDescription>
         </Alert>
       ) : null}
 
       {errorMessage ? (
         <Alert variant="destructive">
-          <AlertTitle>Upgrade tamamlanamadı</AlertTitle>
+          <AlertTitle>{upgradeCopy.alerts.errorTitle}</AlertTitle>
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       ) : null}
@@ -272,20 +336,32 @@ export function UpgradeProductionLinePanel({
           type="submit"
         >
           {pending
-            ? "Upgrade uygulanıyor..."
+            ? upgradeCopy.buttonPending
             : pricing
-              ? `Upgrade Et · ${formatMoney(pricing.netUpgradeCostCents, currencyCode)}`
-              : "Upgrade kapalı"}
+              ? upgradeCopy.buttonAction(
+                  formatMoney(
+                    pricing.netUpgradeCostCents,
+                    currencyCode,
+                    numberLocale,
+                  ),
+                )
+              : upgradeCopy.buttonClosed}
         </Button>
       </form>
     </div>
   );
 }
 
-function LineImagePreview({ line }: { line: ProductionLineMapItem }) {
+function LineImagePreview({
+  copy,
+  line,
+}: {
+  copy: InvestmentUpgradeCopy;
+  line: ProductionLineMapItem;
+}) {
   const previewImageUrl = line.imageUrl ?? line.detailImageUrl;
   const detailImageUrl = line.detailImageUrl ?? line.imageUrl;
-  const imageAlt = `${line.title} üretim hattı`;
+  const imageAlt = copy.imageAlt(line.title);
 
   if (!previewImageUrl) {
     return (
@@ -299,7 +375,7 @@ function LineImagePreview({ line }: { line: ProductionLineMapItem }) {
     <Dialog>
       <DialogTrigger asChild>
         <button
-          aria-label={`${line.title} görselini büyüt`}
+          aria-label={copy.expandAria(line.title)}
           className="group relative h-28 overflow-hidden rounded-lg border border-white/10 bg-black/25 outline-none transition hover:border-primary/50 focus-visible:ring-2 focus-visible:ring-primary/60 sm:h-full"
           type="button"
         >
@@ -313,7 +389,7 @@ function LineImagePreview({ line }: { line: ProductionLineMapItem }) {
           />
           <span className="absolute bottom-2 right-2 inline-flex items-center gap-1 rounded-full border border-white/15 bg-background/80 px-2 py-1 text-[10px] font-semibold text-white shadow-lg backdrop-blur">
             <Maximize2 size={12} />
-            Büyüt
+            {copy.expandLabel}
           </span>
         </button>
       </DialogTrigger>
@@ -352,9 +428,11 @@ function CompactDatum({ label, value }: { label: string; value: string }) {
 
 function GradePill({
   grade,
+  gradeLabels,
   muted = false,
 }: {
   grade: ProductionGrade;
+  gradeLabels: Record<ProductionGrade, string>;
   muted?: boolean;
 }) {
   return (
@@ -451,64 +529,41 @@ function calculateCapacityIncreaseBps(input: {
   );
 }
 
-function formatMoney(valueCents: string | number, currencyCode: CurrencyCode) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatMoney(
+  valueCents: string | number,
+  currencyCode: CurrencyCode,
+  numberLocale: NumberLocale,
+) {
+  return new Intl.NumberFormat(numberLocale, {
     currency: currencyCode,
     maximumFractionDigits: 0,
     style: "currency",
   }).format(Number(BigInt(valueCents)) / 100);
 }
 
-function formatSignedMoney(valueCents: number, currencyCode: CurrencyCode) {
+function formatSignedMoney(
+  valueCents: number,
+  currencyCode: CurrencyCode,
+  numberLocale: NumberLocale,
+) {
   const prefix = valueCents > 0 ? "+" : "";
 
-  return `${prefix}${formatMoney(valueCents, currencyCode)}`;
+  return `${prefix}${formatMoney(valueCents, currencyCode, numberLocale)}`;
 }
 
-function formatSignedNumber(value: number) {
-  return `${value > 0 ? "+" : ""}${new Intl.NumberFormat("tr-TR").format(value)}`;
+function formatSignedNumber(value: number, numberLocale: NumberLocale) {
+  return `${value > 0 ? "+" : ""}${new Intl.NumberFormat(numberLocale).format(value)}`;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
+function formatNumber(value: number, numberLocale: NumberLocale) {
+  return new Intl.NumberFormat(numberLocale).format(value);
 }
 
-function formatSignedPercentBps(valueBps: number) {
+function formatSignedPercentBps(valueBps: number, numberLocale: NumberLocale) {
   const value = valueBps / 100;
   const prefix = value > 0 ? "+" : "";
 
-  return `${prefix}${new Intl.NumberFormat("tr-TR", {
+  return `${prefix}${new Intl.NumberFormat(numberLocale, {
     maximumFractionDigits: 1,
   }).format(value)}%`;
 }
-
-const gradeLabels = {
-  WORKSHOP: "Workshop",
-  INDUSTRIAL: "Industrial",
-  PRECISION: "Precision",
-  SMART: "Smart",
-} as const satisfies Record<ProductionGrade, string>;
-
-const upgradeErrorLabels: Record<
-  Extract<UpgradeProductionLineResult, { ok: false }>["code"],
-  string
-> = {
-  DEPARTMENT_MISMATCH: "Seçilen upgrade aynı departmana ait değil.",
-  DUPLICATE_REQUEST: "Bu upgrade isteği daha önce işlendi.",
-  FACTORY_NOT_ACTIVE: "Fabrika şu anda upgrade için açık değil.",
-  FACTORY_NOT_FOUND: "Fabrika kaydı bulunamadı.",
-  INSUFFICIENT_FUNDS: "Bu upgrade için yeterli nakit bulunmuyor.",
-  INVALID_REQUEST: "Upgrade isteği geçersiz.",
-  INVALID_UPGRADE_PATH: "Seçilen teknoloji seviyesi sıradaki upgrade değil.",
-  LEASING_ACTIVE: "Leasing sözleşmesi aktif olan hat yükseltilemez.",
-  LINE_NOT_FOUND: "Üretim hattı bulunamadı.",
-  LINE_NOT_UPGRADABLE: "Bu üretim hattı şu anda yükseltilemez.",
-  MAX_GRADE_REACHED: "Bu üretim hattı en yüksek teknoloji seviyesinde.",
-  PLAYBACK_ACTIVE: "Vardiya oynatılırken upgrade yapılamaz.",
-  PRODUCTION_PLAN_ACTIVE: "Bugünün üretim planı varken upgrade yapılamaz.",
-  SECTOR_MISMATCH: "Seçilen upgrade fabrikanın sektörüne ait değil.",
-  TEMPLATE_NOT_ACTIVE: "Seçilen upgrade artık aktif değil.",
-  TEMPLATE_NOT_FOUND: "Upgrade seçeneği bulunamadı.",
-  UNAUTHORIZED: "Bu işlem için oturum açmalısınız.",
-  UNKNOWN_ERROR: "Upgrade tamamlanamadı. Lütfen tekrar deneyin.",
-};

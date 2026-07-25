@@ -1,4 +1,11 @@
 import { FactoryProductionLineStatus } from "@/generated/prisma/enums";
+import {
+  normalizeLocale,
+  numberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
+
+import { managerCopy } from "../manager-copy";
 
 const bottleneckWorkloadDayThreshold = 3;
 const urgentBottleneckWorkloadDayThreshold = 2;
@@ -116,11 +123,13 @@ export type BuildManagerMetricsInput = {
   currentDay: number;
   investment: ManagerInvestmentInput;
   lateOrderCount: number;
+  locale?: SupportedLocale;
   mapSections: ManagerMapSectionsInput;
   productionQueues: ManagerProductionQueuesInput;
 };
 
 export function buildManagerMetrics(input: BuildManagerMetricsInput): ManagerMetrics {
+  const locale = normalizeLocale(input.locale);
   const investment = summarizeInvestmentOptions(input.investment, input.cashBalanceCents);
   const staffShortages = buildStaffShortages(input.mapSections);
   const leasedLineCount = countLeasedLines(input.mapSections);
@@ -130,6 +139,7 @@ export function buildManagerMetrics(input: BuildManagerMetricsInput): ManagerMet
     activeProductionOrderCount: input.activeProductionOrderCount,
     bottlenecks: buildBottlenecks({
       investmentDepartmentIds: investment.investmentDepartmentIds,
+      locale,
       productionQueues: input.productionQueues,
     }),
     cashBalanceCents: input.cashBalanceCents,
@@ -204,6 +214,7 @@ function summarizeInvestmentOptions(
 
 function buildBottlenecks(input: {
   investmentDepartmentIds: string[];
+  locale: SupportedLocale;
   productionQueues: ManagerProductionQueuesInput;
 }) {
   const investmentDepartmentIds = new Set(input.investmentDepartmentIds);
@@ -237,7 +248,7 @@ function buildBottlenecks(input: {
         totalRemainingWorkPoints,
         urgentItemCount,
         workloadDays,
-        workloadDaysLabel: formatWorkloadDays(workloadDays),
+        workloadDaysLabel: formatWorkloadDays(workloadDays, input.locale),
       };
     })
     .filter((metric) => {
@@ -360,13 +371,17 @@ function isProductionLine(
   return item.kind === "productionLine";
 }
 
-function formatWorkloadDays(workloadDays: number) {
-  if (!Number.isFinite(workloadDays)) return "kapasite yok";
+function formatWorkloadDays(workloadDays: number, locale: SupportedLocale) {
+  const copy = managerCopy[locale].metrics;
 
-  return `${new Intl.NumberFormat("tr-TR", {
+  if (!Number.isFinite(workloadDays)) return copy.noCapacity;
+
+  const value = new Intl.NumberFormat(numberLocale(locale), {
     maximumFractionDigits: 1,
     minimumFractionDigits: workloadDays >= 10 ? 0 : 1,
-  }).format(workloadDays)} gün`;
+  }).format(workloadDays);
+
+  return copy.workloadDays(value);
 }
 
 function toBigInt(value: string) {

@@ -19,6 +19,7 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { normalizeLocale } from "@/lib/i18n/locales";
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { ensureFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
@@ -29,6 +30,7 @@ import {
 } from "./simulation-math";
 import { FIRST_ORDER_SIMULATION_DURATION_SECONDS } from "./simulation-config";
 import { FIRST_SIMULATION_SHIFT_XP } from "./reward-config";
+import { firstOrderCopy, type FirstOrderCopy } from "../first-order-copy";
 
 export async function completeFirstSimulationAction() {
   const auth = await getCurrentUser();
@@ -73,10 +75,11 @@ export async function completeFirstSimulationAction() {
         },
       },
     });
+    const copy = firstOrderCopy[normalizeLocale(playerProfile?.preferredLocale)].actionErrors;
 
     const factory = playerProfile?.factories[0];
     if (!playerProfile || !factory) {
-      throw new Error("Fabrika bulunamadı.");
+      throw new Error(copy.factoryMissing);
     }
 
     const tutorial = await tx.tutorialProgress.findUnique({
@@ -100,7 +103,7 @@ export async function completeFirstSimulationAction() {
     });
 
     if (!tutorial?.productionOrder) {
-      throw new Error("İlk sipariş üretim kaydı bulunamadı.");
+      throw new Error(copy.firstProductionMissing);
     }
 
     if (tutorial.status === TutorialStatus.COMPLETED) {
@@ -112,6 +115,7 @@ export async function completeFirstSimulationAction() {
     const completedDay = tutorial.currentDay + 2;
     const nextFactoryDay = Math.max(factory.currentDay, completedDay + 1);
     const stepInputs = buildStepInputs({
+      copy,
       productionLines: factory.productionLines,
       routeProgress: productionOrder.routeProgress,
     });
@@ -210,7 +214,7 @@ export async function completeFirstSimulationAction() {
             conditionBps: step.conditionBps,
             blockedReason:
               result.status === "BLOCKED_NO_INPUT"
-                ? "Önceki departmandan hazır adet yok."
+                ? "NO_INPUT_FROM_PREVIOUS_DEPARTMENT"
                 : null,
             metadata: {
               source: "first-order-tutorial",
@@ -340,9 +344,11 @@ export async function completeFirstSimulationAction() {
 }
 
 function buildStepInputs({
+  copy,
   productionLines,
   routeProgress,
 }: {
+  copy: FirstOrderCopy["actionErrors"];
   productionLines: Array<{
     id: string;
     departmentId: string;
@@ -373,7 +379,7 @@ function buildStepInputs({
     );
 
     if (!productionLine) {
-      throw new Error("Üretim rotası için uygun fabrika hattı bulunamadı.");
+      throw new Error(copy.matchingLineMissing);
     }
 
     usedLineIds.add(productionLine.id);

@@ -83,8 +83,11 @@ test("upgrade service leasing kilidi, staff sync, machine purchase finance ve XP
 
 test("upgrade panel ham point yerine yüzde iş gücü artışını gösterir", () => {
   const panel = readSource("../components/upgrade-production-line-panel.tsx");
+  const copy = readSource("../investment-copy.ts");
 
-  assert.match(panel, /İş gücü artışı/);
+  assert.match(panel, /upgradeCopy\.labels\.capacityIncrease/);
+  assert.match(copy, /İş gücü artışı/);
+  assert.match(copy, /Workforce increase/);
   assert.match(panel, /formatSignedPercentBps/);
   assert.doesNotMatch(panel, /point\/gün/);
 });

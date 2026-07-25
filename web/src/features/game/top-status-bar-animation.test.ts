@@ -13,18 +13,20 @@ test("üst HUD nakitten sonra XP metriğini üretir", () => {
 
   assert.ok(cashIndex >= 0);
   assert.ok(xpIndex > cashIndex);
-  assert.match(snapshot, /label: "Tecrübe"/);
-  assert.match(snapshot, /value: `\$\{formatNumber\(factory\.currentXp\)\} XP`/);
+  assert.match(snapshot, /const copy = gameCopy\[locale\]\.snapshot\.metrics/);
+  assert.match(snapshot, /label: copy\.xp/);
+  assert.match(snapshot, /value: `\$\{currentXpLabel\} XP`/);
 });
 
 test("üst HUD gün metriğini oyun ayı ve yılı ile gösterir", () => {
   const snapshot = readSource("./services/game-snapshot.ts");
 
-  assert.match(snapshot, /value: formatNumber\(factory\.currentDay\)/);
-  assert.match(snapshot, /subLabel: formatGameMonthYearLabel\(factory\.currentDay\)/);
+  assert.match(snapshot, /value: formatNumber\(factory\.currentDay, locale\)/);
+  assert.match(snapshot, /subLabel: formatGameMonthYearLabel\(factory\.currentDay, locale\)/);
   assert.match(snapshot, /getFinancePeriod\(\{ currentDay \}\)/);
-  assert.match(snapshot, /"Mayıs"/);
-  assert.match(snapshot, /\$\{monthName\} - \$\{period\.yearIndex\}\. Yıl/);
+  const copy = readSource("./game-copy.ts");
+  assert.match(copy, /"Mayıs"/);
+  assert.match(copy, /\$\{monthName\} - \$\{yearIndex\}\. Yıl/);
 
   const statusBar = readSource("./components/top-status-bar.tsx");
 

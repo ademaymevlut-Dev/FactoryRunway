@@ -19,25 +19,31 @@ test("yatırım paneli seçilen DepartmentGroup içindeki departmanları filtrel
   const panel = readSource(
     "./components/production-line-investment-panel.tsx",
   );
+  const copy = readSource("./investment-copy.ts");
 
   assert.match(panel, /department\.departmentGroupId === sectionId/);
   assert.match(panel, /selectedDepartment\.templates\.map/);
-  assert.match(panel, /aria-label="Üretim hattı standardı"/);
+  assert.match(panel, /aria-label=\{copy\.panel\.templateNavAria\}/);
   assert.match(panel, /GradeGlyph/);
-  assert.match(panel, /gradeLabels\[template\.grade\]/);
+  assert.match(panel, /copy\.gradeLabels\[template\.grade\]/);
   assert.doesNotMatch(panel, /template\.key/);
   assert.match(panel, /department\.id === initialDepartmentId/);
+  assert.match(copy, /Üretim hattı standardı/);
+  assert.match(copy, /Production line standard/);
 });
 
 test("üretim kuyruğu seçili dock departmanından yatırım ve miktarlı fason akışını açar", () => {
   const panel = readSource(
     "../production-queue/components/department-queue-panel.tsx",
   );
+  const copy = readSource("../production-queue/production-queue-copy.ts");
   const registry = readSource("../game/panels/panel-registry.tsx");
 
   assert.match(panel, /openPanel\("investment", \{ departmentId: queue\.departmentId \}\)/);
-  assert.match(panel, /Yatırım Yap/);
-  assert.match(panel, /Fasona ayrılacak miktar/);
+  assert.match(panel, /copy\.header\.invest/);
+  assert.match(panel, /copy\.outsource\.quantityLabel/);
+  assert.match(copy, /Yatırım Yap/);
+  assert.match(copy, /Quantity to outsource/);
   assert.match(panel, /quantity: selectedQuantity/);
   assert.match(registry, /investmentDepartmentIds=/);
 });

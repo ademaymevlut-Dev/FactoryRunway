@@ -74,6 +74,28 @@ test("task snapshot CTA'sı görev objective'ine göre panel veya vardiya akış
   });
 });
 
+test("task snapshot EN translation ve CTA metnini locale'e göre seçer", () => {
+  const snapshot = buildTasksSnapshot({
+    locale: "en",
+    progressRows: [
+      buildRow({
+        key: "story_first_investment_review",
+        objectiveType: TaskObjectiveType.OPEN_INVESTMENT_PANEL,
+        status: TaskProgressStatus.ACTIVE,
+      }),
+    ],
+    tokenBalance: 0,
+  });
+
+  assert.equal(snapshot.activeTasks[0]?.title, "story_first_investment_review title");
+  assert.equal(snapshot.activeTasks[0]?.description, "story_first_investment_review description");
+  assert.deepEqual(snapshot.activeTasks[0]?.cta, {
+    kind: "PANEL",
+    label: "Review Investments",
+    panel: "investment",
+  });
+});
+
 function buildRow(input: {
   currentValue?: number;
   key: string;
@@ -106,6 +128,12 @@ function buildRow(input: {
           description: `${input.key} açıklaması`,
           locale: "tr",
           title: `${input.key} başlığı`,
+        },
+        {
+          completionMessage: `${input.key} complete`,
+          description: `${input.key} description`,
+          locale: "en",
+          title: `${input.key} title`,
         },
       ],
     },

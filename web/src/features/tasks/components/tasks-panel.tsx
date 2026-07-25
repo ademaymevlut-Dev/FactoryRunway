@@ -19,7 +19,12 @@ import {
 import { advanceFactoryDayAction } from "@/features/game/actions/advance-factory-day-action";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
 import type { GameSnapshot } from "@/features/game/types";
+import {
+  numberLocale as resolveNumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import { claimTaskRewardAction } from "../actions/claim-task-reward-action";
+import { tasksCopy } from "../tasks-copy";
 import type { TaskSnapshot, TasksSnapshot } from "../types";
 
 import { TaskCard } from "./task-card";
@@ -29,12 +34,16 @@ const claimResetDelayMs = 950;
 
 export function TasksPanel({
   currencyCode,
+  locale,
   tasks,
 }: {
   currencyCode: GameSnapshot["factory"]["currencyCode"];
+  locale: SupportedLocale;
   tasks: TasksSnapshot;
 }) {
   const router = useRouter();
+  const copy = tasksCopy[locale];
+  const numberLocale = resolveNumberLocale(locale);
   const { openPanel, setActiveShiftPlayback } = useGameUiStore();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPending, startTransition] = useTransition();
@@ -69,7 +78,7 @@ export function TasksPanel({
       const result = await claimTaskRewardAction(task.id);
 
       if (!result.ok) {
-        setMessage(result.message);
+        setMessage(copy.errors[result.code]);
         return;
       }
 
@@ -136,10 +145,10 @@ export function TasksPanel({
           </span>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-foreground">
-              Fabrika gündemi
+              {copy.panel.title}
             </p>
             <p className="text-xs text-muted-foreground">
-              Bir sonraki net adım
+              {copy.panel.subtitle}
             </p>
           </div>
         </div>
@@ -148,14 +157,14 @@ export function TasksPanel({
           variant="outline"
         >
           <CheckCircle2 size={13} />
-          Tamamlanan {completedCount}
+          {copy.panel.completedBadge(completedCount)}
         </Badge>
       </header>
 
       {hasMultipleTasks ? (
         <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-2 py-1.5">
           <Button
-            aria-label="Önceki görev"
+            aria-label={copy.panel.previousAria}
             disabled={isPending}
             onClick={() => goToTask(-1)}
             size="icon-sm"
@@ -168,7 +177,7 @@ export function TasksPanel({
             {safeIndex + 1} / {carouselTasks.length}
           </span>
           <Button
-            aria-label="Sonraki görev"
+            aria-label={copy.panel.nextAria}
             disabled={isPending}
             onClick={() => goToTask(1)}
             size="icon-sm"
@@ -189,20 +198,22 @@ export function TasksPanel({
 
       {activeTask ? (
         <TaskCard
+          copy={copy.card}
           currencyCode={currencyCode}
           isPending={isPending}
           isSettling={settlingTaskId === activeTask.id}
+          numberLocale={numberLocale}
           onClaim={claimTask}
           onCta={followTask}
           positionLabel={
             hasMultipleTasks
               ? `${safeIndex + 1} / ${carouselTasks.length}`
-              : "Görev"
+              : copy.panel.singlePosition
           }
           task={activeTask}
         />
       ) : (
-        <EmptyTasksState completedCount={completedCount} />
+        <EmptyTasksState completedCount={completedCount} copy={copy.panel} />
       )}
     </div>
   );
@@ -229,17 +240,23 @@ function buildTaskCarousel(tasks: TasksSnapshot) {
   return carouselTasks;
 }
 
-function EmptyTasksState({ completedCount }: { completedCount: number }) {
+function EmptyTasksState({
+  completedCount,
+  copy,
+}: {
+  completedCount: number;
+  copy: (typeof tasksCopy)[SupportedLocale]["panel"];
+}) {
   return (
     <Card className="border border-dashed border-border bg-card" size="sm">
       <CardContent className="grid min-h-[260px] place-items-center text-center">
         <div>
           <CheckCircle2 className="mx-auto text-emerald-300" size={30} />
           <h3 className="mt-3 font-semibold text-foreground">
-            Açık görev yok
+            {copy.emptyTitle}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Tamamlanan görev sayısı: {completedCount}
+            {copy.emptyCompletedCount(completedCount)}
           </p>
         </div>
       </CardContent>

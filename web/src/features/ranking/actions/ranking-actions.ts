@@ -1,7 +1,9 @@
 "use server";
 
 import { getCurrentUser } from "@/lib/auth/session";
+import { normalizeLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
+import { rankingCopy } from "../ranking-copy";
 import { getFactoryVisitView } from "../services/factory-visit-service";
 import {
   getXpRankingView,
@@ -31,13 +33,16 @@ export type GetFactoryVisitActionResult =
 
 export async function getXpRankingAction(
   page = 1,
+  localeInput?: SupportedLocale,
 ): Promise<GetXpRankingActionResult> {
   const auth = await getCurrentUser();
+  const locale = normalizeLocale(localeInput);
+  const errors = rankingCopy[locale].actions.rankingErrors;
 
   if (!auth) {
     return {
       code: "UNAUTHORIZED",
-      message: "Ranking listesini görmek için oturum açmalısın.",
+      message: errors.UNAUTHORIZED,
       ok: false,
     };
   }
@@ -45,13 +50,14 @@ export async function getXpRankingAction(
   if (!Number.isFinite(page) || page < 1 || page > 10_000) {
     return {
       code: "INVALID_REQUEST",
-      message: "Ranking sayfası geçersiz.",
+      message: errors.INVALID_REQUEST,
       ok: false,
     };
   }
 
   try {
     const ranking = await getXpRankingView({
+      locale,
       page: Math.trunc(page),
       pageSize: XP_RANKING_PAGE_SIZE,
       viewerUserId: auth.id,
@@ -66,7 +72,7 @@ export async function getXpRankingAction(
 
     return {
       code: "UNKNOWN_ERROR",
-      message: "Ranking listesi şu anda yüklenemedi.",
+      message: errors.UNKNOWN_ERROR,
       ok: false,
     };
   }
@@ -74,13 +80,16 @@ export async function getXpRankingAction(
 
 export async function getFactoryVisitAction(
   factoryId: string,
+  localeInput?: SupportedLocale,
 ): Promise<GetFactoryVisitActionResult> {
   const auth = await getCurrentUser();
+  const locale = normalizeLocale(localeInput);
+  const errors = rankingCopy[locale].actions.visitErrors;
 
   if (!auth) {
     return {
       code: "UNAUTHORIZED",
-      message: "Fabrika ziyareti için oturum açmalısın.",
+      message: errors.UNAUTHORIZED,
       ok: false,
     };
   }
@@ -90,7 +99,7 @@ export async function getFactoryVisitAction(
   if (!normalizedFactoryId || normalizedFactoryId.length > 200) {
     return {
       code: "INVALID_REQUEST",
-      message: "Fabrika bilgisi doğrulanamadı.",
+      message: errors.INVALID_REQUEST,
       ok: false,
     };
   }
@@ -98,12 +107,13 @@ export async function getFactoryVisitAction(
   try {
     const factoryVisit = await getFactoryVisitView({
       factoryId: normalizedFactoryId,
+      locale,
     });
 
     if (!factoryVisit) {
       return {
         code: "NOT_FOUND",
-        message: "Ziyaret edilecek aktif fabrika bulunamadı.",
+        message: errors.NOT_FOUND,
         ok: false,
       };
     }
@@ -117,7 +127,7 @@ export async function getFactoryVisitAction(
 
     return {
       code: "UNKNOWN_ERROR",
-      message: "Fabrika görünümü şu anda yüklenemedi.",
+      message: errors.UNKNOWN_ERROR,
       ok: false,
     };
   }

@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { normalizeLocale } from "@/lib/i18n/locales";
 import { ensureMarketOfferForFactory } from "@/features/orders/services/market-offer-generator";
 
 import { simulateFactoryDay } from "../services/day-simulation";
@@ -19,6 +20,7 @@ import {
   ShiftClaimConflictError,
 } from "../services/shift-transaction";
 import type { AdvanceFactoryDayActionResult } from "../types";
+import { shiftPlaybackCopy } from "../shift-playback-copy";
 
 export async function advanceFactoryDayAction(
   _previousState: AdvanceFactoryDayActionResult | null,
@@ -38,6 +40,7 @@ export async function advanceFactoryDayAction(
   const playerProfile = await prisma.playerProfile.findUnique({
     where: { userId: auth.id },
     select: {
+      preferredLocale: true,
       factories: {
         orderBy: { createdAt: "desc" },
         take: 1,
@@ -46,6 +49,8 @@ export async function advanceFactoryDayAction(
     },
   });
   const factory = playerProfile?.factories[0];
+  const locale = normalizeLocale(playerProfile?.preferredLocale);
+  const copy = shiftPlaybackCopy[locale].actions;
 
   if (!factory) {
     redirect("/onboarding");
@@ -77,20 +82,21 @@ export async function advanceFactoryDayAction(
 
       return {
         code: "SHIFT_START_FAILED",
-        message: "Vardiya başlatılamadı. Lütfen tekrar deneyin.",
+        message: copy.errors.SHIFT_START_FAILED,
         ok: false,
       };
     }
 
     const playback = await getLatestShiftPlayback({
       factoryId: error.factoryId,
+      locale,
       prisma,
     });
 
     if (!playback || playback.simulatedGameDay !== error.simulatedGameDay) {
       return {
         code: "SHIFT_RESULT_NOT_FOUND",
-        message: "Vardiya daha önce başlatıldı ancak sonucu okunamadı.",
+        message: copy.errors.SHIFT_RESULT_NOT_FOUND_AFTER_START,
         ok: false,
       };
     }
@@ -105,6 +111,7 @@ export async function advanceFactoryDayAction(
     execution.outcome === "IDEMPOTENT_REPLAY"
       ? execution.playback
       : await getShiftPlaybackById({
+          locale,
           now:
             execution.outcome === "STARTED"
               ? execution.playbackStartedAt
@@ -120,7 +127,7 @@ export async function advanceFactoryDayAction(
   if (!playback || playback.simulatedGameDay !== expectedSimulatedGameDay) {
     return {
       code: "SHIFT_RESULT_NOT_FOUND",
-      message: "Vardiya tamamlandı ancak sonucu okunamadı.",
+      message: copy.errors.SHIFT_RESULT_NOT_FOUND_AFTER_COMPLETION,
       ok: false,
     };
   }
@@ -132,7 +139,7 @@ export async function advanceFactoryDayAction(
       await ensureMarketOfferForFactory(factory.id);
     } catch (error) {
       console.error("Shift completed but next market offer could not be ensured.", error);
-      warning = "Vardiya tamamlandı; yeni sipariş teklifi daha sonra yenilenecek.";
+      warning = copy.warnings.NEXT_MARKET_OFFER_DELAYED;
     }
   }
 

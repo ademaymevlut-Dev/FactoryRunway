@@ -5,6 +5,7 @@ import type { GameSnapshot } from "../types";
 import { useGameUiStore } from "../store/game-ui-store";
 import { PanelChrome, panelRegistry } from "../panels/panel-registry";
 import { cn } from "@/lib/utils";
+import { gameCopy } from "../game-copy";
 
 export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
   const { activePanel, closePanel } = useGameUiStore();
@@ -29,6 +30,7 @@ export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
   const panel = panelRegistry[activePanel.key];
   const layout = panel.layout ?? "side";
   const showBackdrop = Boolean(panel.backdrop);
+  const panelCopy = gameCopy[snapshot.locale].panels;
 
   return (
     <div
@@ -46,7 +48,14 @@ export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
             : "pointer-events-none items-start justify-end px-4 pb-24 pt-28 sm:px-6",
       )}
     >
-      <PanelChrome layout={layout} onClose={closePanel} size={panel.size} title={panel.title}>
+      <PanelChrome
+        closeAria={panelCopy.closeAria}
+        layout={layout}
+        locale={snapshot.locale}
+        onClose={closePanel}
+        size={panel.size}
+        title={panelCopy.titles[panel.titleKey]}
+      >
         {panel.render({
           onClose: closePanel,
           payload: activePanel.payload,

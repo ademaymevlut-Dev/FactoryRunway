@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import type { GameSnapshot } from "@/features/game/types";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
 import { recordTaskEventAction } from "@/features/tasks/actions/record-task-event-action";
+import type { ProductionGrade } from "@/generated/prisma/enums";
+import { investmentCopy } from "../investment-copy";
 
 import { ProductionLineTemplatePurchaseCard } from "./production-line-template-purchase-card";
 
@@ -19,6 +21,7 @@ export function ProductionLineInvestmentPanel({
   snapshot: GameSnapshot;
 }) {
   const router = useRouter();
+  const copy = investmentCopy[snapshot.locale];
   const { isShiftPlaybackActive } = useGameUiStore();
   const recordedInvestmentReviewRef = useRef(false);
 
@@ -76,7 +79,7 @@ export function ProductionLineInvestmentPanel({
   if (!selectedDepartment) {
     return (
       <div className="rounded-lg border border-white/10 bg-card p-4 text-sm text-muted-foreground">
-        Bu bölüm için aktif üretim hattı seçeneği bulunmuyor.
+        {copy.panel.noOptions}
       </div>
     );
   }
@@ -85,15 +88,15 @@ export function ProductionLineInvestmentPanel({
     <div className="flex min-h-0 flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {selectedDepartment.name} · Teknik ve finansal seçenekler
+          {copy.panel.departmentSubtitle(selectedDepartment.name)}
         </p>
         <span className="text-xs text-muted-foreground">
-          {isShiftPlaybackActive ? "Vardiya sırasında kilitli" : "Planlama açık"}
+          {isShiftPlaybackActive ? copy.panel.locked : copy.panel.planningOpen}
         </span>
       </div>
 
       {availableDepartments.length > 1 ? (
-        <nav aria-label="Yatırım departmanı" className="flex flex-wrap gap-2">
+        <nav aria-label={copy.panel.departmentNavAria} className="flex flex-wrap gap-2">
           {availableDepartments.map((department) => (
             <Button
               key={department.id}
@@ -113,7 +116,7 @@ export function ProductionLineInvestmentPanel({
       ) : null}
 
       <nav
-        aria-label="Üretim hattı standardı"
+        aria-label={copy.panel.templateNavAria}
         className="flex shrink-0 gap-2 overflow-x-auto pb-1"
       >
         {selectedDepartment.templates.map((template) => (
@@ -131,10 +134,10 @@ export function ProductionLineInvestmentPanel({
             <GradeGlyph grade={template.grade} />
             <span>
               <strong className="block text-xs text-current">
-                {gradeLabels[template.grade]}
+                {copy.gradeLabels[template.grade]}
               </strong>
               <span className="text-[10px]">
-                {template.machineCount} makine
+                {copy.panel.machineCount(template.machineCount)}
               </span>
             </span>
           </button>
@@ -146,6 +149,7 @@ export function ProductionLineInvestmentPanel({
           currencyCode={snapshot.investment.currencyCode}
           factoryId={snapshot.factory.id}
           key={selectedTemplate.id}
+          locale={snapshot.locale}
           template={selectedTemplate}
         />
       ) : null}
@@ -153,14 +157,7 @@ export function ProductionLineInvestmentPanel({
   );
 }
 
-const gradeLabels = {
-  WORKSHOP: "Workshop",
-  INDUSTRIAL: "Industrial",
-  PRECISION: "Precision",
-  SMART: "Smart",
-} as const;
-
-function GradeGlyph({ grade }: { grade: keyof typeof gradeLabels }) {
+function GradeGlyph({ grade }: { grade: ProductionGrade }) {
   return (
     <span className={`production-grade-badge xs ${grade.toLowerCase()}`}>
       <svg aria-hidden="true" focusable="false" viewBox="0 0 64 64">

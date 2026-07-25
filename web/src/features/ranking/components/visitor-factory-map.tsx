@@ -23,6 +23,7 @@ import type {
   FactoryVisitSection,
   FactoryVisitView,
 } from "../types";
+import type { RankingCopy } from "../ranking-copy";
 
 const SLOT_ROWS = 3;
 const SLOT_WIDTH = 147;
@@ -40,34 +41,31 @@ type CameraOffset = {
   y: number;
 };
 
-const gradeMeta = {
+const gradeGlyphs = {
   INDUSTRIAL: {
     glyph: "I",
-    label: "Industrial",
   },
   PRECISION: {
     glyph: "P",
-    label: "Precision",
   },
   SMART: {
     glyph: "S",
-    label: "Smart",
   },
   WORKSHOP: {
     glyph: "W",
-    label: "Workshop",
   },
 } satisfies Record<
   FactoryVisitLine["grade"],
   {
     glyph: string;
-    label: string;
   }
 >;
 
 export function VisitorFactoryMap({
+  copy,
   factoryVisit,
 }: {
+  copy: RankingCopy;
   factoryVisit: FactoryVisitView;
 }) {
   const [mapPan, setMapPan] = useState<CameraOffset>({ x: 0, y: 0 });
@@ -144,10 +142,10 @@ export function VisitorFactoryMap({
         <div>
           <Factory className="mx-auto size-10 text-muted-foreground" />
           <h3 className="mt-3 font-semibold text-white">
-            Kurulu üretim hattı bulunmuyor
+            {copy.map.emptyTitle}
           </h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Bu fabrikanın vitrininde henüz gösterilecek bir hat yok.
+            {copy.map.emptyBody}
           </p>
         </div>
       </div>
@@ -157,7 +155,7 @@ export function VisitorFactoryMap({
   return (
     <div className="relative h-full min-h-[26rem] overflow-hidden rounded-lg border border-white/10 bg-[#2a312f]">
       <section
-        aria-label={`${factoryVisit.factory.name} salt okunur fabrika haritası`}
+        aria-label={copy.map.ariaLabel(factoryVisit.factory.name)}
         className="factory-map-viewport"
         onPointerCancel={(event) => {
           releaseMapDrag(event.currentTarget, event.pointerId);
@@ -237,7 +235,7 @@ export function VisitorFactoryMap({
           >
             {factoryVisit.sections.map((section, index) => (
               <div className="factory-production-stage" key={section.id}>
-                <VisitorFactorySection section={section} />
+                <VisitorFactorySection copy={copy} section={section} />
                 {index < factoryVisit.sections.length - 1 ? (
                   <div
                     className={`factory-stage-connector ${section.tone}`}
@@ -254,7 +252,7 @@ export function VisitorFactoryMap({
         data-visitor-map-control="true"
       >
         <Button
-          aria-label="Haritayı uzaklaştır"
+          aria-label={copy.map.zoomOutAria}
           disabled={mapZoom <= 0.72}
           onClick={() =>
             setMapZoom((current) =>
@@ -263,7 +261,7 @@ export function VisitorFactoryMap({
           }
           onPointerDown={(event) => event.stopPropagation()}
           size="icon-sm"
-          title="Uzaklaştır"
+          title={copy.map.zoomOutTitle}
           type="button"
           variant="ghost"
         >
@@ -273,7 +271,7 @@ export function VisitorFactoryMap({
           %{Math.round(mapZoom * 100)}
         </span>
         <Button
-          aria-label="Haritayı yakınlaştır"
+          aria-label={copy.map.zoomInAria}
           disabled={mapZoom >= 1.32}
           onClick={() =>
             setMapZoom((current) =>
@@ -282,21 +280,21 @@ export function VisitorFactoryMap({
           }
           onPointerDown={(event) => event.stopPropagation()}
           size="icon-sm"
-          title="Yakınlaştır"
+          title={copy.map.zoomInTitle}
           type="button"
           variant="ghost"
         >
           <ZoomIn size={15} />
         </Button>
         <Button
-          aria-label="Harita görünümünü sıfırla"
+          aria-label={copy.map.resetAria}
           onClick={() => {
             setMapPan({ x: 0, y: 0 });
             setMapZoom(1);
           }}
           onPointerDown={(event) => event.stopPropagation()}
           size="icon-sm"
-          title="Görünümü sıfırla"
+          title={copy.map.resetTitle}
           type="button"
           variant="ghost"
         >
@@ -305,15 +303,17 @@ export function VisitorFactoryMap({
       </div>
 
       <div className="pointer-events-none absolute bottom-3 left-3 z-30 rounded-md border border-white/10 bg-background/75 px-2.5 py-1.5 text-[10px] font-medium text-muted-foreground backdrop-blur">
-        Salt okunur fabrika vitrini · Sürükleyerek gez
+        {copy.map.hint}
       </div>
     </div>
   );
 }
 
 function VisitorFactorySection({
+  copy,
   section,
 }: {
+  copy: RankingCopy;
   section: FactoryVisitSection;
 }) {
   return (
@@ -330,14 +330,14 @@ function VisitorFactorySection({
             {section.title}
           </h3>
           <span className="shrink-0 rounded-full border border-[#006d8f]/25 bg-[#006d8f]/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-sky-200/90">
-            {section.lines.length} hat
+            {copy.map.lineCount(section.lines.length)}
           </span>
         </div>
       </div>
 
       <div className="factory-slot-grid">
         {section.lines.map((line) => (
-          <VisitorProductionLineCard key={line.id} line={line} />
+          <VisitorProductionLineCard copy={copy} key={line.id} line={line} />
         ))}
       </div>
     </section>
@@ -345,17 +345,21 @@ function VisitorFactorySection({
 }
 
 function VisitorProductionLineCard({
+  copy,
   line,
 }: {
+  copy: RankingCopy;
   line: FactoryVisitLine;
 }) {
-  const grade = gradeMeta[line.grade];
+  const grade = gradeGlyphs[line.grade];
+  const gradeLabel = copy.grades[line.grade];
+  const gradeTechnologyLabel = copy.map.technology(gradeLabel);
 
   return (
     <article
-      aria-label={`${line.title}, ${grade.label}`}
+      aria-label={`${line.title}, ${gradeLabel}`}
       className="factory-slot-card active cursor-default"
-      title={`${line.title} · ${grade.label}`}
+      title={`${line.title} · ${gradeLabel}`}
     >
       <div className="factory-slot-visual">
         {line.imageUrl ? (
@@ -375,7 +379,7 @@ function VisitorProductionLineCard({
 
       <div className="factory-slot-status active">
         <b />
-        Kurulu
+        {copy.map.installed}
       </div>
 
       <div className="factory-slot-code">
@@ -384,9 +388,9 @@ function VisitorProductionLineCard({
       </div>
 
       <span
-        aria-label={`${grade.label} teknoloji`}
+        aria-label={gradeTechnologyLabel}
         className={`production-grade-badge xs ${line.grade.toLowerCase()} factory-slot-grade-badge`}
-        title={`${grade.label} teknoloji`}
+        title={gradeTechnologyLabel}
       >
         <svg aria-hidden="true" focusable="false" viewBox="0 0 64 64">
           <path

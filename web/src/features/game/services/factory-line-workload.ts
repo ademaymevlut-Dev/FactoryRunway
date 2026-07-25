@@ -2,6 +2,12 @@ import type {
   FactoryLineWorkload,
   FactoryLineWorkloadState,
 } from "../types";
+import { gameCopy } from "../game-copy";
+import {
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 type WorkloadClassification = {
   label: string;
@@ -11,8 +17,11 @@ type WorkloadClassification = {
 export function buildFactoryLineWorkload(input: {
   dailyPointCapacity: number;
   effectiveDailyPointCapacity: number;
+  locale?: SupportedLocale;
   remainingWorkPoints: number;
 }): FactoryLineWorkload {
+  const locale = normalizeLocale(input.locale);
+  const copy = gameCopy[locale].workload;
   const remainingWorkPoints = Math.max(0, Math.trunc(input.remainingWorkPoints));
   const effectiveDailyPointCapacity = Math.max(
     0,
@@ -26,17 +35,17 @@ export function buildFactoryLineWorkload(input: {
         : 0;
   const classification =
     remainingDays === null
-      ? { label: "Kapasite Yok", state: "critical" as const }
-      : classifyFactoryLineWorkloadDays(remainingDays);
+      ? { label: copy.noCapacity, state: "critical" as const }
+      : classifyFactoryLineWorkloadDays(remainingDays, locale);
 
   return {
     dailyPointCapacity: Math.max(0, Math.trunc(input.dailyPointCapacity)),
     daysLabel:
       remainingDays === null
-        ? "∞g"
+        ? `∞${copy.daySuffix}`
         : remainingDays === 0
-          ? "0g"
-          : `${remainingDays}g`,
+          ? `0${copy.daySuffix}`
+          : `${remainingDays}${copy.daySuffix}`,
     effectiveDailyPointCapacity,
     label: classification.label,
     remainingDays,
@@ -47,26 +56,29 @@ export function buildFactoryLineWorkload(input: {
 
 export function classifyFactoryLineWorkloadDays(
   remainingDays: number,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): WorkloadClassification {
+  const labels = gameCopy[locale].workload.states;
+
   if (remainingDays <= 0) {
-    return { label: "Boşta", state: "empty" };
+    return { label: labels.empty, state: "empty" };
   }
 
   if (remainingDays <= 2) {
-    return { label: "Düşük Yük", state: "low" };
+    return { label: labels.low, state: "low" };
   }
 
   if (remainingDays <= 4) {
-    return { label: "Zayıf Yük", state: "thin" };
+    return { label: labels.thin, state: "thin" };
   }
 
   if (remainingDays <= 9) {
-    return { label: "Dengeli", state: "balanced" };
+    return { label: labels.balanced, state: "balanced" };
   }
 
   if (remainingDays <= 14) {
-    return { label: "Sıkışma Riski", state: "constrained" };
+    return { label: labels.constrained, state: "constrained" };
   }
 
-  return { label: "Kritik Darboğaz", state: "critical" };
+  return { label: labels.critical, state: "critical" };
 }

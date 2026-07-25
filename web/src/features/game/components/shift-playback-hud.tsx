@@ -17,12 +17,14 @@ import {
   getShiftQuantityAtMinute,
 } from "../shift-playback";
 import { dismissShiftPlayback, useGameUiStore } from "../store/game-ui-store";
-import type { ShiftPlayback } from "../types";
+import type { GameSnapshot, ShiftPlayback } from "../types";
+import { shiftPlaybackCopy } from "../shift-playback-copy";
 import { ShiftDepartmentCard } from "./shift-department-card";
 import { ShiftProgressBar } from "./shift-progress-bar";
 
-export function ShiftPlaybackHud() {
+export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] }) {
   const router = useRouter();
+  const copy = shiftPlaybackCopy[locale].hud;
   const {
     activeShiftPlayback,
     isShiftPlaybackActive,
@@ -100,6 +102,7 @@ export function ShiftPlaybackHud() {
             <ShiftProgressBar
               currentTime={formatShiftPlaybackTime(shiftMinute)}
               isFinal={isFinal}
+              locale={locale}
               progress={progress}
               simulatedGameDay={activeShiftPlayback.simulatedGameDay}
             />
@@ -107,7 +110,7 @@ export function ShiftPlaybackHud() {
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                aria-label="Kapat"
+                aria-label={copy.closeAria}
                 disabled={!isFinal || isClosing}
                 onClick={requestClose}
                 size="icon-sm"
@@ -117,7 +120,7 @@ export function ShiftPlaybackHud() {
                 <X className="size-3.5 xl:size-4" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left">Kapat</TooltipContent>
+            <TooltipContent side="left">{copy.closeAria}</TooltipContent>
           </Tooltip>
         </div>
 
@@ -135,6 +138,7 @@ export function ShiftPlaybackHud() {
                 department={department}
                 isFinal={isFinal}
                 key={department.departmentId}
+                locale={locale}
                 producedQuantity={getShiftQuantityAtMinute(
                   department.producedTimeline,
                   shiftMinute,

@@ -10,18 +10,36 @@ import {
 } from "@/components/game-presentation/daily-event-row-view";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  numberLocale as resolveNumberLocale,
+  type NumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import { formatShiftPlaybackTime, getShiftPlaybackMinute } from "../shift-playback";
+import {
+  getFinanceCategoryLabel,
+  shiftPlaybackCopy,
+  type ShiftPlaybackCopy,
+} from "../shift-playback-copy";
 import {
   setStoredString,
   useGameUiStore,
   useStoredString,
 } from "../store/game-ui-store";
-import type { ShiftPlaybackTimelineEvent } from "../types";
+import type { GameSnapshot, ShiftPlaybackTimelineEvent } from "../types";
 
 const CLOSED_DAILY_EVENT_PANEL_KEY = "factory-runway:closed-daily-events";
 
-export function DailyEventPanel() {
+export function DailyEventPanel({
+  currencyCode,
+  locale,
+}: {
+  currencyCode: GameSnapshot["factory"]["currencyCode"];
+  locale: SupportedLocale;
+}) {
+  const copy = shiftPlaybackCopy[locale].dailyEvents;
+  const numberLocale = resolveNumberLocale(locale);
   const { activeShiftPlayback, shiftPlaybackNowMs } = useGameUiStore();
   const closedShiftId = useStoredString(CLOSED_DAILY_EVENT_PANEL_KEY);
   const [closingShiftId, setClosingShiftId] = useState<string | null>(null);
@@ -110,7 +128,7 @@ export function DailyEventPanel() {
 
   return (
     <aside
-      aria-label="Günlük olay paneli"
+      aria-label={copy.panelAria}
       className={[
         "pointer-events-auto absolute right-4 top-6 z-[55] flex h-[min(760px,calc(100dvh-48px))] w-[400px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-right-12 motion-safe:duration-500",
         isClosing
@@ -125,19 +143,19 @@ export function DailyEventPanel() {
       <header className="flex items-start gap-3 border-b border-white/10 bg-background/45 p-4 backdrop-blur-md">
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
-            Günlük Olaylar
+            {copy.title}
           </p>
           <h2 className="mt-1 text-lg font-semibold text-white">
-            {activeShiftPlayback.simulatedGameDay}. Gün
+            {copy.dayLabel(activeShiftPlayback.simulatedGameDay)}
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            {visibleEvents.length} / {displayableEvents.length} olay
+            {copy.countLabel(visibleEvents.length, displayableEvents.length)}
           </p>
         </div>
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
-              aria-label="Günlük olayları kapat"
+              aria-label={copy.closeAria}
               onClick={close}
               className="border border-white/15 bg-white/10 text-white shadow-sm hover:bg-white/20 hover:text-white"
               size="icon-sm"
@@ -147,7 +165,7 @@ export function DailyEventPanel() {
               <X className="size-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Kapat</TooltipContent>
+          <TooltipContent side="left">{copy.closeTooltip}</TooltipContent>
         </Tooltip>
       </header>
       <div
@@ -163,13 +181,22 @@ export function DailyEventPanel() {
           <DailyEventRowView
             animationDelayMs={Math.min(index, 8) * 70}
             categoryKey={event.category}
-            categoryLabel={event.category}
-            description={renderEventDescription(event)}
+            categoryLabel={copy.categories[event.category]}
+            description={renderEventDescription({
+              copy,
+              currencyCode,
+              event,
+              numberLocale,
+            })}
             iconKey={getEventIconKey(event)}
             key={event.id}
             severity={event.severity}
             timestampLabel={formatShiftPlaybackTime(event.minute)}
-            title={renderEventTitle(event)}
+            title={renderEventTitle({
+              copy,
+              event,
+              numberLocale,
+            })}
             tone={getEventTone(event)}
           />
         ))}
@@ -252,185 +279,297 @@ function shouldShowDailyEvent(event: ShiftPlaybackTimelineEvent) {
   return !event.eventKey.startsWith("department.");
 }
 
-function renderEventTitle(event: ShiftPlaybackTimelineEvent) {
+function renderEventTitle({
+  copy,
+  event,
+  numberLocale,
+}: {
+  copy: ShiftPlaybackCopy["dailyEvents"];
+  event: ShiftPlaybackTimelineEvent;
+  numberLocale: NumberLocale;
+}) {
   const payload = event.payload;
+  const xp = formatNumber(Number(payload.amountXp ?? 0), numberLocale);
 
   if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
-    return `Seviye ${formatNumber(Number(payload.currentLevel ?? 0))} oldu`;
+    return copy.titles.levelUp(
+      formatNumber(Number(payload.currentLevel ?? 0), numberLocale),
+    );
   }
 
   switch (event.eventKey) {
     case "chaos.staff_absence.small":
     case "chaos.staff_absence.minor":
     case "chaos.staff_absence":
-      return "Personel eksikliği";
+      return copy.titles.chaosStaffAbsence;
     case "chaos.staff_absence.regular":
-      return "Departmanda personel eksikliği";
+      return copy.titles.chaosStaffAbsenceDepartment;
     case "chaos.staff.flu_wave":
     case "chaos.flu_wave":
-      return "Grip dalgası üretimi yavaşlattı";
+      return copy.titles.chaosFluWave;
     case "chaos.machine.minor_issue":
     case "chaos.machine_breakdown":
-      return "Makine ritmi düştü";
+      return copy.titles.chaosMachine;
     case "chaos.power.flicker":
     case "chaos.power_issue":
-      return "Kısa elektrik dalgalanması";
+      return copy.titles.chaosPowerIssue;
     case "chaos.material.delay":
     case "chaos.material_delay":
-      return "Malzeme akışı yavaşladı";
+      return copy.titles.chaosMaterialDelay;
     case "chaos.weather.bad_weather":
     case "chaos.bad_weather":
-      return "Hava koşulları akışı etkiledi";
+      return copy.titles.chaosBadWeather;
     case "shift.started":
-      return "Vardiya başladı";
+      return copy.titles.shiftStarted;
     case "shift.completed":
-      return "Gün tamamlandı";
+      return copy.titles.shiftCompleted;
     case "xp.shift_completed":
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} günlük vardiya XP`;
+      return copy.titles.shiftCompletedXp(xp);
     case "xp.order_completed":
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} sipariş XP`;
+      return copy.titles.orderCompletedXp(xp);
     case "xp.on_time_delivery":
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} termin bonusu`;
+      return copy.titles.onTimeDeliveryXp(xp);
     case "xp.premium_order":
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} Premium bonus`;
+      return copy.titles.premiumBonus(xp);
     case "xp.luxury_order":
-      return `+${formatNumber(Number(payload.amountXp ?? 0))} Luxury bonus`;
+      return copy.titles.luxuryBonus(xp);
     case "department.production_completed":
-      return `${payload.departmentName} üretimi tamamladı`;
+      return copy.titles.departmentProductionCompleted(
+        String(payload.departmentName ?? ""),
+      );
     case "department.completed_early":
-      return `${payload.departmentName} erken tamamladı`;
+      return copy.titles.completedEarly(String(payload.departmentName ?? ""));
     case "department.no_wip":
-      return `${payload.departmentName} için hazır WIP yok`;
+      return copy.titles.departmentNoWip(String(payload.departmentName ?? ""));
     case "department.capacity_used":
-      return `${payload.departmentName} kapasitesi kullanıldı`;
+      return copy.titles.capacityUsed(String(payload.departmentName ?? ""));
     case "shipping.order_shipped":
-      return "Sipariş sevk edildi";
+      return copy.titles.orderShipped;
     case "payment.customer_received":
-      return "Müşteri ödemesi alındı";
+      return copy.titles.paymentReceived;
     case "customer.relationship_gained":
-      return "Müşteri güveni güçlendi";
+      return copy.titles.customerRelationshipGained;
     case "customer.relationship_lost":
-      return "Müşteri güveni zayıfladı";
+      return copy.titles.customerRelationshipLost;
     case "penalty.order_late_paid":
-      return "Gecikme cezası ödendi";
+      return copy.titles.penaltyPaid;
     case "penalty.order_late_partial":
-      return "Gecikme cezası kısmi ödendi";
+      return copy.titles.penaltyPartial;
     case "penalty.order_late_overdue":
-      return "Gecikme cezası bekliyor";
+      return copy.titles.penaltyOverdue;
     case "leasing.down_payment_paid":
-      return "Leasing peşinatı ödendi";
+      return copy.titles.leasingDownPaymentPaid;
     case "leasing.payment_paid":
-      return "Leasing taksiti ödendi";
+      return copy.titles.leasingPaymentPaid;
     case "leasing.payment_partial":
-      return "Leasing taksiti kısmi ödendi";
+      return copy.titles.leasingPaymentPartial;
     case "leasing.payment_overdue":
-      return "Leasing taksiti gecikti";
+      return copy.titles.leasingPaymentOverdue;
     case "leasing.contract_completed":
-      return "Leasing sözleşmesi tamamlandı";
+      return copy.titles.leasingContractCompleted;
     case "payroll.paid":
-      return "Maaş ödemesi yapıldı";
+      return copy.titles.payrollPaid;
     case "operating_expense.paid":
-      return `${formatFinanceCategory(payload.category)} ödendi`;
+      return copy.titles.financeExpensePaid(
+        getFinanceCategoryLabel(copy, payload.category),
+      );
     case "outsource.completed":
-      return "Fason işlem tamamlandı";
+      return copy.titles.outsourceCompleted;
     case "outsource.payment_paid":
-      return "Fason ödeme yapıldı";
+      return copy.titles.outsourcePaymentPaid;
     default:
       if (event.eventKey.startsWith("chaos.")) {
-        return "Operasyon ritmi etkilendi";
+        return copy.titles.chaosDefault;
       }
       return event.eventKey;
   }
 }
 
-function renderEventDescription(event: ShiftPlaybackTimelineEvent) {
+function renderEventDescription({
+  copy,
+  currencyCode,
+  event,
+  numberLocale,
+}: {
+  copy: ShiftPlaybackCopy["dailyEvents"];
+  currencyCode: GameSnapshot["factory"]["currencyCode"];
+  event: ShiftPlaybackTimelineEvent;
+  numberLocale: NumberLocale;
+}) {
   const payload = event.payload;
+  const orderFallback = copy.fallbacks.order;
+  const balanceAfterXp = formatNumber(
+    Number(payload.balanceAfterXp ?? 0),
+    numberLocale,
+  );
 
   if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
-    return `+${formatNumber(Number(payload.amountXp ?? 0))} XP ile yeni seviye açıldı. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+    return copy.descriptions.levelUp(
+      formatNumber(Number(payload.amountXp ?? 0), numberLocale),
+      balanceAfterXp,
+    );
   }
 
   if (event.eventKey.startsWith("chaos.")) {
-    return renderChaosDescription(event);
+    return renderChaosDescription({ copy, event, numberLocale });
   }
 
   switch (event.eventKey) {
     case "shift.started":
-      return `${formatNumber(Number(payload.activeLineCount ?? 0))} aktif hat ile vardiya başladı.`;
+      return copy.descriptions.shiftStarted(
+        formatNumber(Number(payload.activeLineCount ?? 0), numberLocale),
+      );
     case "shift.completed":
-      return `${formatNumber(Number(payload.simulatedGameDay ?? event.gameDay))}. gün kapanışı tamamlandı.`;
+      return copy.descriptions.shiftCompleted(
+        formatNumber(
+          Number(payload.simulatedGameDay ?? event.gameDay),
+          numberLocale,
+        ),
+      );
     case "xp.shift_completed":
-      return `Günlük vardiya XP puanı eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      return copy.descriptions.shiftCompletedXp(balanceAfterXp);
     case "xp.order_completed":
-      return `${payload.orderNo ?? "Sipariş"} sevk edildiği için workload bazlı XP eklendi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      return copy.descriptions.orderCompletedXp(
+        String(payload.orderNo ?? orderFallback),
+        balanceAfterXp,
+      );
     case "xp.on_time_delivery":
-      return `${payload.orderNo ?? "Sipariş"} zamanında sevk edildi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      return copy.descriptions.onTimeDeliveryXp(
+        String(payload.orderNo ?? orderFallback),
+        balanceAfterXp,
+      );
     case "xp.premium_order":
-      return `${payload.orderNo ?? "Sipariş"} Premium zorluk bonusu verdi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      return copy.descriptions.premiumBonus(
+        String(payload.orderNo ?? orderFallback),
+        balanceAfterXp,
+      );
     case "xp.luxury_order":
-      return `${payload.orderNo ?? "Sipariş"} Luxury zorluk bonusu verdi. Güncel XP: ${formatNumber(Number(payload.balanceAfterXp ?? 0))}.`;
+      return copy.descriptions.luxuryBonus(
+        String(payload.orderNo ?? orderFallback),
+        balanceAfterXp,
+      );
     case "customer.relationship_gained":
-      return `${payload.orderCode ?? "Sipariş"} teslim performansı müşterinin tekrar sipariş ihtimalini artırdı.`;
+      return copy.descriptions.customerRelationshipGained(
+        String(payload.orderCode ?? orderFallback),
+      );
     case "customer.relationship_lost":
-      return `${payload.orderCode ?? "Sipariş"} gecikmesi müşterinin tekrar sipariş ihtimalini düşürdü.`;
+      return copy.descriptions.customerRelationshipLost(
+        String(payload.orderCode ?? orderFallback),
+      );
     case "penalty.order_late_paid":
-      return `${payload.orderNo ?? "Sipariş"} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} gecikme cezası kasadan çıktı.`;
+      return copy.descriptions.penaltyPaid(
+        String(payload.orderNo ?? orderFallback),
+        formatMoneyLike(
+          String(payload.amountCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
     case "penalty.order_late_partial":
-      return `${payload.orderNo ?? "Sipariş"} gecikme cezasının ${formatMoneyLike(String(payload.remainingCents ?? "0"))} kısmı bekliyor.`;
+      return copy.descriptions.penaltyPartial(
+        String(payload.orderNo ?? orderFallback),
+        formatMoneyLike(
+          String(payload.remainingCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
     case "penalty.order_late_overdue":
-      return `${payload.orderNo ?? "Sipariş"} gecikme cezası ödenemedi. Bekleyen tutar: ${formatMoneyLike(String(payload.remainingCents ?? payload.amountCents ?? "0"))}.`;
+      return copy.descriptions.penaltyOverdue(
+        String(payload.orderNo ?? orderFallback),
+        formatMoneyLike(
+          String(payload.remainingCents ?? payload.amountCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
     case "operating_expense.paid":
-      return `${formatFinanceCategory(payload.category)} için ${formatMoneyLike(String(payload.amountCents ?? "0"))} ödeme yapıldı.`;
+      return copy.descriptions.financeExpensePaid(
+        getFinanceCategoryLabel(copy, payload.category),
+        formatMoneyLike(
+          String(payload.amountCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
     default:
       break;
   }
 
   if ("producedQuantity" in payload) {
-    return `${formatNumber(Number(payload.producedQuantity))} adet işlendi.`;
+    return copy.descriptions.processedQuantity(
+      formatNumber(Number(payload.producedQuantity), numberLocale),
+    );
   }
   if ("remainingQuantity" in payload) {
-    return `${formatNumber(Number(payload.remainingQuantity))} adet yarına kaldı.`;
+    return copy.descriptions.remainingQuantity(
+      formatNumber(Number(payload.remainingQuantity), numberLocale),
+    );
   }
   if ("shippedQuantity" in payload) {
-    return `${payload.orderCode ?? "Sipariş"} için ${formatNumber(Number(payload.shippedQuantity))} adet sevk edildi.`;
+    return copy.descriptions.shippedQuantity(
+      String(payload.orderCode ?? orderFallback),
+      formatNumber(Number(payload.shippedQuantity), numberLocale),
+    );
   }
   if ("quantity" in payload) {
-    return `${payload.orderCode ?? "Sipariş"} için ${formatNumber(Number(payload.quantity))} adet.`;
+    return copy.descriptions.orderQuantity(
+      String(payload.orderCode ?? orderFallback),
+      formatNumber(Number(payload.quantity), numberLocale),
+    );
   }
   if ("amountCents" in payload) {
-    return `${formatMoneyLike(String(payload.amountCents))} tutarında kayıt oluştu.`;
+    return copy.descriptions.amountRecorded(
+      formatMoneyLike(String(payload.amountCents), currencyCode, numberLocale),
+    );
   }
   if ("activeLineCount" in payload) {
-    return `${formatNumber(Number(payload.activeLineCount))} aktif hat ile üretim hesaplandı.`;
+    return copy.descriptions.activeLinesCalculated(
+      formatNumber(Number(payload.activeLineCount), numberLocale),
+    );
   }
 
-  return "Günlük vardiya zaman çizelgesine işlendi.";
+  return copy.descriptions.timelineDefault;
 }
 
-function renderChaosDescription(event: ShiftPlaybackTimelineEvent) {
+function renderChaosDescription({
+  copy,
+  event,
+  numberLocale,
+}: {
+  copy: ShiftPlaybackCopy["dailyEvents"];
+  event: ShiftPlaybackTimelineEvent;
+  numberLocale: NumberLocale;
+}) {
   const payload = event.payload;
-  const target = getChaosTargetLabel(payload);
-  const capacityLoss = formatBpsPercent(Number(payload.capacityLossBps ?? 0));
+  const target = getChaosTargetLabel(payload, copy);
+  const capacityLoss = formatBpsPercent(
+    Number(payload.capacityLossBps ?? 0),
+    numberLocale,
+  );
 
   if (event.category === "STAFF") {
     const affectedStaffCount = Number(payload.affectedStaffCount ?? 0);
     const staffPart =
       affectedStaffCount > 0
-        ? ` ${formatNumber(affectedStaffCount)} personel etkilendi.`
+        ? copy.descriptions.chaosStaffAffected(
+            formatNumber(affectedStaffCount, numberLocale),
+          )
         : "";
 
-    return `${target} personel akışı zayıfladı.${staffPart} Kapasite etkisi: -${capacityLoss}.`;
+    return copy.descriptions.chaosStaff(target, staffPart, capacityLoss);
   }
 
   if (event.category === "MACHINE") {
-    return `${target} kısa makine ayarı nedeniyle yavaşladı. Kapasite etkisi: -${capacityLoss}.`;
+    return copy.descriptions.chaosMachine(target, capacityLoss);
   }
 
-  return `${target} operasyon akışı yavaşladı. Kapasite etkisi: -${capacityLoss}.`;
+  return copy.descriptions.chaosSystem(target, capacityLoss);
 }
 
 function getChaosTargetLabel(
   payload: ShiftPlaybackTimelineEvent["payload"],
+  copy: ShiftPlaybackCopy["dailyEvents"],
 ) {
   const departmentName =
     typeof payload.departmentName === "string" ? payload.departmentName : null;
@@ -440,52 +579,33 @@ function getChaosTargetLabel(
   if (departmentName) return departmentName;
   if (lineLabel) return lineLabel;
 
-  return "Fabrika genelinde";
+  return copy.fallbacks.factoryWide;
 }
 
-function formatBpsPercent(value: number) {
-  const percent = Number.isFinite(value) ? value / 100 : 0;
+function formatBpsPercent(value: number, numberLocale: NumberLocale) {
+  const percent = Number.isFinite(value) ? Math.max(0, value) / 10_000 : 0;
 
-  return new Intl.NumberFormat("tr-TR", {
-    maximumFractionDigits: percent >= 10 ? 0 : 1,
+  return new Intl.NumberFormat(numberLocale, {
+    maximumFractionDigits: percent >= 0.1 ? 0 : 1,
     minimumFractionDigits: 0,
     style: "percent",
-  }).format(percent / 100);
+  }).format(percent);
 }
 
-function formatFinanceCategory(value: unknown) {
-  switch (value) {
-    case "RENT":
-      return "Kira";
-    case "ELECTRICITY":
-      return "Elektrik";
-    case "MEAL":
-      return "Yemek gideri";
-    case "OVERHEAD":
-      return "Genel gider";
-    case "PAYROLL":
-      return "Maaş";
-    case "LEASING_PAYMENT":
-      return "Leasing taksiti";
-    case "LEASING_DOWN_PAYMENT":
-      return "Leasing peşinatı";
-    case "OUTSOURCE_COST":
-      return "Fason gideri";
-    default:
-      return "İşletme gideri";
-  }
+function formatNumber(value: number, numberLocale: NumberLocale) {
+  return new Intl.NumberFormat(numberLocale).format(value);
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
-}
-
-function formatMoneyLike(cents: string) {
+function formatMoneyLike(
+  cents: string,
+  currencyCode: GameSnapshot["factory"]["currencyCode"],
+  numberLocale: NumberLocale,
+) {
   const value = Number(cents) / 100;
 
-  return new Intl.NumberFormat("tr-TR", {
+  return new Intl.NumberFormat(numberLocale, {
+    currency: currencyCode,
     maximumFractionDigits: 0,
     style: "currency",
-    currency: "EUR",
   }).format(Number.isFinite(value) ? value : 0);
 }

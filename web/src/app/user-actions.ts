@@ -13,6 +13,7 @@ import { USER_ROLES } from "@/lib/auth/roles";
 import { clearSession, createSession } from "@/lib/auth/session";
 import type { CreateUserField } from "@/lib/auth/create-user-state";
 import { getPrisma } from "@/lib/db";
+import { normalizeLocale } from "@/lib/i18n/locales";
 
 import { requireAdminUser } from "./(default-tr)/admin/admin-auth";
 
@@ -24,6 +25,10 @@ function readString(formData: FormData, key: CreateUserField) {
   const value = formData.get(key);
 
   return typeof value === "string" ? value.trim() : "";
+}
+
+function readRequestedLocale(formData: FormData) {
+  return normalizeLocale(formData.get("locale"));
 }
 
 function validateBaseUser(formData: FormData) {
@@ -65,6 +70,7 @@ export async function createPlayerAction(
   formData: FormData,
 ): Promise<PublicAuthState> {
   const { data, fieldErrors } = validateBaseUser(formData);
+  const locale = readRequestedLocale(formData);
 
   if (Object.keys(fieldErrors).length > 0) {
     return {
@@ -94,6 +100,7 @@ export async function createPlayerAction(
       playerProfile: {
         create: {
           displayName: data.name,
+          preferredLocale: locale,
         },
       },
     },
@@ -210,6 +217,11 @@ export async function loginAction(
   if (ADMIN_ROLES.has(user.role)) {
     redirect("/admin");
   }
+
+  await prisma.playerProfile.updateMany({
+    where: { userId: user.id },
+    data: { preferredLocale: readRequestedLocale(formData) },
+  });
 
   redirect("/player");
 }

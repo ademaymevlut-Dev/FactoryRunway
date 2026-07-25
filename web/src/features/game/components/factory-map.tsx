@@ -5,8 +5,10 @@ import { Factory, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { cn } from "@/lib/utils";
+import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 
 import { useGameUiStore } from "../store/game-ui-store";
+import { gameCopy, type GameCopy } from "../game-copy";
 import type { FactoryMapItem, FactoryMapSection, GameSnapshot } from "../types";
 
 const SLOT_ROWS = 3;
@@ -37,47 +39,22 @@ type FloorProp = {
   rotate?: number;
 };
 
-const slotStatusMeta: Record<VisualSlotStatus, { label: string }> = {
-  active: { label: "Aktif" },
-  busy: { label: "Dolu" },
-  idle: { label: "Boş" },
-  locked: { label: "Kilitli" },
-  risk: { label: "Riskli" },
-};
-
 const productionGradeMeta = {
   INDUSTRIAL: {
     glyph: "I",
-    label: "Industrial Grade",
-    readyLabel: "Premium Uygun",
-    trLabel: "Endüstriyel",
   },
   PRECISION: {
     glyph: "P",
-    label: "Precision Grade",
-    readyLabel: "Luxury Uygun",
-    trLabel: "Hassas",
   },
   SMART: {
     glyph: "S",
-    label: "Smart Grade",
-    readyLabel: "Verimlilik Bonusu",
-    trLabel: "Akıllı",
   },
   WORKSHOP: {
     glyph: "W",
-    label: "Workshop Grade",
-    readyLabel: "Basic Uygun",
-    trLabel: "Atölye",
   },
 } satisfies Record<
   Extract<FactoryMapItem, { kind: "productionLine" }>["grade"],
-  {
-    glyph: string;
-    label: string;
-    readyLabel: string;
-    trLabel: string;
-  }
+  { glyph: string }
 >;
 
 const floorProps: FloorProp[] = [
@@ -113,6 +90,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     startY: 0,
   });
   const scale = MAP_SCALE * mapZoom;
+  const copy = gameCopy[snapshot.locale].map;
   const canvasWidth = useMemo(
     () => getCanvasWidth(snapshot.map.sections),
     [snapshot.map.sections],
@@ -176,7 +154,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
 
   return (
     <section
-      aria-label="Fabrika haritası"
+      aria-label={copy.ariaLabel}
       className="factory-map-viewport"
       onPointerCancel={(event) => {
         releaseMapDrag(event.currentTarget, event.pointerId);
@@ -266,6 +244,8 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
                   highlightedDepartmentIds.has(department.id),
                 )}
                 onHoverDepartment={setHoveredDepartmentId}
+                copy={copy}
+                locale={snapshot.locale}
                 section={section}
                 selectedLineId={selectedLineId}
               />
@@ -301,12 +281,16 @@ function FactoryFloorDetails() {
 }
 
 function FactoryMapSectionView({
+  copy,
+  locale,
   onAction,
   onHoverDepartment,
   isHighlighted,
   section,
   selectedLineId,
 }: {
+  copy: GameCopy["map"];
+  locale: SupportedLocale;
   onAction: (item: FactoryMapItem) => void;
   onHoverDepartment: (departmentId: string | null) => void;
   isHighlighted: boolean;
@@ -341,7 +325,7 @@ function FactoryMapSectionView({
             {headerTitle}
           </h2>
           <span className="shrink-0 rounded-full border border-[#006d8f]/25 bg-[#006d8f]/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-sky-200/90">
-            {section.productionLineCount} hat
+            {copy.lineCount(section.productionLineCount)}
           </span>
         </div>
       </div>
@@ -349,8 +333,12 @@ function FactoryMapSectionView({
       <div className="factory-slot-grid">
         {section.items.map((item) => (
           <FactoryMapItemCard
-            isSelected={item.kind === "productionLine" && item.lineId === selectedLineId}
+            copy={copy}
+            isSelected={
+              item.kind === "productionLine" && item.lineId === selectedLineId
+            }
             item={item}
+            locale={locale}
             key={item.id}
             onAction={onAction}
             onHoverDepartment={onHoverDepartment}
@@ -363,14 +351,18 @@ function FactoryMapSectionView({
 }
 
 function FactoryMapItemCard({
+  copy,
   isSelected,
   item,
+  locale,
   onAction,
   onHoverDepartment,
   section,
 }: {
+  copy: GameCopy["map"];
   isSelected: boolean;
   item: FactoryMapItem;
+  locale: SupportedLocale;
   onAction: (item: FactoryMapItem) => void;
   onHoverDepartment: (departmentId: string | null) => void;
   section: FactoryMapSection;
@@ -378,8 +370,10 @@ function FactoryMapItemCard({
   if (item.kind === "productionLine") {
     return (
       <ProductionLineCard
+        copy={copy}
         isSelected={isSelected}
         item={item}
+        locale={locale}
         onAction={onAction}
         onHoverDepartment={onHoverDepartment}
       />
@@ -387,29 +381,40 @@ function FactoryMapItemCard({
   }
 
   if (item.kind === "investmentAction") {
-    return <InvestmentButtonCard item={item} onAction={onAction} section={section} />;
+    return (
+      <InvestmentButtonCard
+        copy={copy}
+        item={item}
+        onAction={onAction}
+        section={section}
+      />
+    );
   }
 
   return null;
 }
 
 function ProductionLineCard({
+  copy,
   isSelected,
   item,
+  locale,
   onAction,
   onHoverDepartment,
 }: {
+  copy: GameCopy["map"];
   isSelected: boolean;
   item: Extract<FactoryMapItem, { kind: "productionLine" }>;
+  locale: SupportedLocale;
   onAction: (item: FactoryMapItem) => void;
   onHoverDepartment: (departmentId: string | null) => void;
 }) {
   const visualStatus = getVisualSlotStatus(item.status);
-  const status = slotStatusMeta[visualStatus];
+  const statusLabel = copy.slotStatus[visualStatus];
 
   return (
     <button
-      aria-label={`${item.title} detay`}
+      aria-label={copy.lineDetailAria(item.title)}
       className={`factory-slot-card ${visualStatus} workload-${item.workload.state} ${isSelected ? "is-selected" : ""}`}
       onClick={() => onAction(item)}
       onMouseEnter={() => onHoverDepartment(item.departmentId)}
@@ -434,7 +439,7 @@ function ProductionLineCard({
 
       <div className={`factory-slot-status ${visualStatus}`}>
         <b />
-        {status.label}
+        {statusLabel}
       </div>
 
       <div className={`factory-slot-workload workload-${item.workload.state}`}>
@@ -447,42 +452,51 @@ function ProductionLineCard({
         className={`factory-slot-workload-tooltip workload-${item.workload.state}`}
       >
         <p>
-          <span>İş Yükü :</span>
-          <strong>{formatWorkloadTooltipDays(item.workload)}</strong>
+          <span>{copy.workloadTitle} :</span>
+          <strong>{formatWorkloadTooltipDays(item.workload, copy)}</strong>
         </p>
-        <b>{formatWorkloadTooltipLabel(item.workload)}</b>
+        <b>{formatWorkloadTooltipLabel(item.workload, locale)}</b>
       </div>
 
       <div className="factory-slot-code">
         <strong>{item.code}</strong>
         <span>{getMachineLabel(item.departmentKey)}</span>
       </div>
-      <ProductionGradeBadge className="factory-slot-grade-badge" grade={item.grade} size="xs" />
+      <ProductionGradeBadge
+        className="factory-slot-grade-badge"
+        copy={copy}
+        grade={item.grade}
+        size="xs"
+      />
     </button>
   );
 }
 
 function formatWorkloadTooltipDays(
   workload: Extract<FactoryMapItem, { kind: "productionLine" }>["workload"],
+  copy: GameCopy["map"],
 ) {
   if (workload.remainingDays === null) {
-    return "kapasite yok.";
+    return copy.noCapacity;
   }
 
-  return `${workload.remainingDays} gün.`;
+  return copy.days(workload.remainingDays);
 }
 
 function formatWorkloadTooltipLabel(
   workload: Extract<FactoryMapItem, { kind: "productionLine" }>["workload"],
+  locale: SupportedLocale,
 ) {
-  return `${workload.label.toLocaleUpperCase("tr-TR")}.`;
+  return `${localeUpper(workload.label, locale)}.`;
 }
 
 function InvestmentButtonCard({
+  copy,
   item,
   onAction,
   section,
 }: {
+  copy: GameCopy["map"];
   item: Extract<FactoryMapItem, { kind: "investmentAction" }>;
   onAction: (item: FactoryMapItem) => void;
   section: FactoryMapSection;
@@ -495,28 +509,31 @@ function InvestmentButtonCard({
       type="button"
     >
       <Plus size={22} />
-      <strong>Yatırım Yap</strong>
-      <span>{getInvestmentLabel(section)}</span>
+      <strong>{item.title}</strong>
+      <span>{getInvestmentLabel(section, copy)}</span>
     </button>
   );
 }
 
 function ProductionGradeBadge({
   className = "",
+  copy,
   grade,
   size = "sm",
 }: {
   className?: string;
+  copy: GameCopy["map"];
   grade: Extract<FactoryMapItem, { kind: "productionLine" }>["grade"];
   size?: "xs" | "sm";
 }) {
   const meta = productionGradeMeta[grade];
+  const gradeCopy = copy.productionGrades[grade];
 
   return (
     <span
-      aria-label={`${meta.label}: ${meta.readyLabel}`}
+      aria-label={`${gradeCopy.label}: ${gradeCopy.readyLabel}`}
       className={`production-grade-badge ${size} ${grade.toLowerCase()} ${className}`.trim()}
-      title={`${meta.trLabel} Standardı · ${meta.readyLabel}`}
+      title={`${gradeCopy.titleLabel} · ${gradeCopy.readyLabel}`}
     >
       <svg aria-hidden="true" focusable="false" viewBox="0 0 64 64">
         <path className="grade-badge-shadow" d="M32 5.5 55 18.8v26.4L32 58.5 9 45.2V18.8L32 5.5Z" />
@@ -639,8 +656,13 @@ function getMachineLabel(departmentKey: string) {
   return labels[departmentKey] ?? departmentKey;
 }
 
-function getInvestmentLabel(section: FactoryMapSection) {
+function getInvestmentLabel(
+  section: FactoryMapSection,
+  copy: GameCopy["map"],
+) {
   const firstDepartmentKey = section.departments[0]?.key;
 
-  return firstDepartmentKey ? getMachineLabel(firstDepartmentKey) : "Yeni Hat";
+  return firstDepartmentKey
+    ? getMachineLabel(firstDepartmentKey)
+    : copy.investmentLabelFallback;
 }

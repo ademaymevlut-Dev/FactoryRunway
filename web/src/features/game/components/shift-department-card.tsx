@@ -4,9 +4,14 @@ import {
   ShiftDepartmentResultView,
   type ShiftDepartmentResultTone,
 } from "@/components/game-presentation/shift-department-result-view";
+import {
+  numberLocale as resolveNumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import type { ShiftDepartmentPlayback } from "../types";
 import { SHIFT_PLAYBACK_GAME_MINUTES } from "../shift-playback";
+import { shiftPlaybackCopy } from "../shift-playback-copy";
 
 export type ShiftDepartmentProductResult = {
   orderCode: string | null;
@@ -27,6 +32,7 @@ type ActiveProductPreviewState = {
 export function ShiftDepartmentCard({
   department,
   isFinal,
+  locale,
   producedQuantity,
   productResults,
   queueEnteredQuantity,
@@ -35,6 +41,7 @@ export function ShiftDepartmentCard({
 }: {
   department: ShiftDepartmentPlayback;
   isFinal: boolean;
+  locale: SupportedLocale;
   producedQuantity: number;
   productResults: ShiftDepartmentProductResult[];
   queueEnteredQuantity: number;
@@ -49,21 +56,25 @@ export function ShiftDepartmentCard({
         shiftMinute,
       });
   const utilizationPercent = Math.round(throughputBps / 100);
+  const copy = shiftPlaybackCopy[locale].hud;
+  const numberLocale = resolveNumberLocale(locale);
 
   return (
     <ShiftDepartmentResultView
-      activeLineLabel={`${department.activeLineCount} hat`}
+      activeLineLabel={copy.activeLineLabel(department.activeLineCount)}
       activeProduct={
         activeProductPreview
           ? {
-              ariaLabel: `Aktif ürün: ${activeProductPreview.product.productName}`,
+              ariaLabel: copy.activeProductAria(
+                activeProductPreview.product.productName,
+              ),
               imageUrl: activeProductPreview.product.productImageUrl,
               key: activeProductPreview.key,
               name: activeProductPreview.product.productName,
               opacity: activeProductPreview.opacity,
-              orderLabel: `Sipariş: ${
-                activeProductPreview.product.orderCode ?? "-"
-              }`,
+              orderLabel: copy.orderLabel(
+                activeProductPreview.product.orderCode,
+              ),
               pulseScale: activeProductPreview.pulseScale,
             }
           : null
@@ -73,25 +84,27 @@ export function ShiftDepartmentCard({
       metrics={[
         {
           key: "queue-entered",
-          label: "Kuyruğa giren",
+          label: copy.metrics.queueEntered,
           value: queueEnteredQuantity,
         },
         {
           key: "produced",
-          label: "Çıkan",
+          label: copy.metrics.produced,
           value: producedQuantity,
         },
       ]}
-      numberLocale="tr-TR"
-      processedProductsLabel="İşlenen ürünler"
+      numberLocale={numberLocale}
+      processedProductsLabel={copy.processedProductsLabel}
       products={productResults.map((product) => ({
         imageUrl: product.productImageUrl,
         key: `${product.orderId ?? "no-order"}:${product.productId}`,
         name: product.productName,
-        orderLabel: `Sipariş: ${product.orderCode ?? "-"}`,
-        quantityLabel: formatQuantity(product.processedQuantity),
+        orderLabel: copy.orderLabel(product.orderCode),
+        quantityLabel: copy.productQuantity(
+          formatQuantity(product.processedQuantity, numberLocale),
+        ),
       }))}
-      utilizationAriaLabel={`Departman randımanı yüzde ${utilizationPercent}`}
+      utilizationAriaLabel={copy.utilizationAria(utilizationPercent)}
       utilizationPercent={utilizationPercent}
       utilizationTone={getUtilizationTone(utilizationPercent)}
     />
@@ -180,6 +193,6 @@ function getUtilizationTone(
   return "danger";
 }
 
-function formatQuantity(quantity: number) {
-  return new Intl.NumberFormat("tr-TR").format(quantity);
+function formatQuantity(quantity: number, numberLocale: Intl.LocalesArgument) {
+  return new Intl.NumberFormat(numberLocale).format(quantity);
 }

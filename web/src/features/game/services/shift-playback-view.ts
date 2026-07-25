@@ -3,6 +3,7 @@ import {
   type Prisma,
   type PrismaClient,
 } from "@/generated/prisma/client";
+import { normalizeLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
 import { SHIFT_PLAYBACK_DURATION_SECONDS, toShiftPlayback } from "../shift-playback";
 import type { ShiftPlayback } from "../types";
@@ -50,8 +51,7 @@ const shiftPlaybackSelect = {
         select: {
           key: true,
           translations: {
-            where: { locale: "tr" },
-            select: { name: true },
+            select: { locale: true, name: true },
           },
         },
       },
@@ -61,6 +61,7 @@ const shiftPlaybackSelect = {
 
 export async function getActiveShiftPlayback(input: {
   factoryId: string;
+  locale?: SupportedLocale;
   prisma: ShiftPlaybackClient;
   now?: Date;
 }): Promise<ShiftPlayback | null> {
@@ -112,6 +113,7 @@ export async function getActiveShiftPlaybackReference(input: {
 export async function getLatestReviewableShiftPlayback(input: {
   currentDay: number;
   factoryId: string;
+  locale?: SupportedLocale;
   prisma: ShiftPlaybackClient;
   now?: Date;
 }): Promise<ShiftPlayback | null> {
@@ -124,9 +126,11 @@ export async function getLatestReviewableShiftPlayback(input: {
 
 export async function getLatestShiftPlayback(input: {
   factoryId: string;
+  locale?: SupportedLocale;
   prisma: ShiftPlaybackClient;
   now?: Date;
 }): Promise<ShiftPlayback | null> {
+  const locale = normalizeLocale(input.locale);
   const shift = await input.prisma.shiftSimulation.findFirst({
     where: {
       factoryId: input.factoryId,
@@ -137,23 +141,38 @@ export async function getLatestShiftPlayback(input: {
     select: shiftPlaybackSelect,
   });
 
-  return shift ? enrichShiftPlayback({ playback: toShiftPlayback(shift, input.now), prisma: input.prisma }) : null;
+  return shift
+    ? enrichShiftPlayback({
+        locale,
+        playback: toShiftPlayback(shift, input.now, locale),
+        prisma: input.prisma,
+      })
+    : null;
 }
 
 export async function getShiftPlaybackById(input: {
+  locale?: SupportedLocale;
   shiftId: string;
   prisma: ShiftPlaybackClient;
   now?: Date;
 }): Promise<ShiftPlayback | null> {
+  const locale = normalizeLocale(input.locale);
   const shift = await input.prisma.shiftSimulation.findUnique({
     where: { id: input.shiftId },
     select: shiftPlaybackSelect,
   });
 
-  return shift ? enrichShiftPlayback({ playback: toShiftPlayback(shift, input.now), prisma: input.prisma }) : null;
+  return shift
+    ? enrichShiftPlayback({
+        locale,
+        playback: toShiftPlayback(shift, input.now, locale),
+        prisma: input.prisma,
+      })
+    : null;
 }
 
 async function enrichShiftPlayback(input: {
+  locale: SupportedLocale;
   playback: ShiftPlayback | null;
   prisma: ShiftPlaybackClient;
 }) {
@@ -172,12 +191,14 @@ async function enrichShiftPlayback(input: {
       shiftId: input.playback.shiftId,
     }),
     getShiftProductResults({
+      locale: input.locale,
       prisma: input.prisma,
       shiftId: input.playback.shiftId,
     }),
     getShiftTimelineEvents({
       factoryId: input.playback.factoryId,
       gameDay: input.playback.simulatedGameDay,
+      locale: input.locale,
       prisma: input.prisma,
       shift: input.playback,
     }),

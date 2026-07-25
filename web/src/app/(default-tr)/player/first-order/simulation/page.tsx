@@ -10,6 +10,11 @@ import {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import {
+  normalizeLocale,
+  translatedName,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import {
   FirstOrderSimulationClient,
@@ -21,6 +26,7 @@ import {
   type FirstSimulationStepInput,
 } from "./simulation-math";
 import { FIRST_SIMULATION_SHIFT_XP } from "./reward-config";
+import { firstOrderCopy } from "../first-order-copy";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +102,7 @@ export default async function FirstOrderSimulationPage() {
   });
 
   const factory = playerProfile?.factories[0];
+  const locale = normalizeLocale(playerProfile?.preferredLocale);
   if (!playerProfile || !factory) redirect("/onboarding");
 
   const tutorial = factory.tutorialProgress[0];
@@ -107,21 +114,24 @@ export default async function FirstOrderSimulationPage() {
 
   const simulation = buildSimulationView({
     factoryName: factory.name,
+    locale,
     startDay: tutorial.currentDay,
     productionOrder: tutorial.productionOrder,
     productionLines: factory.productionLines,
   });
 
-  return <FirstOrderSimulationClient simulation={simulation} />;
+  return <FirstOrderSimulationClient locale={locale} simulation={simulation} />;
 }
 
 function buildSimulationView({
   factoryName,
+  locale,
   startDay,
   productionOrder,
   productionLines,
 }: {
   factoryName: string;
+  locale: SupportedLocale;
   startDay: number;
   productionOrder: SimulationProductionOrder;
   productionLines: SimulationProductionLine[];
@@ -167,13 +177,19 @@ function buildSimulationView({
       departmentName: displayName(
         viewStep.routeRow.department.translations,
         viewStep.routeRow.department.key,
+        locale,
       ),
+      locale,
       productionLine: viewStep.productionLine,
     });
   });
 
   const productName =
-    displayName(productionOrder.product.productType.translations, productionOrder.product.name) ??
+    displayName(
+      productionOrder.product.productType.translations,
+      productionOrder.product.name,
+      locale,
+    ) ??
     productionOrder.product.name;
 
   return {
@@ -214,11 +230,13 @@ function buildLineView({
   departmentKey,
   departmentName,
   dailyCounts,
+  locale,
 }: {
   productionLine: SimulationProductionLine;
   departmentKey: string;
   departmentName: string;
   dailyCounts: [number, number, number];
+  locale: SupportedLocale;
 }): SimulationLineView {
   const template = productionLine.productionLineTemplate;
 
@@ -227,7 +245,7 @@ function buildLineView({
     key: template.key,
     departmentKey,
     departmentName,
-    segmentLabel: `${gradeLabel(template.grade)} Segment`,
+    segmentLabel: firstOrderCopy[locale].simulation.segmentLabel(gradeLabel(template.grade)),
     imageUrl: pickLineImage(template),
     dailyCounts,
   };
@@ -269,10 +287,10 @@ function gradeLabel(grade: string) {
   return labels[grade] ?? grade;
 }
 
-function displayName(translations: Translation[], fallback: string) {
-  return (
-    translations.find((translation) => translation.locale === "tr")?.name ??
-    translations.find((translation) => translation.locale === "en")?.name ??
-    fallback
-  );
+function displayName(
+  translations: Translation[],
+  fallback: string,
+  locale: SupportedLocale,
+) {
+  return translatedName(translations, fallback, locale);
 }

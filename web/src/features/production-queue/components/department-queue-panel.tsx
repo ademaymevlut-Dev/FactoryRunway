@@ -17,7 +17,13 @@ import {
 } from "lucide-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { useMemo, useState, useTransition } from "react"
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  useTransition,
+} from "react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -38,8 +44,19 @@ import {
 } from "@/components/ui/sortable"
 import { useGameUiStore } from "@/features/game/store/game-ui-store"
 import { buildDepartmentPlannedQuantities } from "@/features/game/services/production-allocation-math"
+import {
+  DEFAULT_LOCALE,
+  numberLocale as resolveNumberLocale,
+  localeUpper,
+  type NumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales"
 import { cn } from "@/lib/utils"
 
+import {
+  productionQueueCopy,
+  type ProductionQueueCopy,
+} from "../production-queue-copy"
 import { startOutsourceJobAction } from "../actions/start-outsource-job-action"
 import { updateDepartmentWorkloadPriorityAction } from "../actions/update-department-workload-priority-action"
 import styles from "./department-queue-panel.module.css"
@@ -51,15 +68,41 @@ import type {
   ProductionQueueItem,
 } from "../types"
 
+type QueueUiContextValue = {
+  copy: ProductionQueueCopy["ui"]
+  locale: SupportedLocale
+  numberLocale: NumberLocale
+}
+
+const QueueUiContext = createContext<QueueUiContextValue>({
+  copy: productionQueueCopy[DEFAULT_LOCALE].ui,
+  locale: DEFAULT_LOCALE,
+  numberLocale: resolveNumberLocale(DEFAULT_LOCALE),
+})
+
+function useQueueUi() {
+  return useContext(QueueUiContext)
+}
+
 export function DepartmentQueuePanel({
   departmentKeys,
   investmentDepartmentIds,
+  locale,
   queues,
 }: {
   departmentKeys: string[]
   investmentDepartmentIds: string[]
+  locale: SupportedLocale
   queues: GameProductionQueuesView
 }) {
+  const uiContext = useMemo<QueueUiContextValue>(
+    () => ({
+      copy: productionQueueCopy[locale].ui,
+      locale,
+      numberLocale: resolveNumberLocale(locale),
+    }),
+    [locale],
+  )
   const visibleQueues = useMemo(() => {
     const requestedKeys = new Set(departmentKeys)
     const matchedQueues = queues.queues.filter((queue) =>
@@ -82,27 +125,31 @@ export function DepartmentQueuePanel({
 
   if (!activeQueue) {
     return (
-      <div className="grid min-h-[320px] place-items-center text-center text-xs text-muted-foreground">
-        Üretim kuyruğu bulunamadı.
-      </div>
+      <QueueUiContext.Provider value={uiContext}>
+        <div className="grid min-h-[320px] place-items-center text-center text-xs text-muted-foreground">
+          {uiContext.copy.empty.noQueue}
+        </div>
+      </QueueUiContext.Provider>
     )
   }
 
   return (
-    <div className="flex h-full min-h-[360px] flex-col gap-2 text-xs">
-      {visibleQueues.length > 1 ? (
-        <DepartmentTabs
-          activeDepartmentKey={activeQueue.departmentKey}
-          queues={visibleQueues}
-          onChange={setActiveDepartmentKey}
+    <QueueUiContext.Provider value={uiContext}>
+      <div className="flex h-full min-h-[360px] flex-col gap-2 text-xs">
+        {visibleQueues.length > 1 ? (
+          <DepartmentTabs
+            activeDepartmentKey={activeQueue.departmentKey}
+            queues={visibleQueues}
+            onChange={setActiveDepartmentKey}
+          />
+        ) : null}
+        <DepartmentQueue
+          canInvest={investmentDepartmentIds.includes(activeQueue.departmentId)}
+          key={getQueueRevision(activeQueue)}
+          queue={activeQueue}
         />
-      ) : null}
-      <DepartmentQueue
-        canInvest={investmentDepartmentIds.includes(activeQueue.departmentId)}
-        key={getQueueRevision(activeQueue)}
-        queue={activeQueue}
-      />
-    </div>
+      </div>
+    </QueueUiContext.Provider>
   )
 }
 
@@ -143,6 +190,7 @@ function DepartmentQueue({
   canInvest: boolean
   queue: GameDepartmentQueueView
 }) {
+  const { copy, numberLocale } = useQueueUi()
   const { isShiftPlaybackActive, openPanel } = useGameUiStore()
   const [items, setItems] = useState<ProductionQueueItem[]>(queue.items)
   const [message, setMessage] = useState<string | null>(null)
@@ -171,7 +219,7 @@ function DepartmentQueue({
 
     const previousItems = items
     setItems(nextItems)
-    setMessage("İş yükü önceliği kaydediliyor...")
+    setMessage(copy.header.saving)
 
     startPriorityTransition(async () => {
       const result = await updateDepartmentWorkloadPriorityAction(
@@ -185,7 +233,7 @@ function DepartmentQueue({
         return
       }
 
-      setMessage(`${queue.label} iş yükü önceliği kaydedildi.`)
+      setMessage(copy.header.messageSaved(queue.label))
     })
   }
 
@@ -213,7 +261,10 @@ function DepartmentQueue({
             <div className="space-y-3 p-2">
               {items.length > 0 ? (
                 <section>
-                  <QueueSectionTitle count={items.length} label="İç Hat Kuyruğu" />
+                  <QueueSectionTitle
+                    count={items.length}
+                    label={copy.sections.internalQueue}
+                  />
                   <QueueHeader completedColumnLabel={queue.completedColumnLabel} />
                   <Sortable
                     className="mt-1.5 space-y-1.5"
@@ -238,6 +289,7 @@ function DepartmentQueue({
                           plannedQuantity={
                             plannedQuantityByItemId.get(item.routeProgressId) ?? 0
                           }
+                          numberLocale={numberLocale}
                         />
                       </SortableItem>
                     ))}
@@ -281,6 +333,8 @@ function DepartmentQueueHeader({
   plannedTotalQuantity: number
   queue: GameDepartmentQueueView
 }) {
+  const { copy, numberLocale } = useQueueUi()
+
   return (
     <div className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
       <div className="min-w-0">
@@ -290,17 +344,17 @@ function DepartmentQueueHeader({
           </span>
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold text-foreground">
-              {queue.label} Kuyruğu
+              {copy.header.title(queue.label)}
             </h2>
             <p className="truncate text-[11px] text-muted-foreground">
-              {queue.currentDay}. gün vardiya öncesi öncelik
+              {copy.header.dayPriority(queue.currentDay)}
             </p>
           </div>
           <Badge
             className="h-5 rounded-md px-2 text-[10px]"
             variant="secondary"
           >
-            {queue.summary.queueCount} iş
+            {copy.header.workCount(queue.summary.queueCount)}
           </Badge>
           {canInvest ? (
             <Button
@@ -312,7 +366,7 @@ function DepartmentQueueHeader({
               variant="default"
             >
               <Plus size={14} />
-              Yatırım Yap
+              {copy.header.invest}
             </Button>
           ) : null}
         </div>
@@ -321,13 +375,13 @@ function DepartmentQueueHeader({
       <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 xl:min-w-[520px]">
         <SummaryPill
           highlight
-          label="Bugün Planlanan"
-          value={`${formatNumber(plannedTotalQuantity)} adet`}
+          label={copy.summary.planned}
+          value={formatQuantity(plannedTotalQuantity, numberLocale, copy)}
         />
-        <SummaryPill label="Kuyruğa Giren" value={queue.summary.totalInputReadyQuantityLabel} />
+        <SummaryPill label={copy.summary.inputReady} value={queue.summary.totalInputReadyQuantityLabel} />
         <SummaryPill label={queue.completedColumnLabel} value={queue.summary.totalCompletedQuantityLabel} />
-        <SummaryPill label="Kalan" value={queue.summary.totalRemainingQuantityLabel} />
-        <SummaryPill label="Puan/gün" value={queue.summary.dailyCapacityLabel} />
+        <SummaryPill label={copy.summary.remaining} value={queue.summary.totalRemainingQuantityLabel} />
+        <SummaryPill label={copy.summary.dailyPoints} value={queue.summary.dailyCapacityLabel} />
       </div>
 
       <div className="xl:col-span-2">
@@ -337,7 +391,11 @@ function DepartmentQueueHeader({
             isPending && "text-primary",
           )}
         >
-          {message ?? `En yakın termin: ${queue.summary.nextDeliveryLabel} · İlk iş: ${queue.summary.firstStartLabel}`}
+          {message ??
+            copy.header.summary(
+              queue.summary.nextDeliveryLabel,
+              queue.summary.firstStartLabel,
+            )}
         </p>
       </div>
     </div>
@@ -376,10 +434,12 @@ function SummaryPill({
 }
 
 function QueueSectionTitle({ count, label }: { count: number; label: string }) {
+  const { locale } = useQueueUi()
+
   return (
     <div className="mb-1.5 flex items-center justify-between gap-2 px-1">
-      <h3 className="text-[11px] font-semibold uppercase text-muted-foreground">
-        {label}
+      <h3 className="text-[11px] font-semibold text-muted-foreground">
+        {localeUpper(label, locale)}
       </h3>
       <Badge className="h-5 rounded-md px-1.5 text-[10px]" variant="outline">
         {count}
@@ -397,9 +457,14 @@ function OutsourceCandidates({
   items: ProductionQueueItem[]
   onMessage: (message: string | null) => void
 }) {
+  const { copy } = useQueueUi()
+
   return (
     <section>
-      <QueueSectionTitle count={items.length} label="Fason Teklifi Bekleyen" />
+      <QueueSectionTitle
+        count={items.length}
+        label={copy.sections.outsourceCandidates}
+      />
       <div className="space-y-1.5">
         {items.map((item) => (
           <div
@@ -441,6 +506,7 @@ function OutsourceOfferDialog({
   item: ProductionQueueItem
   onMessage: (message: string | null) => void
 }) {
+  const { copy, numberLocale } = useQueueUi()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [quantityValue, setQuantityValue] = useState(
@@ -465,7 +531,7 @@ function OutsourceOfferDialog({
   function handleSelect(option: ProductionOutsourceOptionView) {
     if (selectedQuantity <= 0) return
 
-    onMessage(`${option.label} fason teklifi işleniyor...`)
+    onMessage(copy.outsource.processing(option.label))
     const requestId = crypto.randomUUID()
 
     startTransition(async () => {
@@ -496,12 +562,12 @@ function OutsourceOfferDialog({
           variant="outline"
         >
           <Send size={compact ? 12 : 14} />
-          {compact ? "Fason" : "Teklifler"}
+          {compact ? copy.outsource.compactButton : copy.outsource.trigger}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-[min(620px,calc(100vw-2rem))] gap-3 rounded-lg p-4 sm:max-w-[620px]">
         <DialogHeader>
-          <DialogTitle>Fason Üretim Teklifleri</DialogTitle>
+          <DialogTitle>{copy.outsource.dialogTitle}</DialogTitle>
           <DialogDescription>
             {item.orderNo} · {item.productName} · {item.availableQuantityLabel}
           </DialogDescription>
@@ -512,11 +578,10 @@ function OutsourceOfferDialog({
               className="text-[11px] font-semibold text-foreground"
               htmlFor={`outsource-quantity-${item.routeProgressId}`}
             >
-              Fasona ayrılacak miktar
+              {copy.outsource.quantityLabel}
             </label>
             <p className="mt-1 text-[10px] leading-4 text-muted-foreground">
-              En fazla {item.availableQuantityLabel}. Kalan miktar iç hat
-              kuyruğunda üretime devam eder.
+              {copy.outsource.quantityHelp(item.availableQuantityLabel)}
             </p>
           </div>
           <input
@@ -534,14 +599,20 @@ function OutsourceOfferDialog({
         </div>
         <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
           <Badge variant="outline">
-            Fason: {formatNumber(selectedQuantity)} adet
+            {copy.outsource.selectedQuantity(
+              formatNumber(selectedQuantity, numberLocale),
+            )}
           </Badge>
           <Badge variant="outline">
-            İç hatta kalır: {formatNumber(Math.max(0, internalQuantity))} adet
+            {copy.outsource.internalRemaining(
+              formatNumber(Math.max(0, internalQuantity), numberLocale),
+            )}
           </Badge>
           {selectedQuantity <= 0 ? (
             <span className="self-center text-red-200">
-              1 ile {formatNumber(item.availableQuantity)} arasında adet girin.
+              {copy.outsource.invalidQuantity(
+                formatNumber(item.availableQuantity, numberLocale),
+              )}
             </span>
           ) : null}
         </div>
@@ -574,6 +645,7 @@ function OutsourceOfferDialog({
                   {formatMoney(
                     BigInt(option.costPerUnitCents) * BigInt(selectedQuantity),
                     option.currencyCode,
+                    numberLocale,
                   )}
                 </span>
                 <span className="text-[10px] text-muted-foreground">
@@ -592,9 +664,11 @@ function OutsourceOfferDialog({
 }
 
 function OutsourceJobs({ jobs }: { jobs: ProductionOutsourceJobView[] }) {
+  const { copy } = useQueueUi()
+
   return (
     <section>
-      <QueueSectionTitle count={jobs.length} label="Fasonda" />
+      <QueueSectionTitle count={jobs.length} label={copy.sections.outsourceJobs} />
       <div className="space-y-1.5">
         {jobs.map((job) => (
           <div
@@ -617,7 +691,7 @@ function OutsourceJobs({ jobs }: { jobs: ProductionOutsourceJobView[] }) {
               <QueuePill label={job.remainingDaysLabel} tone={job.tone} />
               <p className="mt-1 text-[10px] text-muted-foreground">
                 <Clock3 className="mr-1 inline size-3" />
-                {job.readyDay}. gün
+                {copy.readyDay(job.readyDay)}
               </p>
             </div>
           </div>
@@ -632,20 +706,26 @@ function QueueHeader({
 }: {
   completedColumnLabel: string
 }) {
+  const { copy, locale } = useQueueUi()
+
   return (
     <div
       className={cn(
-        "hidden grid-cols-[30px_42px_minmax(150px,1fr)_78px_94px_84px_84px_112px_98px] items-center gap-2 px-2.5 pb-1 text-[10px] font-semibold uppercase text-muted-foreground lg:grid",
+        "hidden grid-cols-[30px_42px_minmax(150px,1fr)_78px_94px_84px_84px_112px_98px] items-center gap-2 px-2.5 pb-1 text-[10px] font-semibold text-muted-foreground lg:grid",
       )}
     >
-      <span>Sıra</span>
-      <span className="col-span-2">Ürün / Sipariş</span>
-      <span className="text-primary">Planlanan</span>
-      <span>Kuyruğa Giren</span>
-      <span>{completedColumnLabel}</span>
-      <span>Kalan</span>
-      <span>Başlama</span>
-      <span>Termin</span>
+      <span>{localeUpper(copy.table.priority, locale)}</span>
+      <span className="col-span-2">
+        {localeUpper(copy.table.productOrder, locale)}
+      </span>
+      <span className="text-primary">
+        {localeUpper(copy.table.planned, locale)}
+      </span>
+      <span>{localeUpper(copy.table.inputReady, locale)}</span>
+      <span>{localeUpper(completedColumnLabel, locale)}</span>
+      <span>{localeUpper(copy.table.remaining, locale)}</span>
+      <span>{localeUpper(copy.table.queueStart, locale)}</span>
+      <span>{localeUpper(copy.table.due, locale)}</span>
     </div>
   )
 }
@@ -656,27 +736,33 @@ function DepartmentQueueCard({
   index,
   item,
   onMessage,
+  numberLocale,
   plannedQuantity,
 }: {
   completedColumnLabel: string
   disabled: boolean
   index: number
   item: ProductionQueueItem
+  numberLocale: NumberLocale
   onMessage: (message: string | null) => void
   plannedQuantity: number
 }) {
+  const { copy } = useQueueUi()
   const rowItem = {
     completedQuantityLabel: item.completedQuantityLabel,
     dueLabel: item.deliveryLabel,
     dueTone: item.deliveryTone,
     footerStatusLabel: item.manualPriorityOverride
-      ? "Manuel sıra"
+      ? copy.row.manualPriority
       : item.statusLabel,
     inputReadyQuantityLabel: item.inputReadyQuantityLabel,
-    modeLabel: "İç Hat",
+    modeLabel: copy.row.internalMode,
     orderNo: item.orderNo,
-    orderSummaryLabel: `Sipariş: ${item.orderQuantityLabel} · ${item.productionNo}`,
-    plannedProductionLabel: `${formatNumber(plannedQuantity)} adet`,
+    orderSummaryLabel: copy.row.orderSummary(
+      item.orderQuantityLabel,
+      item.productionNo,
+    ),
+    plannedProductionLabel: formatQuantity(plannedQuantity, numberLocale, copy),
     productCode: item.productCode,
     productImageUrl: item.productImageUrl,
     productName: item.productName,
@@ -686,10 +772,10 @@ function DepartmentQueueCard({
     remainingQuantityLabel: item.queueRemainingQuantityLabel,
   }
   const labels = {
-    completed: `${completedColumnLabel} adet`,
-    inputReady: "Kuyruğa Giren",
-    planned: "Planlanan",
-    remaining: "Kalan adet",
+    completed: copy.summary.completedSuffix(completedColumnLabel),
+    inputReady: copy.summary.inputReady,
+    planned: copy.summary.plannedShort,
+    remaining: copy.summary.remainingQuantity,
   }
 
   return (
@@ -778,6 +864,8 @@ function QueueProductThumb({
 }
 
 function DepartmentEmptyState({ queue }: { queue: GameDepartmentQueueView }) {
+  const { copy } = useQueueUi()
+
   return (
     <div className="grid h-full min-h-[320px] place-items-center p-6 text-center">
       <div className="max-w-sm">
@@ -785,10 +873,10 @@ function DepartmentEmptyState({ queue }: { queue: GameDepartmentQueueView }) {
           {renderDepartmentIcon(queue.departmentKey, 22)}
         </span>
         <h2 className="mt-3 text-base font-semibold text-foreground">
-          {queue.label} kuyruğu boş
+          {copy.empty.title(queue.label)}
         </h2>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          Hazır iş geldiğinde üretim önceliği burada sürüklenebilir liste olarak açılır.
+          {copy.empty.body}
         </p>
       </div>
     </div>
@@ -826,8 +914,16 @@ function getQueueRevision(queue: GameDepartmentQueueView) {
   ].join("|")
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatQuantity(
+  value: number,
+  numberLocale: NumberLocale,
+  copy: ProductionQueueCopy["ui"],
+) {
+  return copy.summary.quantity(formatNumber(value, numberLocale))
+}
+
+function formatNumber(value: number, numberLocale: NumberLocale) {
+  return new Intl.NumberFormat(numberLocale, {
     maximumFractionDigits: 0,
   }).format(value)
 }
@@ -835,8 +931,9 @@ function formatNumber(value: number) {
 function formatMoney(
   valueCents: bigint,
   currencyCode: ProductionOutsourceOptionView["currencyCode"],
+  numberLocale: NumberLocale,
 ) {
-  return new Intl.NumberFormat("tr-TR", {
+  return new Intl.NumberFormat(numberLocale, {
     currency: currencyCode,
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,

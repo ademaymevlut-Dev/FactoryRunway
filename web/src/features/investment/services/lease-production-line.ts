@@ -20,6 +20,10 @@ import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { recalculateFactoryOperatingStage } from "@/features/game/services/factory-operating-stage";
 import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
+import {
+  normalizeLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import type {
   LeaseProductionLineInput,
@@ -59,8 +63,11 @@ export function calculateFirstLeasingDueDay(startedDay: number) {
 export async function leaseProductionLine(input: {
   prisma: PrismaClient;
   lease: LeaseProductionLineInput;
+  locale?: SupportedLocale | string | null;
   userId: string;
 }): Promise<LeaseProductionLineResult> {
+  const locale = normalizeLocale(input.locale);
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
   const requestReferenceKey = buildLineLeasingReferenceKey(input.lease);
 
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
@@ -140,7 +147,7 @@ export async function leaseProductionLine(input: {
                     monthlySalaryCents: true,
                     staffType: true,
                     translations: {
-                      where: { locale: "tr" },
+                      where: { locale: translationLocaleFilter },
                       select: { name: true },
                     },
                   },
@@ -270,7 +277,7 @@ export async function leaseProductionLine(input: {
               dailySupportMealPerStaffCents: true,
               supportOverheadPerStaffCents: true,
               translations: {
-                where: { locale: "tr" },
+                where: { locale: translationLocaleFilter },
                 select: { name: true },
               },
               staffRequirements: {
@@ -283,7 +290,7 @@ export async function leaseProductionLine(input: {
                       key: true,
                       monthlySalaryCents: true,
                       translations: {
-                        where: { locale: "tr" },
+                        where: { locale: translationLocaleFilter },
                         select: { name: true },
                       },
                     },
@@ -311,6 +318,7 @@ export async function leaseProductionLine(input: {
           activeProductionLineCount,
           costConfig,
           currentStageId: factory.operatingStageState?.currentStageId ?? null,
+          locale,
           stages,
           supportStaffByRoleId,
           template,
@@ -568,6 +576,10 @@ export async function leaseProductionLine(input: {
   }
 
   throw new Error("Production line leasing retry loop exited unexpectedly.");
+}
+
+function getTranslationLocaleFallbacks(locale: SupportedLocale) {
+  return locale === "en" ? ["en", "tr"] : ["tr", "en"];
 }
 
 function isSupportedTerm(termYears: number, installmentCount: number) {

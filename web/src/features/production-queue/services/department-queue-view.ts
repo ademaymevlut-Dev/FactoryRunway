@@ -15,7 +15,15 @@ import {
 import { calculateRouteProgressQuantities } from "@/features/game/services/route-progress-availability"
 import type { AutomaticAllocationLine } from "@/features/game/services/production-allocation-math"
 import { getPrisma } from "@/lib/db"
+import {
+  localizedMetadataString,
+  normalizeLocale,
+  numberLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales"
 
+import { productionQueueCopy } from "../production-queue-copy"
 import { calculateOutsourceUnitCostCents } from "./outsource-cost"
 import { calculateQueueQuantities } from "./queue-quantity"
 
@@ -27,8 +35,6 @@ import type {
   ProductionQueueItem,
   ProductionQueueTone,
 } from "../types"
-
-const locale = "tr"
 
 type TranslationRecord = {
   locale: string
@@ -54,8 +60,11 @@ type CapacityRecord = {
 export async function getProductionQueuesView(input: {
   currentDay: number
   factoryId: string
+  locale?: SupportedLocale | string
   sectorId: string
 }): Promise<GameProductionQueuesView> {
+  const locale = normalizeLocale(input.locale)
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) }
   const prisma = getPrisma()
   const [
     factory,
@@ -82,7 +91,7 @@ export async function getProductionQueuesView(input: {
         routeOrder: true,
         supportsOutsource: true,
         translations: {
-          where: { locale },
+          where: { locale: translationLocaleFilter },
           select: { locale: true, name: true },
         },
       },
@@ -168,7 +177,7 @@ export async function getProductionQueuesView(input: {
             routeOrder: true,
             supportsOutsource: true,
             translations: {
-              where: { locale },
+              where: { locale: translationLocaleFilter },
               select: { locale: true, name: true },
             },
           },
@@ -318,7 +327,9 @@ export async function getProductionQueuesView(input: {
 
   for (const job of outsourceJobs) {
     const current = jobsByDepartmentId.get(job.departmentId) ?? []
-    current.push(toOutsourceJobView(job, input.currentDay, factory.currencyCode))
+    current.push(
+      toOutsourceJobView(job, input.currentDay, factory.currencyCode, locale),
+    )
     jobsByDepartmentId.set(job.departmentId, current)
   }
 
@@ -349,11 +360,16 @@ export async function getProductionQueuesView(input: {
         currencyCode: factory.currencyCode,
         currentDay: input.currentDay,
         department,
+        locale,
         outsourceJobs: jobsByDepartmentId.get(department.id) ?? [],
         routeProgress: progressByDepartmentId.get(department.id) ?? [],
       }),
     ),
   }
+}
+
+function getTranslationLocaleFallbacks(locale: SupportedLocale) {
+  return locale === "tr" ? ["tr", "en"] : ["en", "tr"]
 }
 
 function buildCapacityByDepartment(
@@ -437,6 +453,7 @@ function toDepartmentQueue(input: {
   currencyCode: CurrencyCode
   currentDay: number
   department: DepartmentRecord
+  locale: SupportedLocale
   outsourceJobs: ProductionOutsourceJobView[]
   routeProgress: Array<{
     canOutsource: boolean
@@ -485,8 +502,16 @@ function toDepartmentQueue(input: {
     }
   }>
 }): GameDepartmentQueueView {
-  const label = pickTranslation(input.department.translations, input.department.key)
-  const completedColumnLabel = getCompletedColumnLabel(input.department.key)
+  const copy = productionQueueCopy[input.locale].service
+  const label = pickTranslation(
+    input.department.translations,
+    input.department.key,
+    input.locale,
+  )
+  const completedColumnLabel = getCompletedColumnLabel(
+    input.department.key,
+    input.locale,
+  )
   let workPointsBefore = 0
   const allItems = input.routeProgress.map((progress) => {
     const item = toQueueItem({
@@ -495,6 +520,7 @@ function toDepartmentQueue(input: {
       currencyCode: input.currencyCode,
       currentDay: input.currentDay,
       effectiveDailyPointCapacity: input.capacity.effectiveDailyPointCapacity,
+      locale: input.locale,
       progress,
       workPointsBefore,
     })
@@ -531,7 +557,7 @@ function toDepartmentQueue(input: {
   )
 
   return {
-    actionLabel: getActionLabel(input.department.key),
+    actionLabel: getActionLabel(input.department.key, input.locale),
     activeLineCount: input.capacity.activeLineCount,
     completedColumnLabel,
     currentDay: input.currentDay,
@@ -545,18 +571,28 @@ function toDepartmentQueue(input: {
     outsourceJobs: input.outsourceJobs,
     planningLines: input.capacity.planningLines,
     summary: {
-      dailyCapacityLabel: `${formatNumber(input.capacity.effectiveDailyPointCapacity)} puan/gün`,
+      dailyCapacityLabel: copy.pointsPerDay(
+        formatNumber(input.capacity.effectiveDailyPointCapacity, input.locale),
+      ),
       firstStartLabel:
         items[0]?.queueStartLabel ??
-        (outsourceCandidates.length > 0 ? "Fason seçimi bekliyor" : "-"),
+        (outsourceCandidates.length > 0 ? copy.firstStartOutsource : "-"),
       nextDeliveryLabel: allItems[0]?.deliveryLabel ?? "-",
       queueCount:
         new Set(allItems.map((item) => item.routeProgressId)).size +
         input.outsourceJobs.length,
-      totalCompletedQuantityLabel: `${formatNumber(totalCompletedQuantity)} adet`,
-      totalInputReadyQuantityLabel: `${formatNumber(totalInputReadyQuantity)} adet`,
-      totalOrderQuantityLabel: `${formatNumber(totalOrderQuantity)} adet`,
-      totalRemainingQuantityLabel: `${formatNumber(totalRemainingQuantity)} adet`,
+      totalCompletedQuantityLabel: copy.quantity(
+        formatNumber(totalCompletedQuantity, input.locale),
+      ),
+      totalInputReadyQuantityLabel: copy.quantity(
+        formatNumber(totalInputReadyQuantity, input.locale),
+      ),
+      totalOrderQuantityLabel: copy.quantity(
+        formatNumber(totalOrderQuantity, input.locale),
+      ),
+      totalRemainingQuantityLabel: copy.quantity(
+        formatNumber(totalRemainingQuantity, input.locale),
+      ),
     },
   }
 }
@@ -567,9 +603,11 @@ function toQueueItem(input: {
   currencyCode: CurrencyCode
   currentDay: number
   effectiveDailyPointCapacity: number
+  locale: SupportedLocale
   progress: Parameters<typeof toDepartmentQueue>[0]["routeProgress"][number]
   workPointsBefore: number
 }): ProductionQueueItem {
+  const copy = productionQueueCopy[input.locale].service
   const item = input.progress.productionOrder.customerOrderItem
   const orderQuantity = input.progress.productionOrder.plannedQuantity
   const {
@@ -604,6 +642,7 @@ function toQueueItem(input: {
           config,
           currencyCode: input.currencyCode,
           currentDay: input.currentDay,
+          locale: input.locale,
           workloadPointsPerUnit: input.progress.workloadPointsPerUnit,
         }),
       )
@@ -611,52 +650,62 @@ function toQueueItem(input: {
 
   return {
     availableQuantity,
-    availableQuantityLabel: `${formatNumber(availableQuantity)} adet`,
+    availableQuantityLabel: copy.quantity(formatNumber(availableQuantity, input.locale)),
     canOutsource: input.progress.canOutsource,
     completedQuantity,
-    completedQuantityLabel: `${formatNumber(completedQuantity)} adet`,
+    completedQuantityLabel: copy.quantity(formatNumber(completedQuantity, input.locale)),
     customerName:
-      input.progress.productionOrder.customerOrder.virtualCustomer?.name ?? "Müşteri",
+      input.progress.productionOrder.customerOrder.virtualCustomer?.name ??
+      copy.customerFallback,
     daysUntilDelivery,
-    deliveryLabel: formatDeliveryLabel(daysUntilDelivery),
+    deliveryLabel: formatDeliveryLabel(daysUntilDelivery, input.locale),
     deliveryTone,
     departmentId: input.progress.departmentId,
     departmentKey: input.progress.department.key,
     id: input.progress.id,
     inputReadyQuantity,
-    inputReadyQuantityLabel: `${formatNumber(inputReadyQuantity)} adet`,
+    inputReadyQuantityLabel: copy.quantity(
+      formatNumber(inputReadyQuantity, input.locale),
+    ),
     manualPriorityOverride: input.progress.manualPriorityOverride,
     orderNo: input.progress.productionOrder.customerOrder.orderNo,
     orderQuantity,
-    orderQuantityLabel: `${formatNumber(orderQuantity)} adet`,
+    orderQuantityLabel: copy.quantity(formatNumber(orderQuantity, input.locale)),
     outsourceOptions,
     productCode: getProductCode(item),
     productImageUrl: getProductImageUrl(item),
-    productName: getProductName(item),
+    productName: getProductName(item, input.locale),
     productTier: item.product.tier,
     processingMode: input.progress.processingMode,
     productionNo: input.progress.productionOrder.productionNo,
     productionOrderId: input.progress.productionOrder.id,
     queuePriority: input.progress.queuePriority,
     queueRemainingQuantity,
-    queueRemainingQuantityLabel: `${formatNumber(queueRemainingQuantity)} adet`,
+    queueRemainingQuantityLabel: copy.quantity(
+      formatNumber(queueRemainingQuantity, input.locale),
+    ),
     queueStartLabel: formatQueueStartLabel({
-      actionLabel: getActionLabel(input.progress.department.key),
+      actionLabel: getActionLabel(input.progress.department.key, input.locale),
+      locale: input.locale,
       offsetDays: queueStartOffsetDays,
     }),
     queueStartOffsetDays,
     queueStartTone,
     remainingQuantity,
-    remainingQuantityLabel: `${formatNumber(remainingQuantity)} adet`,
+    remainingQuantityLabel: copy.quantity(
+      formatNumber(remainingQuantity, input.locale),
+    ),
     remainingWorkPoints,
     routeProgressId: input.progress.id,
     setupPoints: input.progress.setupPoints,
     status,
-    statusLabel: getStatusLabel(status),
+    statusLabel: copy.status[status],
     targetDeliveryDay: input.progress.productionOrder.targetDeliveryDay,
     workPointsBefore: input.workPointsBefore,
     workloadPointsPerUnit: input.progress.workloadPointsPerUnit,
-    workloadLabel: `${formatNumber(input.progress.workloadPointsPerUnit)} puan/adet`,
+    workloadLabel: copy.pointPerUnit(
+      formatNumber(input.progress.workloadPointsPerUnit, input.locale),
+    ),
   }
 }
 
@@ -665,35 +714,39 @@ function toOutsourceOptionView(input: {
   config: Parameters<typeof toDepartmentQueue>[0]["configs"][number]
   currencyCode: CurrencyCode
   currentDay: number
+  locale: SupportedLocale
   workloadPointsPerUnit: number
 }): ProductionOutsourceOptionView {
+  const copy = productionQueueCopy[input.locale].service
   const costPerUnitCents = calculateOutsourceUnitCostCents({
     costMultiplierBps: input.config.costMultiplierBps,
     costPer1000Points: input.config.baseCostPer1000PointsCents,
     workloadPointsPerUnit: input.workloadPointsPerUnit,
   })
   const totalCostCents = BigInt(costPerUnitCents) * BigInt(input.availableQuantity)
-  const presentation = getOutsourceOptionPresentation(input.config.optionType)
+  const presentation = copy.outsourceOption[input.config.optionType]
   const returnDay = input.currentDay + input.config.leadTimeDays
 
   return {
     costMultiplierBps: input.config.costMultiplierBps,
     costPerUnitCents,
-    costPerUnitLabel: `${formatMoney(costPerUnitCents, input.currencyCode)} / adet`,
+    costPerUnitLabel: copy.unitCost(
+      formatMoney(costPerUnitCents, input.currencyCode, input.locale),
+    ),
     currencyCode: input.currencyCode,
     delayRiskBps: input.config.delayRiskBps,
     description: presentation.description,
     id: input.config.id,
     label: presentation.label,
     leadTimeDays: input.config.leadTimeDays,
-    leadTimeLabel: `${input.config.leadTimeDays} gün`,
+    leadTimeLabel: copy.delivery.remaining(input.config.leadTimeDays),
     optionType: input.config.optionType,
     qualityRiskBps: input.config.qualityRiskBps,
     returnDay,
-    returnDayLabel: `${returnDay}. gün kapanışı`,
+    returnDayLabel: copy.returnDayClosing(returnDay),
     tone: presentation.tone,
     totalCostCents: totalCostCents.toString(),
-    totalCostLabel: formatMoney(totalCostCents, input.currencyCode),
+    totalCostLabel: formatMoney(totalCostCents, input.currencyCode, input.locale),
   }
 }
 
@@ -727,10 +780,12 @@ function toOutsourceJobView(
   },
   currentDay: number,
   currencyCode: CurrencyCode,
+  locale: SupportedLocale,
 ): ProductionOutsourceJobView {
+  const copy = productionQueueCopy[locale].service
   const remainingDays = Math.max(0, job.readyDay - currentDay)
   const item = job.productionOrder.customerOrderItem
-  const presentation = getOutsourceOptionPresentation(job.optionType)
+  const presentation = copy.outsourceOption[job.optionType]
   const isDelayed = job.status === OutsourceJobStatus.DELAYED
 
   return {
@@ -741,51 +796,26 @@ function toOutsourceJobView(
     optionType: job.optionType,
     orderNo: job.productionOrder.customerOrder.orderNo,
     productImageUrl: getProductImageUrl(item),
-    productName: getProductName(item),
+    productName: getProductName(item, locale),
     productionNo: job.productionOrder.productionNo,
     quantity: job.quantity,
-    quantityLabel: `${formatNumber(job.quantity)} adet`,
+    quantityLabel: copy.quantity(formatNumber(job.quantity, locale)),
     readyDay: job.readyDay,
     remainingDays,
     remainingDaysLabel:
       remainingDays === 0
-        ? "Bugün kapanışta döner"
-        : `${remainingDays} gün sonra döner`,
+        ? copy.returns.today
+        : copy.returns.later(remainingDays),
     routeProgressId: job.productionOrderRouteProgressId,
     sentDay: job.sentDay,
     status: job.status,
-    statusLabel: isDelayed ? "Gecikmeli" : "Fasonda",
+    statusLabel: isDelayed
+      ? copy.statusOutsourceDelayed
+      : copy.statusOutsourceInProgress,
     tone: isDelayed ? "danger" : presentation.tone,
     totalCostCents: job.totalCostCents.toString(),
-    totalCostLabel: formatMoney(job.totalCostCents, currencyCode),
+    totalCostLabel: formatMoney(job.totalCostCents, currencyCode, locale),
   }
-}
-
-function getOutsourceOptionPresentation(
-  optionType: ProductionOutsourceOptionView["optionType"],
-) {
-  const presentations = {
-    FAST: {
-      description: "Hızlı teslim, daha yüksek fiyat",
-      label: "FAST",
-      tone: "warning",
-    },
-    SAFE: {
-      description: "Uzun teslim, daha uygun fiyat",
-      label: "SAFE",
-      tone: "success",
-    },
-    STANDARD: {
-      description: "Dengeli süre ve standart fiyat",
-      label: "STANDARD",
-      tone: "info",
-    },
-  } satisfies Record<
-    ProductionOutsourceOptionView["optionType"],
-    { description: string; label: string; tone: ProductionQueueTone }
-  >
-
-  return presentations[optionType]
 }
 
 function getReconciledInputReadyQuantity(
@@ -812,8 +842,14 @@ function getReconciledInputReadyQuantity(
 function getProductName(item: {
   product: { name: string }
   productSnapshot: unknown
-}) {
-  return readString(readRecord(item.productSnapshot).name) ?? item.product.name
+}, locale: SupportedLocale) {
+  const snapshot = readRecord(item.productSnapshot)
+
+  return (
+    localizedMetadataString(snapshot, "name", locale) ??
+    readString(snapshot.name) ??
+    item.product.name
+  )
 }
 
 function getProductCode(item: {
@@ -843,20 +879,6 @@ function getProductImageUrl(item: {
   return image?.url ?? image?.pathname ?? null
 }
 
-function getStatusLabel(status: RouteProgressStatus) {
-  const labels = {
-    BLOCKED: "Blokeli",
-    COMPLETED: "Tamamlandı",
-    IN_PROGRESS: "İşlemde",
-    READY: "Hazır",
-    SKIPPED: "Atlandı",
-    WAITING_INPUT: "Girdi bekliyor",
-    WAITING_OUTSOURCE: "Fason bekliyor",
-  } satisfies Record<RouteProgressStatus, string>
-
-  return labels[status]
-}
-
 function getDeliveryTone(
   daysUntilDelivery: number,
   remainingQuantity: number,
@@ -880,65 +902,65 @@ function getQueueStartTone(
   return "info"
 }
 
-function formatDeliveryLabel(daysUntilDelivery: number) {
+function formatDeliveryLabel(
+  daysUntilDelivery: number,
+  locale: SupportedLocale,
+) {
+  const copy = productionQueueCopy[locale].service.delivery
+
   if (daysUntilDelivery < 0) {
-    return `${Math.abs(daysUntilDelivery)} gün gecikti`
+    return copy.delayed(Math.abs(daysUntilDelivery))
   }
 
   if (daysUntilDelivery === 0) {
-    return "Bugün teslim"
+    return copy.dueToday
   }
 
-  return `${daysUntilDelivery} gün kaldı`
+  return copy.remaining(daysUntilDelivery)
 }
 
 function formatQueueStartLabel({
   actionLabel,
+  locale,
   offsetDays,
 }: {
   actionLabel: string
+  locale: SupportedLocale
   offsetDays: number | null
 }) {
-  if (offsetDays === null) return "Hat yok"
-  if (offsetDays === 0) return `${actionLabel} bugün`
+  const copy = productionQueueCopy[locale].service
 
-  return `${actionLabel} ${offsetDays} gün sonra`
+  if (offsetDays === null) return copy.noLine
+  if (offsetDays === 0) return copy.queueStart.today(actionLabel)
+
+  return copy.queueStart.later(actionLabel, offsetDays)
 }
 
-function getActionLabel(departmentKey: string) {
-  const labels: Record<string, string> = {
-    cutting: "Kesime",
-    dyeing: "Boyamaya",
-    embroidery: "Nakışa",
-    ironing_packing: "Ütü-pakete",
-    printing: "Baskıya",
-    sewing: "Dikime",
-    washing: "Yıkamaya",
-  }
+function getActionLabel(departmentKey: string, locale: SupportedLocale) {
+  const labels = productionQueueCopy[locale].service.actionLabel
 
-  return labels[departmentKey] ?? "Üretime"
+  return labels[departmentKey as keyof typeof labels] ?? labels.fallback
 }
 
-function getCompletedColumnLabel(departmentKey: string) {
-  const labels: Record<string, string> = {
-    cutting: "Kesilen",
-    dyeing: "Boyanan",
-    embroidery: "Nakış",
-    ironing_packing: "İşlenen",
-    printing: "Baskı",
-    sewing: "Dikilen",
-    washing: "Yıkanan",
-  }
+function getCompletedColumnLabel(
+  departmentKey: string,
+  locale: SupportedLocale,
+) {
+  const labels = productionQueueCopy[locale].service.completedColumn
 
-  return labels[departmentKey] ?? "İşlenen"
+  return labels[departmentKey as keyof typeof labels] ?? labels.fallback
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value)
+function formatNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale)).format(value)
 }
 
-function formatMoney(valueCents: bigint | number, currencyCode: CurrencyCode) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatMoney(
+  valueCents: bigint | number,
+  currencyCode: CurrencyCode,
+  locale: SupportedLocale,
+) {
+  return new Intl.NumberFormat(numberLocale(locale), {
     currency: currencyCode,
     maximumFractionDigits: 2,
     minimumFractionDigits: 2,
@@ -946,10 +968,12 @@ function formatMoney(valueCents: bigint | number, currencyCode: CurrencyCode) {
   }).format(Number(valueCents) / 100)
 }
 
-function pickTranslation(translations: TranslationRecord[], fallbackKey: string) {
-  return translations.find((translation) => translation.locale === locale)?.name
-    ?? translations[0]?.name
-    ?? toTitle(fallbackKey)
+function pickTranslation(
+  translations: TranslationRecord[],
+  fallbackKey: string,
+  locale: SupportedLocale,
+) {
+  return preferredTranslation(translations, locale)?.name ?? toTitle(fallbackKey)
 }
 
 function toTitle(value: string) {

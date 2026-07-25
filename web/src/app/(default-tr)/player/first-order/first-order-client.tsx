@@ -17,6 +17,9 @@ import {
   acceptFirstOrderAction,
   type FirstOrderAcceptState,
 } from "./first-order-actions";
+import { GameLocaleSwitcher } from "@/components/game-locale-switcher";
+import type { SupportedLocale } from "@/lib/i18n/locales";
+import { firstOrderCopy, type FirstOrderCopy } from "./first-order-copy";
 
 export type FirstOrderView = {
   id: string;
@@ -50,6 +53,7 @@ export type FirstOrderView = {
 type FirstOrderClientProps = {
   factoryName: string;
   currentDay: number;
+  locale: SupportedLocale;
   orders: FirstOrderView[];
 };
 
@@ -62,8 +66,10 @@ const initialFirstOrderAcceptState: FirstOrderAcceptState = {
 export function FirstOrderClient({
   factoryName,
   currentDay,
+  locale,
   orders,
 }: FirstOrderClientProps) {
+  const copy = firstOrderCopy[locale];
   const [selectedId, setSelectedId] = useState(orders[0]?.id ?? "");
   const [state, formAction, pending] = useActionState(
     acceptFirstOrderAction,
@@ -77,12 +83,13 @@ export function FirstOrderClient({
   if (!selectedOrder) {
     return (
       <div className="game-card relative mx-auto grid max-w-2xl gap-3 rounded-[24px] p-6 text-center">
+        <GameLocaleSwitcher className="absolute right-4 top-4" locale={locale} />
         <p className="text-xs font-semibold uppercase tracking-[.24em] text-primary">
-          ORDER MARKET
+          {copy.selection.emptyKicker}
         </p>
-        <h1 className="text-xl font-semibold text-foreground">İlk sipariş bulunamadı</h1>
+        <h1 className="text-xl font-semibold text-foreground">{copy.selection.emptyTitle}</h1>
         <p className="text-sm text-muted-foreground">
-          Admin panelinden bu sektör için 3 aktif ilk sipariş ürünü tanımlandığında bu ekran açılacak.
+          {copy.selection.emptyBody}
         </p>
       </div>
     );
@@ -94,11 +101,14 @@ export function FirstOrderClient({
       className="game-card relative h-[90dvh] max-h-[900px] min-h-[640px] w-full max-w-[1080px] overflow-hidden rounded-[28px] bg-card"
     >
       <input name="optionId" type="hidden" value={selectedOrder.id} />
+      <input name="locale" type="hidden" value={locale} />
+      <GameLocaleSwitcher className="absolute right-4 top-4 z-20" locale={locale} />
       <div className="pointer-events-none absolute inset-0 bg-background/10" />
 
       <div className="relative z-10 grid h-full grid-cols-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[360px_minmax(0,540px)] lg:overflow-hidden lg:p-8">
         <OrderListPanel
           currentDay={currentDay}
+          copy={copy}
           factoryName={factoryName}
           onSelect={setSelectedId}
           orders={orders}
@@ -108,6 +118,7 @@ export function FirstOrderClient({
           order={selectedOrder}
           orderCount={orders.length}
           pending={pending}
+          copy={copy}
           stateMessage={state.status === "error" ? state.message : ""}
         />
       </div>
@@ -116,12 +127,14 @@ export function FirstOrderClient({
 }
 
 function OrderListPanel({
+  copy,
   factoryName,
   currentDay,
   orders,
   selectedId,
   onSelect,
 }: {
+  copy: FirstOrderCopy;
   factoryName: string;
   currentDay: number;
   orders: FirstOrderView[];
@@ -132,10 +145,10 @@ function OrderListPanel({
     <aside className="flex min-h-0 flex-col">
       <div className="mb-5">
         <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary">
-          ORDER MARKET
+          {copy.selection.marketKicker}
         </p>
         <h1 className="mt-2 text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
-          İlk Siparişini Seç
+          {copy.selection.title}
         </h1>
         <p className="mt-3 text-sm leading-6 text-muted-foreground">
           {factoryName} · Day {currentDay}
@@ -148,16 +161,17 @@ function OrderListPanel({
             key={order.id}
             onSelect={onSelect}
             order={order}
+            copy={copy}
             selected={order.id === selectedId}
           />
         ))}
       </div>
       <div className="mt-4 rounded-[18px] border border-border bg-secondary/70 p-4">
         <p className="text-sm font-semibold text-secondary-foreground">
-          Sipariş seçilirse üretim emri hazırlanacak.
+          {copy.selection.footerTitle}
         </p>
         <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          Kabulden sonra ilk 3 günlük simülasyon akışına geçeceğiz.
+          {copy.selection.footerBody}
         </p>
       </div>
     </aside>
@@ -165,10 +179,12 @@ function OrderListPanel({
 }
 
 function OrderListCard({
+  copy,
   order,
   selected,
   onSelect,
 }: {
+  copy: FirstOrderCopy;
   order: FirstOrderView;
   selected: boolean;
   onSelect: (id: string) => void;
@@ -197,7 +213,7 @@ function OrderListCard({
             {order.productName}
           </span>
           <span className="mt-1 block truncate text-xs text-muted-foreground/75">
-            {order.quantityLabel} · Teslim: {order.deliveryLabel}
+            {order.quantityLabel} · {copy.selection.deliveryPrefix}: {order.deliveryLabel}
           </span>
         </span>
         <span className="hidden shrink-0 text-right text-[16px] font-semibold tracking-[-0.01em] sm:block" style={{ color: order.colors.primary }}>
@@ -209,11 +225,13 @@ function OrderListCard({
 }
 
 function SelectedOrderPanel({
+  copy,
   order,
   orderCount,
   pending,
   stateMessage,
 }: {
+  copy: FirstOrderCopy;
   order: FirstOrderView;
   orderCount: number;
   pending: boolean;
@@ -221,24 +239,26 @@ function SelectedOrderPanel({
 }) {
   return (
     <section className="flex min-h-0 flex-col overflow-y-auto pr-1">
-      <SelectedOrderHeader order={order} orderCount={orderCount} />
+      <SelectedOrderHeader copy={copy} order={order} orderCount={orderCount} />
       <SelectedOrderChips order={order} />
       <SelectedOrderHero order={order} />
-      <SelectedOrderMetaTable order={order} />
+      <SelectedOrderMetaTable copy={copy} order={order} />
       {stateMessage ? (
         <p className="mt-3 rounded-[18px] border border-red-400/25 bg-red-400/10 px-4 py-3 text-sm font-medium text-red-200">
           {stateMessage}
         </p>
       ) : null}
-      <SelectedOrderFooter pending={pending} />
+      <SelectedOrderFooter copy={copy} pending={pending} />
     </section>
   );
 }
 
 function SelectedOrderHeader({
+  copy,
   order,
   orderCount,
 }: {
+  copy: FirstOrderCopy;
   order: FirstOrderView;
   orderCount: number;
 }) {
@@ -246,14 +266,14 @@ function SelectedOrderHeader({
     <div className="mb-3 flex items-start justify-between gap-4">
       <div className="min-w-0">
         <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
-          SEÇİLİ SİPARİŞ
+          {copy.selection.selectedKicker}
         </p>
         <h2 className="mt-2 truncate text-[34px] font-semibold leading-none tracking-[-0.03em] text-foreground">
           {order.customerName}
         </h2>
       </div>
       <span className="shrink-0 rounded-full border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground">
-        {orderCount} teklif
+        {copy.selection.offers(orderCount)}
       </span>
     </div>
   );
@@ -374,15 +394,21 @@ function SelectedOrderHero({ order }: { order: FirstOrderView }) {
   );
 }
 
-function SelectedOrderMetaTable({ order }: { order: FirstOrderView }) {
+function SelectedOrderMetaTable({
+  copy,
+  order,
+}: {
+  copy: FirstOrderCopy;
+  order: FirstOrderView;
+}) {
   return (
     <div className="mt-3 overflow-hidden rounded-[18px] border border-border bg-card">
-      <MetaRow accent icon={Hash} label="Kod" order={order} value={order.productCode} />
-      <MetaRow icon={CalendarDays} label="İstenen Tarih" order={order} value={order.requestedDateLabel} />
-      <MetaRow accent icon={PackageCheck} label="Sipariş Adedi" order={order} value={order.quantityLabel} />
-      <MetaRow icon={Tag} label="Birim Fiyat" order={order} value={order.unitPriceLabel} />
-      <MetaRow accent icon={CircleDollarSign} label="Sipariş Tutarı" order={order} value={order.totalPriceLabel} />
-      <MetaRow icon={Route} label="Üretim Rotası" order={order} value={order.routeLabel} />
+      <MetaRow accent icon={Hash} label={copy.selection.meta.code} order={order} value={order.productCode} />
+      <MetaRow icon={CalendarDays} label={copy.selection.meta.requestedDate} order={order} value={order.requestedDateLabel} />
+      <MetaRow accent icon={PackageCheck} label={copy.selection.meta.quantity} order={order} value={order.quantityLabel} />
+      <MetaRow icon={Tag} label={copy.selection.meta.unitPrice} order={order} value={order.unitPriceLabel} />
+      <MetaRow accent icon={CircleDollarSign} label={copy.selection.meta.totalPrice} order={order} value={order.totalPriceLabel} />
+      <MetaRow icon={Route} label={copy.selection.meta.route} order={order} value={order.routeLabel} />
     </div>
   );
 }
@@ -428,7 +454,13 @@ function MetaRow({
   );
 }
 
-function SelectedOrderFooter({ pending }: { pending: boolean }) {
+function SelectedOrderFooter({
+  copy,
+  pending,
+}: {
+  copy: FirstOrderCopy;
+  pending: boolean;
+}) {
   return (
     <div className="mt-3 flex justify-end">
       <button
@@ -439,7 +471,7 @@ function SelectedOrderFooter({ pending }: { pending: boolean }) {
         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-white/20">
           {pending ? <CheckCircle2 size={15} /> : <Check size={15} />}
         </span>
-        {pending ? "Hazırlanıyor..." : "Siparişi kabul et"}
+        {pending ? copy.selection.preparing : copy.selection.accept}
       </button>
     </div>
   );

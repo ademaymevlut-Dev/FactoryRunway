@@ -75,6 +75,21 @@ test("departman iş yükü eşik aşarsa darboğaz tavsiyesi üretir", () => {
   assert.match(recommendations[0]?.body ?? "", /Dikim/);
 });
 
+test("EN locale müdür önerisini ve CTA metnini İngilizce üretir", () => {
+  const recommendations = buildManagerRecommendations(buildRecommendationInput({
+    locale: "en",
+    productionQueues: buildProductionQueues({
+      label: "Sewing",
+      remainingWorkPoints: 420,
+    }),
+  }));
+
+  assert.equal(recommendations[0]?.title, "Manager: Sewing is tightening");
+  assert.equal(recommendations[0]?.cta?.label, "Open Queue");
+  assert.match(recommendations[0]?.body ?? "", /Sewing is carrying/);
+  assert.doesNotMatch(recommendations[0]?.body ?? "", /departmanı|Kuyruğu/);
+});
+
 test("düşük nakitte hat edinme önerisini finansal risk uyarısı bastırır", () => {
   const recommendations = buildManagerRecommendations(buildRecommendationInput({
     cashBalanceCents: "1000",
@@ -227,6 +242,7 @@ function buildInvestmentView(): ManagerInvestmentInput {
 
 function buildProductionQueues(input: {
   deliveryTone?: "danger" | "info" | "success" | "warning";
+  label?: string;
   remainingWorkPoints?: number;
 } = {}): ManagerProductionQueuesInput {
   const remainingWorkPoints = input.remainingWorkPoints ?? 80;
@@ -244,7 +260,7 @@ function buildProductionQueues(input: {
             remainingWorkPoints,
           },
         ],
-        label: "Dikim",
+        label: input.label ?? "Dikim",
         outsourceCandidates: remainingWorkPoints > 300 ? [{}] : [],
         summary: {
           queueCount: remainingWorkPoints > 0 ? 1 : 0,

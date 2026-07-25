@@ -14,10 +14,17 @@ import {
 } from "lucide-react";
 
 import CountUp from "@/components/ui/CountUp";
+import { GameLocaleSwitcher } from "@/components/game-locale-switcher";
+import {
+  numberLocale,
+  thousandsSeparator,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 
 import { completeFirstSimulationAction } from "./simulation-actions";
 import { FIRST_ORDER_SIMULATION_DURATION_SECONDS } from "./simulation-config";
+import { firstOrderCopy } from "../first-order-copy";
 
 export type SimulationLineView = {
   id: string;
@@ -40,6 +47,7 @@ export type FirstOrderSimulationView = {
 };
 
 type FirstOrderSimulationClientProps = {
+  locale: SupportedLocale;
   simulation: FirstOrderSimulationView;
 };
 
@@ -50,27 +58,13 @@ type HeaderMetricView = {
   isCounting: boolean;
 };
 
-const dayCopy = [
-  {
-    eyebrow: "DAY 1",
-    title: "Kesim başlıyor",
-    body: "İlk vardiya kumaşı üretime hazır parçalara ayırır.",
-  },
-  {
-    eyebrow: "DAY 2",
-    title: "Kesim ve dikim birlikte çalışır",
-    body: "Kesilen parçalar dikime akar; iki hat aynı anda üretim sayar.",
-  },
-  {
-    eyebrow: "DAY 3",
-    title: "Ütü / paket devreye girer",
-    body: "Dikimden çıkan ürünler son operasyona girer; sipariş kuyruğu gerçek kapasiteyle ilerler.",
-  },
-];
+type FirstOrderSimulationCopy = (typeof firstOrderCopy)[SupportedLocale]["simulation"];
 
 export function FirstOrderSimulationClient({
+  locale,
   simulation,
 }: FirstOrderSimulationClientProps) {
+  const copy = firstOrderCopy[locale].simulation;
   const [completedDays, setCompletedDays] = useState(0);
   const [runningDay, setRunningDay] = useState<number | null>(null);
   const [lineTotals, setLineTotals] = useState<Record<string, number>>(() =>
@@ -79,9 +73,10 @@ export function FirstOrderSimulationClient({
   const isRunning = runningDay !== null;
   const isComplete = completedDays >= 3;
   const activeDayIndex = runningDay ?? Math.min(completedDays, 2);
-  const activeCopy = dayCopy[activeDayIndex] ?? dayCopy[2];
+  const activeCopy = copy.dayCopy[activeDayIndex] ?? copy.dayCopy[2];
   const activeGameDay = simulation.startDay + activeDayIndex;
   const headerMetrics = buildHeaderMetrics({
+    copy,
     lineTotals,
     runningDay,
     simulation,
@@ -108,11 +103,11 @@ export function FirstOrderSimulationClient({
   }, [runningDay, simulation.lines]);
 
   const progressText = useMemo(() => {
-    if (isComplete) return "3 / 3 gün tamamlandı";
-    if (isRunning) return `${runningDay + 1}. gün vardiyası çalışıyor`;
+    if (isComplete) return copy.completeProgress;
+    if (isRunning) return copy.runningProgress((runningDay ?? 0) + 1);
 
-    return `${completedDays} / 3 gün tamamlandı`;
-  }, [completedDays, isComplete, isRunning, runningDay]);
+    return copy.progress(completedDays);
+  }, [completedDays, copy, isComplete, isRunning, runningDay]);
 
   return (
     <main className="shift-game">
@@ -135,7 +130,7 @@ export function FirstOrderSimulationClient({
             />
             <div className="min-w-0">
               <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-                FIRST SHIFT SIMULATION
+                {copy.headerKicker}
               </p>
               <h1 className="mt-1 truncate text-2xl font-semibold leading-none text-foreground">
                 {simulation.factoryName}
@@ -144,9 +139,10 @@ export function FirstOrderSimulationClient({
           </div>
           <div className="hidden min-w-0 items-center gap-2 xl:flex">
             {headerMetrics.map((metric) => (
-              <HeaderMetric key={metric.label} metric={metric} />
+              <HeaderMetric key={metric.label} locale={locale} metric={metric} />
             ))}
           </div>
+          <GameLocaleSwitcher locale={locale} />
         </header>
 
         <div className="mx-auto mt-4 flex w-full max-w-6xl flex-1 flex-col gap-4 pb-28">
@@ -172,6 +168,8 @@ export function FirstOrderSimulationClient({
                 isEnabled={index <= completedDays || (runningDay !== null && index <= runningDay)}
                 key={line.id}
                 line={line}
+                copy={copy}
+                locale={locale}
                 runKey={`${runningDay ?? "idle"}-${line.id}`}
               />
             ))}
@@ -192,8 +190,8 @@ export function FirstOrderSimulationClient({
                 >
                   <Trophy size={24} />
                   <span className="flex flex-col items-start leading-tight">
-                    <strong>Dashboard ekranına geç</strong>
-                    <small>+{simulation.rewardXp} XP cüzdana eklenir</small>
+                    <strong>{copy.dashboardCta}</strong>
+                    <small>{copy.xpAdded(simulation.rewardXp)}</small>
                   </span>
                 </button>
               </form>
@@ -206,7 +204,7 @@ export function FirstOrderSimulationClient({
               >
                 {isRunning ? <Sparkles size={26} /> : <Play size={28} fill="currentColor" />}
                 <span className="text-[11px] font-black uppercase leading-tight tracking-[0.08em]">
-                  {isRunning ? "Çalışıyor" : "Vardiya Başlat"}
+                  {isRunning ? copy.running : copy.startShift}
                 </span>
               </button>
             )}
@@ -218,15 +216,17 @@ export function FirstOrderSimulationClient({
 }
 
 function buildHeaderMetrics({
+  copy,
   simulation,
   lineTotals,
   runningDay,
 }: {
+  copy: FirstOrderSimulationCopy;
   simulation: FirstOrderSimulationView;
   lineTotals: Record<string, number>;
   runningDay: number | null;
 }): HeaderMetricView[] {
-  const labels = ["Kesilen ad.", "Dikilen ad.", "Ütülenen ad."];
+  const labels = copy.metricLabels;
   const lineMetrics = labels.map((label, index) => {
     const line = simulation.lines[index];
     const fromValue = line ? (lineTotals[line.id] ?? 0) : 0;
@@ -242,7 +242,7 @@ function buildHeaderMetrics({
 
   return [
     {
-      label: "Sip Ad.",
+      label: copy.orderQuantityMetric,
       fromValue: simulation.plannedQuantity,
       value: simulation.plannedQuantity,
       isCounting: false,
@@ -251,7 +251,13 @@ function buildHeaderMetrics({
   ];
 }
 
-function HeaderMetric({ metric }: { metric: HeaderMetricView }) {
+function HeaderMetric({
+  locale,
+  metric,
+}: {
+  locale: SupportedLocale;
+  metric: HeaderMetricView;
+}) {
   return (
     <div className="min-w-[104px] rounded-2xl border border-border bg-card/70 px-3 py-2 text-right">
       <p className="text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
@@ -263,13 +269,14 @@ function HeaderMetric({ metric }: { metric: HeaderMetricView }) {
             key={`${metric.label}-${metric.fromValue}-${metric.value}`}
             duration={FIRST_ORDER_SIMULATION_DURATION_SECONDS}
             from={metric.fromValue}
-            separator="."
+            locale={numberLocale(locale)}
+            separator={thousandsSeparator(locale)}
             startWhen
             step={10}
             to={metric.value}
           />
         ) : (
-          formatNumber(metric.value)
+          formatNumber(metric.value, locale)
         )}
       </strong>
     </div>
@@ -277,7 +284,9 @@ function HeaderMetric({ metric }: { metric: HeaderMetricView }) {
 }
 
 function SimulationLineCard({
+  copy,
   line,
+  locale,
   index,
   isActive,
   isEnabled,
@@ -285,7 +294,9 @@ function SimulationLineCard({
   completedTotal,
   runKey,
 }: {
+  copy: FirstOrderSimulationCopy;
   line: SimulationLineView;
+  locale: SupportedLocale;
   index: number;
   isActive: boolean;
   isEnabled: boolean;
@@ -311,7 +322,7 @@ function SimulationLineCard({
       <div className="relative mt-3 h-[360px] overflow-hidden rounded-[18px] border border-border bg-background/20">
         {line.imageUrl ? (
           <Image
-            alt={`${line.departmentName} üretim hattı`}
+            alt={copy.lineImageAlt(line.departmentName)}
             className="scale-[1.18] object-contain p-0 drop-shadow-[0_18px_30px_rgba(0,0,0,0.34)]"
             fill
             sizes="(min-width: 1024px) 380px, 90vw"
@@ -328,7 +339,7 @@ function SimulationLineCard({
             <div className="flex items-end justify-between gap-3">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/55">
-                  {isActive ? "Vardiya üretimi" : "Toplam üretim"}
+                  {isActive ? copy.activeProduction : copy.totalProduction}
                 </p>
                 <div className="mt-1 flex items-baseline gap-2">
                   <span className="text-3xl font-black leading-none">
@@ -337,16 +348,17 @@ function SimulationLineCard({
                         key={runKey}
                         duration={FIRST_ORDER_SIMULATION_DURATION_SECONDS}
                         from={0}
-                        separator="."
+                        locale={numberLocale(locale)}
+                        separator={thousandsSeparator(locale)}
                         startWhen={isActive}
                         step={10}
                         to={activeCount}
                       />
                     ) : (
-                      formatNumber(completedTotal)
+                      formatNumber(completedTotal, locale)
                     )}
                   </span>
-                  <span className="text-sm font-bold text-white/75">adet</span>
+                  <span className="text-sm font-bold text-white/75">{copy.pieceUnit}</span>
                 </div>
               </div>
               {!isActive && completedTotal > 0 ? (
@@ -359,7 +371,7 @@ function SimulationLineCard({
 
       <div className="mt-3 flex items-center justify-between gap-3 rounded-[16px] border border-border bg-secondary/45 px-4 py-3">
         <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Segment
+          {copy.segment}
         </span>
         <strong className="truncate text-sm text-foreground">{line.segmentLabel}</strong>
       </div>
@@ -392,6 +404,6 @@ function LineIcon({
   return <Factory className={className} />;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
+function formatNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale)).format(value);
 }

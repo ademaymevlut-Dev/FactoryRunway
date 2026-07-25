@@ -24,9 +24,10 @@ type AccountTab = "login" | "player";
 
 type LandingAuthFormProps = {
   copy: LandingContent["auth"];
+  locale: LandingContent["locale"];
 };
 
-export function LandingAuthForm({ copy }: LandingAuthFormProps) {
+export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
   const [activeTab, setActiveTab] = useState<AccountTab>("login");
   const [loginState, loginFormAction] = useActionState(
     loginAction,
@@ -105,6 +106,7 @@ export function LandingAuthForm({ copy }: LandingAuthFormProps) {
           id="account-panel-login"
           role="tabpanel"
         >
+          <input name="locale" type="hidden" value={locale} />
           <FormField
             copy={copy}
             errorCode={loginState.fieldErrors?.email}
@@ -137,6 +139,7 @@ export function LandingAuthForm({ copy }: LandingAuthFormProps) {
           id="account-panel-player"
           role="tabpanel"
         >
+          <input name="locale" type="hidden" value={locale} />
           <FormField
             copy={copy}
             errorCode={playerState.fieldErrors?.name}

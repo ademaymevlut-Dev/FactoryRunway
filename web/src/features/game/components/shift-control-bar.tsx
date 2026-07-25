@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { advanceFactoryDayAction } from "@/features/game/actions/advance-factory-day-action";
 
 import { useGameUiStore } from "../store/game-ui-store";
+import { gameCopy } from "../game-copy";
 import type { AdvanceFactoryDayActionResult, GameSnapshot } from "../types";
 
 const COMPACT_DOCK_BUTTON_WIDTH_PX = 40;
@@ -43,11 +44,12 @@ export function ShiftControlBar({ snapshot }: { snapshot: GameSnapshot }) {
     >
       <div className="pointer-events-auto">
         <form action={formAction}>
-          <ShiftStartButton
-            currentDay={snapshot.factory.currentDay}
-            disabled={playbackIsActive}
-            pending={pending}
-          />
+	          <ShiftStartButton
+	            currentDay={snapshot.factory.currentDay}
+	            disabled={playbackIsActive}
+	            locale={snapshot.locale}
+	            pending={pending}
+	          />
         </form>
       </div>
     </section>
@@ -57,17 +59,20 @@ export function ShiftControlBar({ snapshot }: { snapshot: GameSnapshot }) {
 function ShiftStartButton({
   currentDay,
   disabled,
+  locale,
   pending,
 }: {
   currentDay: number;
   disabled: boolean;
+  locale: GameSnapshot["locale"];
   pending: boolean;
 }) {
+  const copy = gameCopy[locale].shiftControl;
   const actionLabel = pending
-    ? "Çalışıyor"
+    ? copy.pending
     : disabled
-      ? "Oynatılıyor"
-      : "Vardiyayı başlat";
+      ? copy.playing
+      : copy.start;
 
   return (
     <Button
@@ -86,7 +91,7 @@ function ShiftStartButton({
         <Play className="size-3.5 fill-current xl:size-5" />
       </span>
       <span className="mt-0.5 font-mono text-[8px] font-semibold leading-none tabular-nums text-muted-foreground xl:text-[10px]">
-        {currentDay}. gün
+        {copy.day(currentDay)}
       </span>
       <strong className="max-w-full truncate text-[8px] font-semibold leading-none text-primary xl:text-[11px]">
         {actionLabel}

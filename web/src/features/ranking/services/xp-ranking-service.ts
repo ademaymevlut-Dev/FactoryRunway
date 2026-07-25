@@ -7,12 +7,15 @@ import {
 } from "@/generated/prisma/client";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getPrisma } from "@/lib/db";
+import {
+  normalizeLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import type { XpRankingEntry, XpRankingView } from "../types";
 
 export const XP_RANKING_PAGE_SIZE = 50;
-
-const locale = "tr";
 
 const eligiblePlayerWhere = {
   factories: {
@@ -59,11 +62,6 @@ const rankingProfileSelect = {
           key: true,
           sortOrder: true,
           translations: {
-            where: {
-              locale: {
-                in: [locale, "en"],
-              },
-            },
             select: {
               locale: true,
               name: true,
@@ -86,11 +84,13 @@ type RankingProfileRecord = Prisma.PlayerProfileGetPayload<{
 }>;
 
 export async function getXpRankingView(input: {
+  locale?: SupportedLocale;
   page?: number;
   pageSize?: number;
   viewerUserId: string;
 }): Promise<XpRankingView> {
   const prisma = getPrisma();
+  const locale = normalizeLocale(input.locale);
   const pageSize = clampPageSize(input.pageSize ?? XP_RANKING_PAGE_SIZE);
   const requestedPage = normalizePositiveInteger(input.page ?? 1);
   const totalPlayers = await prisma.playerProfile.count({
@@ -144,6 +144,7 @@ export async function getXpRankingView(input: {
   const entries = profiles.map((profile, index) =>
     toRankingEntry({
       profile,
+      locale,
       rankPosition: pageRanks[index] ?? skip + index + 1,
       viewerUserId: input.viewerUserId,
     }),
@@ -168,6 +169,7 @@ export async function getXpRankingView(input: {
 
     currentPlayerEntry = toRankingEntry({
       profile: viewerProfile,
+      locale,
       rankPosition: playersAboveViewer + 1,
       viewerUserId: input.viewerUserId,
     });
@@ -218,6 +220,7 @@ export function calculatePageRankPositions(input: {
 }
 
 function toRankingEntry(input: {
+  locale: SupportedLocale;
   profile: RankingProfileRecord;
   rankPosition: number;
   viewerUserId: string;
@@ -235,6 +238,7 @@ function toRankingEntry(input: {
         sectorName: pickTranslation(
           factory.sector.translations,
           factory.sector.key,
+          input.locale,
         ),
         sectorSortOrder: factory.sector.sortOrder,
       }))
@@ -253,10 +257,10 @@ function toRankingEntry(input: {
 function pickTranslation(
   translations: Array<{ locale: string; name: string }>,
   fallback: string,
+  locale: SupportedLocale,
 ) {
   return (
-    translations.find((translation) => translation.locale === locale)?.name ??
-    translations.find((translation) => translation.locale === "en")?.name ??
+    preferredTranslation(translations, locale)?.name ??
     toTitle(fallback)
   );
 }

@@ -17,23 +17,29 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import type { CurrencyCode } from "@/generated/prisma/enums";
+import type { NumberLocale } from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 
+import type { TaskCardCopy } from "../tasks-copy";
 import type { TaskSnapshot } from "../types";
 import { TaskRewardPreview } from "./task-reward-preview";
 
 export function TaskCard({
+  copy,
   currencyCode,
   isPending,
   isSettling = false,
+  numberLocale,
   onClaim,
   onCta,
   positionLabel,
   task,
 }: {
+  copy: TaskCardCopy;
   currencyCode: CurrencyCode;
   isPending: boolean;
   isSettling?: boolean;
+  numberLocale: NumberLocale;
   onClaim: (task: TaskSnapshot) => void;
   onCta: (task: TaskSnapshot) => void;
   positionLabel: string;
@@ -75,7 +81,7 @@ export function TaskCard({
           </div>
           {isCompleted ? (
             <span className="shrink-0 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-2 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-100">
-              Hazır
+              {copy.ready}
             </span>
           ) : null}
         </div>
@@ -87,7 +93,7 @@ export function TaskCard({
             <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-200" size={16} />
             <span>
               {task.completionMessage ??
-                "Tebrikler, görev tamamlandı. Ödülün alınmaya hazır."}
+                copy.completedFallback}
             </span>
           </div>
         ) : null}
@@ -102,14 +108,14 @@ export function TaskCard({
           <div className="space-y-2 rounded-xl border border-border/70 bg-background/35 p-3">
             <div className="flex items-center justify-between gap-3 text-xs">
               <span className="font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-                İlerleme
+                {copy.progress}
               </span>
               <span className="font-semibold tabular-nums text-foreground">
                 {task.currentValue} / {task.targetValue}
               </span>
             </div>
             <Progress
-              aria-label={`${task.title} ilerlemesi`}
+              aria-label={copy.progressAria(task.title)}
               className="h-2"
               value={task.progressBps / 100}
             />
@@ -120,9 +126,13 @@ export function TaskCard({
       <CardFooter className="flex-col items-stretch gap-3 border-t border-border/70 pt-4">
         <div className="flex items-center justify-between gap-3">
           <span className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Ödül
+            {copy.reward}
           </span>
-          <TaskRewardPreview currencyCode={currencyCode} reward={task.reward} />
+          <TaskRewardPreview
+            currencyCode={currencyCode}
+            numberLocale={numberLocale}
+            reward={task.reward}
+          />
         </div>
         {isCompleted ? (
           <Button
@@ -133,7 +143,7 @@ export function TaskCard({
             variant="secondary"
           >
             <Trophy size={16} />
-            {isPending || isSettling ? "Alınıyor..." : "Ödülü al"}
+            {isPending || isSettling ? copy.claimPending : copy.claim}
           </Button>
         ) : canUseCta ? (
           <Button
@@ -148,7 +158,7 @@ export function TaskCard({
           </Button>
         ) : (
           <Button className="mx-auto" disabled type="button" variant="secondary">
-            Görev bekliyor
+            {copy.waiting}
           </Button>
         )}
       </CardFooter>

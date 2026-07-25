@@ -12,6 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { useGameUiStore } from "../store/game-ui-store";
+import { gameCopy } from "../game-copy";
 import type { GameDockBadge, GameDockItem, GamePanelKey, GameSnapshot } from "../types";
 
 export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
@@ -27,14 +28,16 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
     return null;
   }
 
+  const copy = gameCopy[snapshot.locale].dock;
+
   return (
     <nav
-      aria-label="Departman menüsü"
+      aria-label={copy.navLabel}
       className="pointer-events-none absolute inset-x-0 bottom-2 z-30 flex items-end justify-center px-2 xl:bottom-4 xl:px-4"
     >
       <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] items-end gap-1 xl:gap-3">
         <Link
-          aria-label="Oyun Rehberi"
+          aria-label={copy.guideAria}
           className="group/guide relative isolate hidden h-[88px] w-[112px] shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-[24px] border border-primary/35 bg-[#232429]/85 text-primary shadow-[inset_0_0_30px_hsl(var(--primary)/0.16),0_18px_42px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-primary/65 hover:shadow-[0_0_28px_hsl(var(--primary)/0.34),0_22px_50px_rgba(0,0,0,0.5)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 xl:flex"
           data-map-control="true"
           href="/help/gameplay"
@@ -47,8 +50,10 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
             className="drop-shadow-[0_0_12px_hsl(var(--primary)/0.5)] transition-transform duration-200 group-hover/guide:scale-110"
             size={27}
           />
-          <strong className="text-[11px] leading-none">Oyun Rehberi</strong>
-          <span className="text-[9px] leading-none text-muted-foreground">Akışları incele</span>
+          <strong className="text-[11px] leading-none">{copy.guideTitle}</strong>
+          <span className="text-[9px] leading-none text-muted-foreground">
+            {copy.guideSubtitle}
+          </span>
           <ArrowUpRight
             className="absolute right-2.5 top-2.5 text-primary/60 transition-transform duration-200 group-hover/guide:-translate-y-0.5 group-hover/guide:translate-x-0.5"
             size={14}

@@ -19,8 +19,10 @@ import type { ProductionLineInvestmentTemplate } from "@/features/investment/typ
 import { ManagerRecommendationsPanel } from "@/features/manager/components/manager-recommendations-panel";
 import { TasksPanel } from "@/features/tasks/components/tasks-panel";
 import { RankingPanel } from "@/features/ranking/components/ranking-panel";
+import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 
+import { gameCopy } from "../game-copy";
 import type { FactoryMapItem, GamePanelKey, GameSnapshot } from "../types";
 
 type PanelContext = {
@@ -35,34 +37,41 @@ type PanelDefinition = {
   backdrop?: boolean;
   layout?: PanelLayout;
   size?: "adaptive" | "compact" | "wide";
-  title: string;
+  titleKey: GamePanelKey;
   render: (context: PanelContext) => ReactNode;
 };
 
 export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   orders: {
     layout: "center",
-    title: "Siparişler",
-    render: ({ snapshot }) => <OrdersPanel orderMarket={snapshot.orders} />,
+    titleKey: "orders",
+    render: ({ snapshot }) => (
+      <OrdersPanel locale={snapshot.locale} orderMarket={snapshot.orders} />
+    ),
   },
   production: {
-    title: "Üretim",
-    render: ({ snapshot }) => (
-      <PanelScaffold
-        icon={<Boxes size={18} />}
-        title="Üretim"
-        value={`${snapshot.map.totals.productionLineCount} hat`}
-        body="Kurulu üretim alanları haritada hazır."
-      />
-    ),
+    titleKey: "production",
+    render: ({ snapshot }) => {
+      const copy = gameCopy[snapshot.locale].panels.production;
+
+      return (
+        <PanelScaffold
+          icon={<Boxes size={18} />}
+          title={copy.title}
+          value={copy.value(snapshot.map.totals.productionLineCount)}
+          body={copy.body}
+        />
+      );
+    },
   },
   tasks: {
     layout: "dock",
     size: "compact",
-    title: "Görevler",
+    titleKey: "tasks",
     render: ({ snapshot }) => (
       <TasksPanel
         currencyCode={snapshot.factory.currencyCode}
+        locale={snapshot.locale}
         tasks={snapshot.tasks}
       />
     ),
@@ -70,29 +79,34 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   management: {
     layout: "dock",
     size: "compact",
-    title: "Yönetim",
+    titleKey: "management",
     render: ({ snapshot }) => (
       <ManagerRecommendationsPanel
+        locale={snapshot.locale}
         recommendations={snapshot.managerRecommendations}
       />
     ),
   },
   staff: {
-    title: "Personel",
-    render: ({ snapshot }) => (
-      <PanelScaffold
-        icon={<Users size={18} />}
-        title="Personel"
-        value={`${snapshot.map.totals.assignedStaff}/${snapshot.map.totals.idealStaff}`}
-        body="Ekip planı ayrı panelde takip edilecek."
-      />
-    ),
+    titleKey: "staff",
+    render: ({ snapshot }) => {
+      const copy = gameCopy[snapshot.locale].panels.staff;
+
+      return (
+        <PanelScaffold
+          icon={<Users size={18} />}
+          title={copy.title}
+          value={`${snapshot.map.totals.assignedStaff}/${snapshot.map.totals.idealStaff}`}
+          body={copy.body}
+        />
+      );
+    },
   },
   finance: {
     backdrop: true,
     layout: "center",
     size: "compact",
-    title: "Finans",
+    titleKey: "finance",
     render: ({ snapshot }) => (
       <FinancePanel
         cashBalanceCents={snapshot.factory.cashBalanceCents}
@@ -105,7 +119,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   reports: {
     layout: "center",
     size: "wide",
-    title: "Raporlar",
+    titleKey: "reports",
     render: ({ snapshot }) => (
       <ReportsPanel
         currencyCode={snapshot.factory.currencyCode}
@@ -118,19 +132,19 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     backdrop: true,
     layout: "center",
     size: "adaptive",
-    title: "",
-    render: () => <RankingPanel />,
+    titleKey: "ranking",
+    render: ({ snapshot }) => <RankingPanel locale={snapshot.locale} />,
   },
   warehouse: {
     layout: "center",
     size: "compact",
-    title: "Depo",
+    titleKey: "warehouse",
     render: ({ snapshot }) => <WarehousePanel warehouse={snapshot.warehouse} />,
   },
   departmentQueue: {
     layout: "center",
     size: "adaptive",
-    title: "Üretim Kuyruğu",
+    titleKey: "departmentQueue",
     render: ({ payload, snapshot }) => {
       const dockItem = findDockItem(snapshot, String(payload?.dockItemId ?? ""));
       const departmentKey = findDepartmentKey(
@@ -146,6 +160,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
           investmentDepartmentIds={snapshot.investment.departments
             .filter((department) => department.templates.length > 0)
             .map((department) => department.id)}
+          locale={snapshot.locale}
           queues={snapshot.productionQueues}
         />
       );
@@ -154,29 +169,32 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   cutting: {
     layout: "center",
     size: "adaptive",
-    title: "Kesim",
+    titleKey: "cutting",
     render: ({ snapshot }) => (
       <DepartmentQueuePanel
         departmentKeys={["cutting"]}
         investmentDepartmentIds={snapshot.investment.departments
           .filter((department) => department.templates.length > 0)
           .map((department) => department.id)}
+        locale={snapshot.locale}
         queues={snapshot.productionQueues}
       />
     ),
   },
   lineDetail: {
-    title: "Production Line Upgrade",
+    titleKey: "lineDetail",
     render: ({ payload, snapshot }) => {
       const line = findLine(snapshot, String(payload?.lineId ?? ""));
 
       if (!line) {
+        const copy = gameCopy[snapshot.locale].panels.lineMissing;
+
         return (
           <PanelScaffold
             icon={<Factory size={18} />}
-            title="Hat Detayı"
+            title={copy.title}
             value="-"
-            body="Seçili üretim hattı bulunamadı."
+            body={copy.body}
           />
         );
       }
@@ -186,6 +204,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
           currencyCode={snapshot.factory.currencyCode}
           factoryId={snapshot.factory.id}
           line={line}
+          locale={snapshot.locale}
           nextTemplate={findNextUpgradeTemplate(snapshot, line)}
         />
       );
@@ -194,7 +213,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   investment: {
     layout: "center",
     size: "adaptive",
-    title: "Üretim Hattı Yatırımı",
+    titleKey: "investment",
     render: ({ payload, snapshot }) => (
       <ProductionLineInvestmentPanel
         initialDepartmentId={String(payload?.departmentId ?? "")}
@@ -204,17 +223,20 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     ),
   },
   departmentDetail: {
-    title: "Departman",
+    titleKey: "departmentDetail",
     render: ({ payload, snapshot }) => {
       const dockItem = findDockItem(snapshot, String(payload?.dockItemId ?? ""));
+      const panelCopy = gameCopy[snapshot.locale].panels;
 
       if (!dockItem) {
+        const copy = panelCopy.departmentMissing;
+
         return (
           <PanelScaffold
             icon={<Factory size={18} />}
-            title="Departman"
+            title={copy.title}
             value="-"
-            body="Seçili departman bulunamadı."
+            body={copy.body}
           />
         );
       }
@@ -233,14 +255,26 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
                 {dockItem.badge.label}: {dockItem.badge.count}
               </Badge>
             ) : (
-              <Badge variant="secondary">Temiz</Badge>
+              <Badge variant="secondary">{panelCopy.departmentClean}</Badge>
             )}
           </div>
           <div className="grid grid-cols-2 gap-2 text-sm">
-            <PanelDatum label="Dock ID" value={dockItem.id.replace("dock:", "")} />
-            <PanelDatum label="Departman" value={dockItem.departmentKeys.join(", ")} />
-            <PanelDatum label="Sıra" value={dockItem.sortOrder.toString()} />
-            <PanelDatum label="İkon" value={dockItem.iconKey} />
+            <PanelDatum
+              label={panelCopy.departmentDatum.dockId}
+              value={dockItem.id.replace("dock:", "")}
+            />
+            <PanelDatum
+              label={panelCopy.departmentDatum.department}
+              value={dockItem.departmentKeys.join(", ")}
+            />
+            <PanelDatum
+              label={panelCopy.departmentDatum.order}
+              value={dockItem.sortOrder.toString()}
+            />
+            <PanelDatum
+              label={panelCopy.departmentDatum.icon}
+              value={dockItem.iconKey}
+            />
           </div>
         </div>
       );
@@ -250,13 +284,17 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
 
 export function PanelChrome({
   children,
+  closeAria,
   layout = "side",
+  locale,
   onClose,
   size = "wide",
   title,
 }: {
   children: ReactNode;
+  closeAria: string;
   layout?: PanelLayout;
+  locale: SupportedLocale;
   onClose: () => void;
   size?: "adaptive" | "compact" | "wide";
   title: string;
@@ -282,16 +320,22 @@ export function PanelChrome({
     >
       {title ? (
         <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
-          <h2 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground">
-            {title}
+          <h2 className="text-sm font-semibold tracking-widest text-muted-foreground">
+            {localeUpper(title, locale)}
           </h2>
-          <Button aria-label="Paneli kapat" onClick={onClose} size="icon-sm" type="button" variant="ghost">
+          <Button
+            aria-label={closeAria}
+            onClick={onClose}
+            size="icon-sm"
+            type="button"
+            variant="ghost"
+          >
             <X size={16} />
           </Button>
         </div>
       ) : (
         <Button
-          aria-label="Paneli kapat"
+          aria-label={closeAria}
           className="absolute right-2 top-2 z-20"
           onClick={onClose}
           size="icon-sm"

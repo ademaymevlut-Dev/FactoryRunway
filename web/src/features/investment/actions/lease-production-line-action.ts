@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { getPlayerPreferredLocale } from "@/lib/i18n/player-locale";
 
 import { leaseProductionLine } from "../services/lease-production-line";
 import type { LeaseProductionLineResult } from "../types";
@@ -35,6 +36,7 @@ export async function leaseProductionLineAction(
   }
 
   try {
+    const locale = await getPlayerPreferredLocale(user.id);
     const result = await leaseProductionLine({
       lease: {
         factoryId,
@@ -42,6 +44,7 @@ export async function leaseProductionLineAction(
         productionLineTemplateId,
         requestId,
       },
+      locale,
       prisma: getPrisma(),
       userId: user.id,
     });

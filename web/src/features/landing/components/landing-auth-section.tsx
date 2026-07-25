@@ -39,7 +39,7 @@ export function LandingAuthSection({ content }: LandingAuthSectionProps) {
         </div>
 
         <div className="game-card p-5 sm:p-6">
-          <LandingAuthForm copy={content.auth} />
+          <LandingAuthForm copy={content.auth} locale={content.locale} />
         </div>
       </div>
     </section>

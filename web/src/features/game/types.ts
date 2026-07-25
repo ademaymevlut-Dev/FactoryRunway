@@ -11,6 +11,7 @@ import type { GameWarehouseView } from "@/features/warehouse/types";
 import type { ProductionLineInvestmentView } from "@/features/investment/types";
 import type { ManagerRecommendation } from "@/features/manager/types";
 import type { TasksSnapshot } from "@/features/tasks/types";
+import type { NumberLocale, SupportedLocale } from "@/lib/i18n/locales";
 
 export type GamePanelKey =
   | "orders"
@@ -240,6 +241,8 @@ export type GameDockItem = {
 };
 
 export type GameSnapshot = {
+  locale: SupportedLocale;
+  numberLocale: NumberLocale;
   player: {
     id: string;
     displayName: string;

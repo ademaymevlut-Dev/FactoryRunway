@@ -10,6 +10,7 @@ import {
 import { cn } from "@/lib/utils";
 
 import { useGameUiStore } from "../store/game-ui-store";
+import { gameCopy } from "../game-copy";
 import type { GamePanelKey, GameSnapshot } from "../types";
 
 type LeftDockKey = Extract<
@@ -19,8 +20,6 @@ type LeftDockKey = Extract<
 
 type LeftDockItem = {
   key: LeftDockKey;
-  label: string;
-  tooltip: string;
 };
 
 type LeftDockIconPath = {
@@ -30,31 +29,11 @@ type LeftDockIconPath = {
 };
 
 const leftDockItems: LeftDockItem[] = [
-  {
-    key: "orders",
-    label: "Sipariş",
-    tooltip: "Yeni Siparişler",
-  },
-  {
-    key: "tasks",
-    label: "Görevler",
-    tooltip: "Görevler",
-  },
-  {
-    key: "management",
-    label: "Yönetim",
-    tooltip: "Yönetim tavsiyeleri",
-  },
-  {
-    key: "finance",
-    label: "Finans",
-    tooltip: "Finans",
-  },
-  {
-    key: "reports",
-    label: "Reports",
-    tooltip: "Raporlar",
-  },
+  { key: "orders" },
+  { key: "tasks" },
+  { key: "management" },
+  { key: "finance" },
+  { key: "reports" },
 ];
 
 const leftDockIconPaths: Record<LeftDockKey, LeftDockIconPath[]> = {
@@ -112,10 +91,11 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
     selectLine,
     setSelectedDockDepartmentIds,
   } = useGameUiStore();
+  const copy = gameCopy[snapshot.locale].leftDock;
 
   return (
     <nav
-      aria-label="Hızlı oyun menüsü"
+      aria-label={copy.navLabel}
       className="pointer-events-none absolute left-2 top-1/2 z-30 -translate-y-1/2 xl:left-4"
     >
       <div className="pointer-events-auto relative isolate flex flex-col items-center gap-1 overflow-visible rounded-[20px] border border-white/10 bg-[#232429]/80 px-1 py-1 shadow-[inset_0_0_26px_hsl(var(--primary)/0.14),0_16px_40px_rgba(0,0,0,0.46)] backdrop-blur-xl xl:gap-1.5 xl:rounded-[28px] xl:px-2.5 xl:py-2.5 xl:shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)]">
@@ -134,12 +114,13 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
         {leftDockItems.map((item) => {
           const isActive = activePanel?.key === item.key;
           const badge = snapshot.dock.badges[item.key];
+          const itemCopy = copy.items[item.key];
 
           return (
             <Tooltip key={item.key}>
               <TooltipTrigger asChild>
                 <button
-                  aria-label={item.tooltip}
+                  aria-label={itemCopy.tooltip}
                   className={cn(
                     "group/leftdock relative isolate flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1 overflow-visible rounded-xl border border-white/10 bg-gradient-to-b from-white/[0.05] via-[#232429]/90 to-black/20 px-1 py-1 text-primary outline-none transition-all duration-200 focus-visible:border-[#006d8f]/70 focus-visible:ring-2 focus-visible:ring-primary/45 xl:h-[68px] xl:w-[74px] xl:rounded-2xl xl:px-1.5 xl:py-2",
                     "hover:-translate-y-1 hover:border-[#006d8f]/60 hover:text-primary hover:shadow-[0_0_22px_rgba(0,109,143,0.36),inset_0_0_24px_hsl(var(--primary)/0.28)]",
@@ -184,7 +165,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                       isActive && "text-primary drop-shadow-[0_0_9px_rgba(165,243,252,0.85)]",
                     )}
                   >
-                    {item.label}
+                    {itemCopy.label}
                   </span>
                   {badge ? (
                     <span
@@ -220,7 +201,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right">
-                {item.tooltip}
+                {itemCopy.tooltip}
               </TooltipContent>
             </Tooltip>
           );

@@ -42,9 +42,17 @@ import {
   calculateEffectiveLinePointCapacity,
   getLineStaffCoverageBps,
 } from "@/features/game/services/production-capacity";
+import {
+  DEFAULT_LOCALE,
+  normalizeLocale,
+  numberLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import { buildFactoryLineWorkload } from "./factory-line-workload";
 import { getLatestReviewableShiftPlayback } from "./shift-playback-view";
+import { gameCopy } from "../game-copy";
 
 import type {
   FactoryMapDepartment,
@@ -56,8 +64,6 @@ import type {
   GameNotification,
   GameSnapshot,
 } from "../types";
-
-const locale = "tr";
 
 type TranslationRecord = {
   locale: string;
@@ -161,10 +167,17 @@ type ProductionLineRecord = {
   }>;
 };
 
+function getTranslationLocaleFallbacks(locale: SupportedLocale) {
+  return locale === "tr" ? ["tr", "en"] : ["en", "tr"];
+}
+
 export async function getGameSnapshot(input: {
   userId: string;
   displayName: string;
+  locale?: SupportedLocale | string;
 }): Promise<GameSnapshot | null> {
+  const locale = normalizeLocale(input.locale);
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
   const prisma = getPrisma();
   const playerProfile = await prisma.playerProfile.findUnique({
     where: { userId: input.userId },
@@ -190,7 +203,7 @@ export async function getGameSnapshot(input: {
                   id: true,
                   key: true,
                   translations: {
-                    where: { locale },
+                    where: { locale: translationLocaleFilter },
                     select: { locale: true, name: true, description: true },
                   },
                 },
@@ -201,7 +214,7 @@ export async function getGameSnapshot(input: {
             select: {
               key: true,
               translations: {
-                where: { locale },
+                where: { locale: translationLocaleFilter },
                 select: { locale: true, name: true, description: true },
               },
             },
@@ -235,7 +248,7 @@ export async function getGameSnapshot(input: {
                   dockIconKey: true,
                   supportsOutsource: true,
                   translations: {
-                    where: { locale },
+                    where: { locale: translationLocaleFilter },
                     select: { locale: true, name: true, description: true },
                   },
                 },
@@ -329,7 +342,7 @@ export async function getGameSnapshot(input: {
         key: true,
         sortOrder: true,
         translations: {
-          where: { locale },
+          where: { locale: translationLocaleFilter },
           select: { locale: true, name: true, description: true },
         },
         departments: {
@@ -346,7 +359,7 @@ export async function getGameSnapshot(input: {
             dockIconKey: true,
             supportsOutsource: true,
             translations: {
-              where: { locale },
+              where: { locale: translationLocaleFilter },
               select: { locale: true, name: true, description: true },
             },
           },
@@ -374,7 +387,7 @@ export async function getGameSnapshot(input: {
         dockSortOrder: true,
         dockBadgeKey: true,
         translations: {
-          where: { locale },
+          where: { locale: translationLocaleFilter },
           select: { locale: true, name: true, description: true },
         },
       },
@@ -465,6 +478,7 @@ export async function getGameSnapshot(input: {
       currentLevel: factory.currentLevel,
       currencyCode: factory.currencyCode,
       factoryId: factory.id,
+      locale,
     }),
     getWarehouseView({
       currentDay: factory.currentDay,
@@ -474,11 +488,13 @@ export async function getGameSnapshot(input: {
     getProductionQueuesView({
       currentDay: factory.currentDay,
       factoryId: factory.id,
+      locale,
       sectorId: factory.sectorId,
     }),
     getLatestReviewableShiftPlayback({
       currentDay: factory.currentDay,
       factoryId: factory.id,
+      locale,
       prisma,
     }),
     prisma.productionLineTemplate.findMany({
@@ -515,7 +531,7 @@ export async function getGameSnapshot(input: {
             departmentGroupId: true,
             monthlyOverheadPerLineCents: true,
             translations: {
-              where: { locale },
+              where: { locale: translationLocaleFilter },
               select: { locale: true, name: true, description: true },
             },
           },
@@ -547,8 +563,8 @@ export async function getGameSnapshot(input: {
                 key: true,
                 monthlySalaryCents: true,
                 translations: {
-                  where: { locale },
-                  select: { name: true },
+                  where: { locale: translationLocaleFilter },
+                  select: { locale: true, name: true },
                 },
               },
             },
@@ -580,8 +596,8 @@ export async function getGameSnapshot(input: {
         dailySupportMealPerStaffCents: true,
         supportOverheadPerStaffCents: true,
         translations: {
-          where: { locale },
-          select: { name: true },
+          where: { locale: translationLocaleFilter },
+          select: { locale: true, name: true },
         },
         staffRequirements: {
           orderBy: { sortOrder: "asc" },
@@ -593,8 +609,8 @@ export async function getGameSnapshot(input: {
                 key: true,
                 monthlySalaryCents: true,
                 translations: {
-                  where: { locale },
-                  select: { name: true },
+                  where: { locale: translationLocaleFilter },
+                  select: { locale: true, name: true },
                 },
               },
             },
@@ -652,7 +668,7 @@ export async function getGameSnapshot(input: {
             sortOrder: true,
             taskType: true,
             translations: {
-              where: { locale: { in: [locale, "en"] } },
+              where: { locale: translationLocaleFilter },
               select: {
                 completionMessage: true,
                 description: true,
@@ -672,8 +688,10 @@ export async function getGameSnapshot(input: {
 
   const sections = buildFactoryMapSections({
     departmentGroups,
+    locale,
     productionLines: factory.productionLines,
     workloadByDepartmentId: buildWorkloadByDepartmentId({
+      locale,
       productionLines: factory.productionLines,
       routeProgressWorkloads,
     }),
@@ -682,6 +700,7 @@ export async function getGameSnapshot(input: {
   const operatingStageName = pickTranslation(
     factory.operatingStageState?.currentStage.translations ?? [],
     factory.operatingStageState?.currentStage.key ?? "stage",
+    locale,
   );
   const applicableLevelConfigs = pickApplicableLevelConfigs(
     levelConfigs as PlayerLevelThreshold[],
@@ -694,11 +713,13 @@ export async function getGameSnapshot(input: {
   });
   const dockItems = buildDockItems({
     departments: dockDepartments,
+    locale,
     readyToShipOrderCount,
     routeProgressCounts,
     warehouseInboundCount: warehouse.summary.inboundTotal,
   });
   const tasks = buildTasksSnapshot({
+    locale,
     progressRows: taskProgressRows,
     tokenBalance: tokenWallet?.balance ?? 0,
   });
@@ -709,6 +730,7 @@ export async function getGameSnapshot(input: {
     costConfig: investmentCostConfig,
     currentStageId: factory.operatingStageState?.currentStage.id ?? null,
     currencyCode: factory.currencyCode,
+    locale,
     stages: investmentStages,
     supportStaffByRoleId: new Map(
       factorySupportStaff.map((assignment) => [
@@ -725,12 +747,15 @@ export async function getGameSnapshot(input: {
     currentDay: factory.currentDay,
     investment,
     lateOrderCount,
+    locale,
     mapSections: sections,
     productionQueues,
     tasks,
   });
 
   return {
+    locale,
+    numberLocale: numberLocale(locale),
     player: {
       id: playerProfile.id,
       displayName: input.displayName,
@@ -738,7 +763,7 @@ export async function getGameSnapshot(input: {
     factory: {
       id: factory.id,
       name: factory.name,
-      sectorName: pickTranslation(factory.sector.translations, factory.sector.key),
+      sectorName: pickTranslation(factory.sector.translations, factory.sector.key, locale),
       currencyCode: factory.currencyCode,
       cashBalanceCents: factory.cashBalanceCents.toString(),
       currentDay: factory.currentDay,
@@ -753,19 +778,21 @@ export async function getGameSnapshot(input: {
       activeProductionOrderCount,
       factory: { ...factory, levelProgress, operatingStageName },
       lateOrderCount,
-      totals,
+      locale,
     }),
     tasks,
     notifications: buildNotifications({
       activeProductionOrderCount,
       lateOrderCount,
       levelUpTransactions,
+      locale,
     }),
     managerRecommendations,
     activeShiftPlayback,
     dock: {
       badges: buildLeftDockBadges({
         availableOrderCount: orderMarket.availableCount,
+        locale,
         managerRecommendations,
         tasks,
       }),
@@ -787,6 +814,7 @@ function buildProductionLineInvestmentView(input: {
   costConfig: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["costConfig"];
   currentStageId: string | null;
   currencyCode: GameSnapshot["factory"]["currencyCode"];
+  locale: SupportedLocale;
   stages: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["stages"];
   supportStaffByRoleId: ReadonlyMap<string, number>;
   templates: Array<{
@@ -831,6 +859,7 @@ function buildProductionLineInvestmentView(input: {
       name: pickTranslation(
         template.department.translations,
         template.department.key,
+        input.locale,
       ),
       templates: [],
     };
@@ -862,6 +891,7 @@ function buildProductionLineInvestmentView(input: {
         activeProductionLineCount: input.activeProductionLineCount,
         costConfig: input.costConfig,
         currentStageId: input.currentStageId,
+        locale: input.locale,
         stages: input.stages,
         supportStaffByRoleId: input.supportStaffByRoleId,
         template,
@@ -878,11 +908,13 @@ function buildProductionLineInvestmentView(input: {
 
 function buildDockItems({
   departments,
+  locale,
   readyToShipOrderCount,
   routeProgressCounts,
   warehouseInboundCount,
 }: {
   departments: DockDepartmentRecord[];
+  locale: SupportedLocale;
   readyToShipOrderCount: number;
   routeProgressCounts: RouteProgressCountRecord[];
   warehouseInboundCount: number;
@@ -914,7 +946,7 @@ function buildDockItems({
 
       return {
         id: `dock:${groupKey}`,
-        label: getDockLabel(groupKey, sortedDepartments),
+        label: getDockLabel(groupKey, sortedDepartments, locale),
         iconKey,
         departmentIds: sortedDepartments.map((department) => department.id),
         departmentKeys: sortedDepartments.map((department) => department.key),
@@ -924,6 +956,7 @@ function buildDockItems({
           badgeKey,
           departments: sortedDepartments,
           groupKey,
+          locale,
           readyToShipOrderCount,
           routeCountsByDepartmentId,
           warehouseInboundCount,
@@ -936,15 +969,17 @@ function buildDockItems({
 
 function buildLeftDockBadges(input: {
   availableOrderCount: number;
+  locale: SupportedLocale;
   managerRecommendations: GameSnapshot["managerRecommendations"];
   tasks: GameSnapshot["tasks"];
 }): GameSnapshot["dock"]["badges"] {
   const badges: GameSnapshot["dock"]["badges"] = {};
+  const copy = gameCopy[input.locale].snapshot.badges;
 
   if (input.availableOrderCount > 0) {
     badges.orders = {
       count: input.availableOrderCount,
-      label: "Yeni sipariş",
+      label: copy.newOrder,
       tone: "danger",
     };
   }
@@ -953,19 +988,20 @@ function buildLeftDockBadges(input: {
     badges.tasks = {
       count: input.tasks.summary.completedUnclaimedCount,
       icon: "check",
-      label: "Ödül bekliyor",
+      label: copy.rewardWaiting,
       tone: "success",
     };
   } else if (input.tasks.summary.activeCount > 0) {
     badges.tasks = {
       count: input.tasks.summary.activeCount,
-      label: "Aktif görev",
+      label: copy.activeTask,
       tone: "info",
     };
   }
 
   const managerBadge = buildManagerRecommendationBadge(
     input.managerRecommendations,
+    input.locale,
   );
   if (managerBadge) {
     badges.management = managerBadge;
@@ -976,12 +1012,13 @@ function buildLeftDockBadges(input: {
 
 function buildManagerRecommendationBadge(
   recommendations: GameSnapshot["managerRecommendations"],
+  locale: SupportedLocale,
 ): GameDockBadge | null {
   if (recommendations.length === 0) return null;
 
   return {
     count: recommendations.length,
-    label: "Yönetim notu",
+    label: gameCopy[locale].snapshot.badges.managementNote,
     tone: getManagerRecommendationBadgeTone(recommendations),
   };
 }
@@ -1021,6 +1058,7 @@ function buildDockBadge({
   badgeKey,
   departments,
   groupKey,
+  locale,
   readyToShipOrderCount,
   routeCountsByDepartmentId,
   warehouseInboundCount,
@@ -1028,15 +1066,18 @@ function buildDockBadge({
   badgeKey: string;
   departments: DockDepartmentRecord[];
   groupKey: string;
+  locale: SupportedLocale;
   readyToShipOrderCount: number;
   routeCountsByDepartmentId: Map<string, Partial<Record<RouteProgressStatusType, number>>>;
   warehouseInboundCount: number;
 }): GameDockBadge | null {
+  const copy = gameCopy[locale].snapshot.badges;
+
   if (badgeKey === "READY_TO_SHIP") {
     return readyToShipOrderCount > 0
       ? {
           count: readyToShipOrderCount,
-          label: "Sevke hazır",
+          label: copy.shippingReady,
           tone: "success",
         }
       : null;
@@ -1051,7 +1092,7 @@ function buildDockBadge({
     return warehouseInboundCount > 0
       ? {
           count: warehouseInboundCount,
-          label: "Yolda",
+          label: copy.warehouseInbound,
           tone: "warning",
         }
       : null;
@@ -1062,7 +1103,7 @@ function buildDockBadge({
   if (badgeKey === "BOTTLENECK") {
     return {
       count,
-      label: "Kuyruk / darboğaz",
+      label: copy.queueBottleneck,
       tone: "warning",
     };
   }
@@ -1070,14 +1111,14 @@ function buildDockBadge({
   if (badgeKey === "MATERIAL_MISSING") {
     return {
       count,
-      label: "Malzeme uyarısı",
+      label: copy.materialMissing,
       tone: "danger",
     };
   }
 
   return {
     count,
-    label: "Bekleyen iş",
+    label: copy.pendingTask,
     tone: "info",
   };
 }
@@ -1094,13 +1135,18 @@ function getRouteQueueCount(counts: Partial<Record<RouteProgressStatusType, numb
   );
 }
 
-function getDockLabel(groupKey: string, departments: DockDepartmentRecord[]) {
-  const labels: Record<string, string> = {
-    warehouse: "Depo",
-    shipping: "Sevkiyat",
-  };
+function getDockLabel(
+  groupKey: string,
+  departments: DockDepartmentRecord[],
+  locale: SupportedLocale,
+): string {
+  const labels = gameCopy[locale].snapshot.dockLabels;
 
-  return labels[groupKey] ?? pickTranslation(departments[0]?.translations ?? [], departments[0]?.key ?? groupKey);
+  return labels[groupKey as keyof typeof labels] ?? pickTranslation(
+    departments[0]?.translations ?? [],
+    departments[0]?.key ?? groupKey,
+    locale,
+  );
 }
 
 function normalizeDockIconKey(iconKey: string) {
@@ -1137,10 +1183,12 @@ function getDefaultDockBadgeKey(groupKey: string, department: DockDepartmentReco
 
 function buildFactoryMapSections({
   departmentGroups,
+  locale,
   productionLines,
   workloadByDepartmentId,
 }: {
   departmentGroups: DepartmentGroupRecord[];
+  locale: SupportedLocale;
   productionLines: ProductionLineRecord[];
   workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>;
 }) {
@@ -1185,11 +1233,15 @@ function buildFactoryMapSections({
       continue;
     }
 
-    const departments = visibleDepartments.map(toMapDepartment);
+    const departments = visibleDepartments.map((department) =>
+      toMapDepartment(department, locale),
+    );
+    const groupTitle = pickTranslation(group.translations, group.key, locale);
     const items = buildSectionItems({
       departmentIds: departments.map((department) => department.id),
       groupId: group.id,
-      groupTitle: pickTranslation(group.translations, group.key),
+      groupTitle,
+      locale,
       lines,
       workloadByDepartmentId,
     });
@@ -1198,7 +1250,7 @@ function buildFactoryMapSections({
       id: group.id,
       key: group.key,
       step: String(sections.length + 1).padStart(2, "0"),
-      title: pickTranslation(group.translations, group.key),
+      title: groupTitle,
       tone: getSectionTone(group.key, sections.length),
       departments,
       items,
@@ -1212,7 +1264,11 @@ function buildFactoryMapSections({
 
     if (!firstLine) continue;
 
-    const departmentName = pickTranslation(firstLine.department.translations, firstLine.department.key);
+    const departmentName = pickTranslation(
+      firstLine.department.translations,
+      firstLine.department.key,
+      locale,
+    );
     const syntheticGroup: DepartmentGroupRecord = {
       id: `department:${departmentId}`,
       key: firstLine.department.key,
@@ -1234,6 +1290,7 @@ function buildFactoryMapSections({
       departmentIds: [firstLine.department.id],
       groupId: syntheticGroup.id,
       groupTitle: departmentName,
+      locale,
       lines,
       workloadByDepartmentId,
     });
@@ -1244,7 +1301,9 @@ function buildFactoryMapSections({
       step: String(sections.length + 1).padStart(2, "0"),
       title: departmentName,
       tone: getSectionTone(syntheticGroup.key, sections.length),
-      departments: syntheticGroup.departments.map(toMapDepartment),
+      departments: syntheticGroup.departments.map((department) =>
+        toMapDepartment(department, locale),
+      ),
       items,
       productionLineCount: lines.length,
       departmentCount: syntheticGroup.departments.length,
@@ -1290,40 +1349,47 @@ function buildSectionItems({
   departmentIds,
   groupId,
   groupTitle,
+  locale,
   lines,
   workloadByDepartmentId,
 }: {
   departmentIds: string[];
   groupId: string;
   groupTitle: string;
+  locale: SupportedLocale;
   lines: ProductionLineRecord[];
   workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>;
 }) {
   const items: FactoryMapItem[] = lines
     .slice()
     .sort((first, second) => first.sortOrder - second.sortOrder || first.lineNumber - second.lineNumber)
-    .map((line) => toProductionLineItem(line, workloadByDepartmentId));
+    .map((line) => toProductionLineItem(line, workloadByDepartmentId, locale));
 
   if (items.length > 0) {
+    const copy = gameCopy[locale].snapshot.investmentAction;
+
     items.push({
       kind: "investmentAction",
       id: `investment:${groupId}`,
       sectionId: groupId,
       departmentIds,
-      title: "Yatırım Yap",
-      subtitle: `${groupTitle} yatırımları`,
+      title: copy.title,
+      subtitle: copy.subtitle(groupTitle),
     });
   }
 
   return items;
 }
 
-function toMapDepartment(department: DepartmentRecord): FactoryMapDepartment {
+function toMapDepartment(
+  department: DepartmentRecord,
+  locale: SupportedLocale,
+): FactoryMapDepartment {
   return {
     id: department.id,
     key: department.key,
     iconKey: normalizeDockIconKey(department.dockIconKey ?? getDefaultDockIconKey(department.key, department.key)),
-    name: pickTranslation(department.translations, department.key),
+    name: pickTranslation(department.translations, department.key, locale),
     kind: department.kind,
     routeOrder: department.routeOrder,
     supportsOutsource: department.supportsOutsource,
@@ -1338,8 +1404,13 @@ type FactoryMapItemWorkload = Extract<
 function toProductionLineItem(
   line: ProductionLineRecord,
   workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>,
+  locale: SupportedLocale,
 ): FactoryMapItem {
-  const departmentName = pickTranslation(line.department.translations, line.department.key);
+  const departmentName = pickTranslation(
+    line.department.translations,
+    line.department.key,
+    locale,
+  );
   const template = line.productionLineTemplate;
   const assignedStaff = line.staffAssignments.reduce(
     (total, assignment) => total + assignment.quantity,
@@ -1354,7 +1425,8 @@ function toProductionLineItem(
     departmentKey: line.department.key,
     departmentName,
     code: `${getDepartmentCode(line.department.key)}-${String(line.lineNumber).padStart(2, "0")}`,
-    title: line.customName ?? `${departmentName} Hattı ${line.lineNumber}`,
+    title: line.customName ??
+      gameCopy[locale].snapshot.lineTitle(departmentName, line.lineNumber),
     subtitle: formatGrade(template.grade),
     acquisitionType: line.acquisitionType,
     status: line.status,
@@ -1378,15 +1450,18 @@ function toProductionLineItem(
       buildFactoryLineWorkload({
         dailyPointCapacity: template.dailyPointCapacity,
         effectiveDailyPointCapacity: 0,
+        locale,
         remainingWorkPoints: 0,
       }),
   };
 }
 
 function buildWorkloadByDepartmentId({
+  locale,
   productionLines,
   routeProgressWorkloads,
 }: {
+  locale: SupportedLocale;
   productionLines: ProductionLineRecord[];
   routeProgressWorkloads: RouteProgressWorkloadRecord[];
 }) {
@@ -1465,6 +1540,7 @@ function buildWorkloadByDepartmentId({
       buildFactoryLineWorkload({
         dailyPointCapacity: capacity.dailyPointCapacity,
         effectiveDailyPointCapacity: capacity.effectiveDailyPointCapacity,
+        locale,
         remainingWorkPoints: workPointsByDepartmentId.get(departmentId) ?? 0,
       }),
     );
@@ -1494,7 +1570,7 @@ function buildMetrics({
   activeProductionOrderCount,
   factory,
   lateOrderCount,
-  totals,
+  locale,
 }: {
   activeOrderCount: number;
   activeProductionOrderCount: number;
@@ -1509,63 +1585,63 @@ function buildMetrics({
     operatingStageName: string;
   };
   lateOrderCount: number;
-  totals: GameSnapshot["map"]["totals"];
+  locale: SupportedLocale;
 }): GameMetric[] {
+  const copy = gameCopy[locale].snapshot.metrics;
+  const currentXpLabel = formatNumber(factory.currentXp, locale);
+  const xpRemainingLabel = formatNumber(
+    factory.levelProgress.xpRemainingForNextLevel ?? 0,
+    locale,
+  );
+
   return [
     {
       id: "cash",
-      label: "Nakit",
-      value: formatMoney(factory.cashBalanceCents, factory.currencyCode),
-      subLabel: `Finans ${factory.currentFinancePeriod}. dönem`,
+      label: copy.cash,
+      value: formatMoney(factory.cashBalanceCents, factory.currencyCode, locale),
+      subLabel: copy.financePeriod(factory.currentFinancePeriod),
       tone: "green",
     },
     {
       id: "xp",
-      label: "Tecrübe",
-      value: `${formatNumber(factory.currentXp)} XP`,
+      label: copy.xp,
+      value: `${currentXpLabel} XP`,
       subLabel:
         factory.levelProgress.nextLevel === null
-          ? "Maksimum seviye"
-          : `Lv. ${factory.levelProgress.nextLevel} için ${formatNumber(factory.levelProgress.xpRemainingForNextLevel ?? 0)} XP`,
+          ? copy.maxLevel
+          : copy.xpForNextLevel(factory.levelProgress.nextLevel, xpRemainingLabel),
       tone: "violet",
     },
     {
       id: "day",
-      label: "Gün",
-      value: formatNumber(factory.currentDay),
-      subLabel: formatGameMonthYearLabel(factory.currentDay),
+      label: copy.day,
+      value: formatNumber(factory.currentDay, locale),
+      subLabel: formatGameMonthYearLabel(factory.currentDay, locale),
       tone: "amber",
     },
     {
       id: "level",
-      label: "Seviye",
+      label: copy.level,
       value: `Lv. ${factory.currentLevel}`,
       subLabel:
         factory.levelProgress.nextLevel === null
-          ? `${formatNumber(factory.currentXp)} XP`
-          : `${formatNumber(factory.levelProgress.xpRemainingForNextLevel ?? 0)} XP kaldı`,
+          ? `${currentXpLabel} XP`
+          : copy.xpRemaining(xpRemainingLabel),
       tone: "violet",
     },
     {
       id: "orders",
-      label: "Aktif Sipariş",
+      label: copy.activeOrder,
       value: activeOrderCount.toString(),
-      subLabel: `${activeProductionOrderCount} üretim emri`,
+      subLabel: copy.productionOrders(activeProductionOrderCount),
       tone: "cyan",
     },
     {
       id: "late",
-      label: "Geciken",
+      label: copy.late,
       value: lateOrderCount.toString(),
-      subLabel: lateOrderCount > 0 ? "Risk altında" : "Temiz",
+      subLabel: lateOrderCount > 0 ? copy.risk : copy.clean,
       tone: lateOrderCount > 0 ? "red" : "green",
-    },
-    {
-      id: "capacity",
-      label: "Kurulu Hat",
-      value: totals.productionLineCount.toString(),
-      subLabel: "Üretim alanı",
-      tone: "violet",
     },
   ];
 }
@@ -1574,19 +1650,22 @@ function buildNotifications({
   activeProductionOrderCount,
   lateOrderCount,
   levelUpTransactions,
+  locale,
 }: {
   activeProductionOrderCount: number;
   lateOrderCount: number;
   levelUpTransactions: Array<{ metadata: unknown }>;
+  locale: SupportedLocale;
 }): GameNotification[] {
   const notifications: GameNotification[] =
-    buildProductTierUnlockNotifications(levelUpTransactions);
+    buildProductTierUnlockNotifications(levelUpTransactions, locale);
+  const copy = gameCopy[locale].snapshot.notifications;
 
   if (lateOrderCount > 0) {
     notifications.push({
       id: "late-orders",
-      title: "Teslimat riski",
-      body: `${lateOrderCount} sipariş gecikme durumunda.`,
+      title: copy.lateOrdersTitle,
+      body: copy.lateOrdersBody(lateOrderCount),
       tone: "danger",
     });
   }
@@ -1594,8 +1673,8 @@ function buildNotifications({
   if (activeProductionOrderCount > 0) {
     notifications.push({
       id: "production-active",
-      title: "Üretim emri aktif",
-      body: `${activeProductionOrderCount} üretim emri takipte.`,
+      title: copy.productionActiveTitle,
+      body: copy.productionActiveBody(activeProductionOrderCount),
       tone: "info",
     });
   }
@@ -1603,8 +1682,8 @@ function buildNotifications({
   if (notifications.length === 0) {
     notifications.push({
       id: "factory-stable",
-      title: "Fabrika akışı sakin",
-      body: "Haritada acil uyarı yok.",
+      title: copy.factoryStableTitle,
+      body: copy.factoryStableBody,
       tone: "success",
     });
   }
@@ -1614,8 +1693,10 @@ function buildNotifications({
 
 export function buildProductTierUnlockNotifications(
   transactions: Array<{ metadata: unknown }>,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): GameNotification[] {
   const unlockedTiers = new Set<(typeof PRODUCT_TIER_ORDER)[number]>();
+  const copy = gameCopy[locale].snapshot.notifications;
 
   for (const transaction of transactions) {
     if (!isRecord(transaction.metadata)) continue;
@@ -1638,8 +1719,8 @@ export function buildProductTierUnlockNotifications(
   return PRODUCT_TIER_ORDER.filter((tier) => unlockedTiers.has(tier)).map(
     (tier) => ({
       id: `product-tier-unlocked-${tier.toLowerCase()}`,
-      title: `${PRODUCT_TIER_LABELS[tier]} siparişleri açıldı`,
-      body: `Fabrika tecrübe seviyen artık ${PRODUCT_TIER_LABELS[tier]} siparişleri için uygun. Yeni teklifler gelmeye başlayacak.`,
+      title: copy.tierUnlockedTitle(PRODUCT_TIER_LABELS[tier]),
+      body: copy.tierUnlockedBody(PRODUCT_TIER_LABELS[tier]),
       tone: "success" as const,
     }),
   );
@@ -1758,10 +1839,12 @@ function getSectionTone(key: string, index: number): FactoryMapSection["tone"] {
   return tonesByKey[key] ?? fallback[index % fallback.length] ?? "cyan";
 }
 
-function pickTranslation(translations: TranslationRecord[], fallbackKey: string) {
-  return translations.find((translation) => translation.locale === locale)?.name
-    ?? translations[0]?.name
-    ?? toTitle(fallbackKey);
+function pickTranslation(
+  translations: TranslationRecord[],
+  fallbackKey: string,
+  locale: SupportedLocale,
+) {
+  return preferredTranslation(translations, locale)?.name ?? toTitle(fallbackKey);
 }
 
 function toTitle(value: string) {
@@ -1772,42 +1855,36 @@ function toTitle(value: string) {
     .join(" ");
 }
 
-function formatMoney(cents: bigint, currencyCode: GameSnapshot["factory"]["currencyCode"]) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatMoney(
+  cents: bigint,
+  currencyCode: GameSnapshot["factory"]["currencyCode"],
+  locale: SupportedLocale,
+) {
+  return new Intl.NumberFormat(numberLocale(locale), {
     currency: currencyCode,
     maximumFractionDigits: 0,
     style: "currency",
   }).format(Number(cents) / 100);
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR", {
+function formatNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale), {
     maximumFractionDigits: 0,
   }).format(value);
 }
 
-const gameMonthNames = [
-  "Ocak",
-  "Şubat",
-  "Mart",
-  "Nisan",
-  "Mayıs",
-  "Haziran",
-  "Temmuz",
-  "Ağustos",
-  "Eylül",
-  "Ekim",
-  "Kasım",
-  "Aralık",
-] as const;
-
-function formatGameMonthYearLabel(currentDay: number) {
+function formatGameMonthYearLabel(
+  currentDay: number,
+  locale: SupportedLocale,
+) {
   const period = getFinancePeriod({ currentDay });
+  const copy = gameCopy[locale].snapshot;
   const monthName =
-    gameMonthNames[Math.max(0, Math.min(11, period.monthInYear - 1))] ??
-    "Ocak";
+    copy.monthNames[Math.max(0, Math.min(11, period.monthInYear - 1))] ??
+    copy.monthNames[0] ??
+    "";
 
-  return `${monthName} - ${period.yearIndex}. Yıl`;
+  return copy.monthYear(monthName, period.yearIndex);
 }
 
 function formatGrade(grade: ProductionGrade) {

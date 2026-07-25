@@ -1,4 +1,14 @@
 import type { ProductionLineInvestmentPreview } from "../types";
+import {
+  normalizeLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
+
+type TranslationRecord = {
+  locale?: string | null;
+  name: string;
+};
 
 type StaffRequirement = {
   requiredQuantity: number;
@@ -6,7 +16,7 @@ type StaffRequirement = {
     id: string;
     key: string;
     monthlySalaryCents: number;
-    translations: Array<{ name: string }>;
+    translations: TranslationRecord[];
   };
 };
 
@@ -18,7 +28,7 @@ export type InvestmentStage = {
   maxProductionLines: number | null;
   dailySupportMealPerStaffCents: number;
   supportOverheadPerStaffCents: number;
-  translations: Array<{ name: string }>;
+  translations: TranslationRecord[];
   staffRequirements: StaffRequirement[];
 };
 
@@ -42,10 +52,12 @@ export function calculateProductionLineInvestmentPreview(input: {
   activeProductionLineCount: number;
   costConfig: InvestmentCostConfig;
   currentStageId: string | null;
+  locale?: SupportedLocale;
   stages: InvestmentStage[];
   supportStaffByRoleId: ReadonlyMap<string, number>;
   template: InvestmentTemplate;
 }): ProductionLineInvestmentPreview {
+  const locale = normalizeLocale(input.locale);
   const resultingStage = input.stages
     .filter(
       (stage) =>
@@ -62,7 +74,7 @@ export function calculateProductionLineInvestmentPreview(input: {
   }
 
   const directStaff = input.template.staffRequirements.map((requirement) =>
-    mapStaffRequirement(requirement, requirement.requiredQuantity),
+    mapStaffRequirement(requirement, requirement.requiredQuantity, locale),
   );
   const stageChanged = input.currentStageId !== resultingStage.id;
   const supportStaff = stageChanged
@@ -76,7 +88,9 @@ export function calculateProductionLineInvestmentPreview(input: {
           ),
         }))
         .filter((item) => item.quantity > 0)
-        .map((item) => mapStaffRequirement(item.requirement, item.quantity))
+        .map((item) =>
+          mapStaffRequirement(item.requirement, item.quantity, locale),
+        )
     : [];
   const directStaffCount = sum(directStaff.map((item) => item.quantity));
   const supportStaffCount = sum(supportStaff.map((item) => item.quantity));
@@ -135,7 +149,11 @@ export function calculateProductionLineInvestmentPreview(input: {
       changed: stageChanged,
       id: resultingStage.id,
       key: resultingStage.key,
-      name: resultingStage.translations[0]?.name ?? resultingStage.key,
+      name: pickTranslationName(
+        resultingStage.translations,
+        resultingStage.key,
+        locale,
+      ),
     },
     supportOperatingCostIncreaseCents: String(
       supportOperatingCostIncreaseCents,
@@ -150,6 +168,7 @@ export function calculateProductionLineInvestmentPreview(input: {
 function mapStaffRequirement(
   requirement: StaffRequirement,
   quantity: number,
+  locale: SupportedLocale,
 ) {
   return {
     monthlyCostCents: String(
@@ -158,10 +177,30 @@ function mapStaffRequirement(
     monthlySalaryCents: String(requirement.staffRole.monthlySalaryCents),
     quantity,
     roleKey: requirement.staffRole.key,
-    roleName:
-      requirement.staffRole.translations[0]?.name ?? requirement.staffRole.key,
+    roleName: pickTranslationName(
+      requirement.staffRole.translations,
+      requirement.staffRole.key,
+      locale,
+    ),
     staffRoleId: requirement.staffRole.id,
   };
+}
+
+function pickTranslationName(
+  translations: TranslationRecord[],
+  fallback: string,
+  locale: SupportedLocale,
+) {
+  const localizedTranslations = translations.filter(
+    (translation): translation is TranslationRecord & { locale: string } =>
+      typeof translation.locale === "string",
+  );
+
+  if (localizedTranslations.length > 0) {
+    return preferredTranslation(localizedTranslations, locale)?.name ?? fallback;
+  }
+
+  return translations[0]?.name ?? fallback;
 }
 
 function sum(values: number[]) {

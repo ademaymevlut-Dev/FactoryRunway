@@ -22,6 +22,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, useTransiti
 import BlurText from "@/components/ui/blurtext";
 import SplitText from "@/components/ui/SplitText";
 import { ProductionLineCard } from "@/components/onboarding/production-line-card";
+import { GameLocaleSwitcher } from "@/components/game-locale-switcher";
+import { numberLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
 import {
   beginOnboardingSectorAction,
@@ -46,6 +48,7 @@ export type OnboardingSector = {
 };
 
 type OnboardingExperienceProps = {
+  locale: SupportedLocale;
   sectors: OnboardingSector[];
 };
 
@@ -58,10 +61,232 @@ type OnboardingPage =
 const DEFAULT_PAGE_HOLD_SECONDS = 2.4;
 const FIRST_PAGE_HOLD_SECONDS = 3.2;
 
-export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
+const onboardingCopy = {
+  tr: {
+    emptySector: "Onboarding için sektör verisi bulunamadı.",
+    initialNotice: "Tekstil sektörü seçildiğinde kurulum akışı başlatılacak.",
+    preparingSector: (title: string) => `${title} seçildi. Kurulum verileri hazırlanıyor.`,
+    sectorReady: (title: string) => `${title} seçimi hazır. İstersen sektörleri yeniden inceleyebilirsin.`,
+    sectorUnavailable: (title: string) => `${title} şu anda yakında durumunda. Bu sektör sonraki paketlerde açılacak.`,
+    welcome: {
+      pill: "Controlled timeline onboarding",
+      title: "Kendi fabrikanı kur. Üretimi yönet. Büyümeyi planla.",
+      body: "İlk akışta sektörünü seçer, başlangıç atölyeni hazırlar ve Day 1 için üretim planlamasına geçersin.",
+    },
+    intro: {
+      eyebrow: "Multi-sector simulation",
+      title: "FACTORY RUNWAY size farklı sektörlerde farklı üretim deneyimleri sunar.",
+      points: [
+        "Her sektörün kendine özgü üretim hatları vardır.",
+        "Her sektör farklı kararlar ve büyüme dinamikleri sunar.",
+        "Oyuncu ileride farklı üretim dünyalarına geçebilir.",
+      ],
+    },
+    spotlightSectorSuffix: "Sektörü",
+    selection: {
+      kicker: "Wizard - Step 1",
+      title: "Sektörünü Seç",
+      body: "Yeni şirketin için üretim sektörünü belirle. Aktif sektörler şimdi oynanabilir, pasif sektörler sonraki paketlerde açılacak.",
+      available: "AVAILABLE",
+      comingSoon: "COMING SOON",
+      startWith: (title: string) => `${title} ile başla`,
+    },
+    setup: {
+      backToSectors: "Sektörlere dön",
+      headerKicker: "FACTORY LAUNCH",
+      title: "Tekstil Atölyesi Kurulumu",
+      days: "gün",
+      day: "Day",
+      people: "kişi",
+      points: "puan",
+      capital: {
+        pill: "Başlangıç kasası",
+        body: "İlk üretim gününe güçlü bir kasa ile başlıyorsun. Bu sermaye; hat kurulumu, personel giderleri ve ilk operasyon riskleri için ayrıldı.",
+        currency: "Para birimi",
+        firstPeriod: "İlk finans dönemi",
+        startingLevel: "Başlangıç seviyesi",
+        sideTitle: "Başlangıç paketi hazır",
+        sideBody: "İlk fabrikan üç temel hatla açılır: Kesim, Dikim ve Ütü/Paket. Bu paket küçük atölye ölçeğinde üretime başlamak için dengelendi.",
+        cta: "Fabrika kimliğini oluştur",
+      },
+      identity: {
+        pill: "Fabrika kimliği",
+        title: "Atölyenin tabelasını as",
+        body: "Fabrika adı raporlarda, sipariş ekranlarında ve üretim özetlerinde görünecek. Son onaya kadar değiştirilebilir.",
+        field: "Fabrika adı",
+        currencyAria: "Para birimi",
+        sideTitle: "Kimlik kilidi",
+        cta: "Hat kurulumuna geç",
+        saving: "Kaydediliyor",
+        back: "Geri",
+      },
+      lines: {
+        installedCount: (installed: number, total: number) => `${installed} / ${total} hat kuruldu`,
+        staffPreparing: (total: number) => `${total} kişilik başlangıç kadrosu hazırlanıyor`,
+        completeTitle: "Üç üretim hattı zemine yerleşti.",
+        completeBody: "Kesim, Dikim ve Ütü/Paket hattı Day 1 için hazır.",
+        completeCta: "Aylık gider brifingine geç",
+        visualLabel: (name: string) => `${name} üretim hattı`,
+        segment: "Workshop segment",
+        installCost: "Kurulum maliyeti",
+        staff: "Personel",
+        capacity: "Günlük kapasite",
+        area: "Alan ihtiyacı",
+        cta: "Hattı zemine yerleştir",
+      },
+      costs: {
+        pill: "Aylık gider brifingi",
+        body: (days: number) => `İlk ${days} günlük finans döneminde fabrikanın tahmini sabit gideri. Bu özet, üretim başlamadan önce nakit akışı riskini gösterir.`,
+        payroll: "Personel maaşları",
+        rent: "Alan / kira gideri",
+        energy: "Enerji gideri",
+        meal: "Yemek ve vardiya desteği",
+        overhead: "Sabit operasyon giderleri",
+        sideTitle: "Operasyon ölçeği",
+        directStaff: "Üretim kadrosu",
+        supportStaff: "Yönetim ve destek",
+        areaInstalled: "Kurulu alan",
+        cta: "Final özetine geç",
+      },
+      review: {
+        pill: "Kurulum özeti",
+        title: (factoryName: string) => `${factoryName} üretime hazır`,
+        body: "Başlangıç sermayesi, üretim hatları, personel kadrosu ve ilk finans dönemi hazırlandı. Onay verdiğinde fabrika kurulumu tamamlanır ve Day 1 planlama ekranına geçersin.",
+        sector: "Sektör",
+        capital: "Başlangıç kasası",
+        currency: "Para birimi",
+        lines: "Kurulan üretim hatları",
+        linesValue: "Kesim, Dikim, Ütü / Paket",
+        outsource: "Dış proses destekleri",
+        outsourceValue: "Nakış, Baskı, Yıkama, Boyama",
+        staff: "Toplam çalışan",
+        startingDay: "Başlangıç günü",
+        sideTitle: "Son onay",
+        sideBody: "Fabrika kurulduktan sonra başlangıç hatları, personel kadrosu ve ilk finans dönemi aktif hale gelir. Sonraki ekran Day 1 üretim planlamasıdır.",
+        cta: "Fabrikayı kur",
+        pending: "Fabrika hazırlanıyor...",
+        preparing: "Fabrika hazırlanıyor...",
+        done: "Kurulum tamamlandı. Day 1 başlıyor.",
+      },
+    },
+  },
+  en: {
+    emptySector: "No sector data was found for onboarding.",
+    initialNotice: "The setup flow will start when you choose the Textile sector.",
+    preparingSector: (title: string) => `${title} selected. Preparing setup data.`,
+    sectorReady: (title: string) => `${title} is ready. You can review the sectors again if you want.`,
+    sectorUnavailable: (title: string) => `${title} is currently coming soon. This sector will open in a later pack.`,
+    welcome: {
+      pill: "Controlled timeline onboarding",
+      title: "Build your factory. Manage production. Plan the growth.",
+      body: "In the first flow, you choose a sector, prepare your starter workshop, and move into Day 1 production planning.",
+    },
+    intro: {
+      eyebrow: "Multi-sector simulation",
+      title: "FACTORY RUNWAY gives you different production experiences across different sectors.",
+      points: [
+        "Each sector has its own production lines.",
+        "Each sector brings different decisions and growth dynamics.",
+        "You will be able to expand into different production worlds later.",
+      ],
+    },
+    spotlightSectorSuffix: "Sector",
+    selection: {
+      kicker: "Wizard - Step 1",
+      title: "Choose Your Sector",
+      body: "Choose the production sector for your new company. Active sectors are playable now; locked sectors will open in later packs.",
+      available: "AVAILABLE",
+      comingSoon: "COMING SOON",
+      startWith: (title: string) => `Start with ${title}`,
+    },
+    setup: {
+      backToSectors: "Back to sectors",
+      headerKicker: "FACTORY LAUNCH",
+      title: "Textile Workshop Setup",
+      days: "days",
+      day: "Day",
+      people: "people",
+      points: "pts",
+      capital: {
+        pill: "Starting cash",
+        body: "You begin your first production day with a strong cash position. This capital covers line setup, staff costs, and early operating risk.",
+        currency: "Currency",
+        firstPeriod: "First finance period",
+        startingLevel: "Starting level",
+        sideTitle: "Starter package ready",
+        sideBody: "Your first factory opens with three core lines: Cutting, Sewing, and Ironing/Packing. The package is balanced for a small workshop start.",
+        cta: "Create factory identity",
+      },
+      identity: {
+        pill: "Factory identity",
+        title: "Hang the sign over your workshop",
+        body: "The factory name will appear in reports, order screens, and production summaries. You can change it until the final review.",
+        field: "Factory name",
+        currencyAria: "Currency",
+        sideTitle: "Identity lock",
+        cta: "Continue to line setup",
+        saving: "Saving",
+        back: "Back",
+      },
+      lines: {
+        installedCount: (installed: number, total: number) => `${installed} / ${total} lines installed`,
+        staffPreparing: (total: number) => `Starter team of ${total} people is being prepared`,
+        completeTitle: "Three production lines are placed on the floor.",
+        completeBody: "Cutting, Sewing, and Ironing/Packing are ready for Day 1.",
+        completeCta: "Continue to cost briefing",
+        visualLabel: (name: string) => `${name} production line`,
+        segment: "Workshop segment",
+        installCost: "Setup cost",
+        staff: "Staff",
+        capacity: "Daily capacity",
+        area: "Area needed",
+        cta: "Place line on floor",
+      },
+      costs: {
+        pill: "Monthly cost briefing",
+        body: (days: number) => `Estimated fixed expense for your first ${days}-day finance period. This summary shows cash-flow risk before production begins.`,
+        payroll: "Staff payroll",
+        rent: "Area / rent cost",
+        energy: "Energy cost",
+        meal: "Meals and shift support",
+        overhead: "Fixed operating costs",
+        sideTitle: "Operating scale",
+        directStaff: "Production crew",
+        supportStaff: "Management and support",
+        areaInstalled: "Installed area",
+        cta: "Continue to final review",
+      },
+      review: {
+        pill: "Setup review",
+        title: (factoryName: string) => `${factoryName} is ready for production`,
+        body: "Starting capital, production lines, staff, and the first finance period are ready. When you confirm, factory setup is completed and Day 1 planning begins.",
+        sector: "Sector",
+        capital: "Starting cash",
+        currency: "Currency",
+        lines: "Installed production lines",
+        linesValue: "Cutting, Sewing, Ironing / Packing",
+        outsource: "Outsourced process support",
+        outsourceValue: "Embroidery, Printing, Washing, Dyeing",
+        staff: "Total staff",
+        startingDay: "Starting day",
+        sideTitle: "Final approval",
+        sideBody: "Once the factory is created, starter lines, staff, and the first finance period become active. The next screen is Day 1 production planning.",
+        cta: "Create factory",
+        pending: "Preparing factory...",
+        preparing: "Preparing factory...",
+        done: "Setup complete. Day 1 is starting.",
+      },
+    },
+  },
+} as const;
+
+type OnboardingCopy = (typeof onboardingCopy)[SupportedLocale];
+
+export function OnboardingExperience({ locale, sectors }: OnboardingExperienceProps) {
+  const copy = onboardingCopy[locale];
   const [headlineReady, setHeadlineReady] = useState(false);
   const [selectedSectorKey, setSelectedSectorKey] = useState<string | null>(null);
-  const [notice, setNotice] = useState("Tekstil sektörü seçildiğinde kurulum akışı başlatılacak.");
+  const [notice, setNotice] = useState<string>(copy.initialNotice);
   const [setup, setSetup] = useState<FactorySetupPayload | null>(null);
   const [isChoosingSector, startChoosingSector] = useTransition();
   const shellRef = useRef<HTMLDivElement>(null);
@@ -171,7 +396,7 @@ export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
     setSelectedSectorKey(sector.key);
 
     if (isAvailableSector(sector)) {
-      setNotice(`${sector.shortTitle} seçildi. Kurulum verileri hazırlanıyor.`);
+      setNotice(copy.preparingSector(sector.shortTitle));
       startChoosingSector(async () => {
         const result = await beginOnboardingSectorAction(sector.id ?? sector.key);
 
@@ -185,16 +410,18 @@ export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
       return;
     }
 
-    setNotice(`${sector.shortTitle} şu anda yakında durumunda. Bu sektör sonraki paketlerde açılacak.`);
+    setNotice(copy.sectorUnavailable(sector.shortTitle));
   }
 
   if (setup) {
     return (
       <FactorySetupWizard
+        copy={copy}
+        locale={locale}
         setup={setup}
         onBackToSectors={() => {
           setSetup(null);
-          setNotice(`${setup.sector.title} seçimi hazır. İstersen sektörleri yeniden inceleyebilirsin.`);
+          setNotice(copy.sectorReady(setup.sector.title));
         }}
       />
     );
@@ -202,6 +429,7 @@ export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
 
   return (
     <main className="onboarding-shell min-h-screen overflow-hidden bg-background text-foreground">
+      <GameLocaleSwitcher className="fixed right-4 top-4 z-50" locale={locale} />
       <div className="factory-backdrop" />
       <div
         className="onboarding-stage-bg"
@@ -219,6 +447,7 @@ export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
                 {page.kind === "welcome" ? (
                   <div className="onboarding-page-surface is-welcome">
                     <WelcomeScene
+                      copy={copy}
                       onHeadlineComplete={() => setHeadlineReady(true)}
                       showCopy={headlineReady}
                     />
@@ -227,19 +456,20 @@ export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
 
                 {page.kind === "intro" ? (
                   <div className="onboarding-page-surface is-intro">
-                    <IntroScene />
+                    <IntroScene copy={copy} />
                   </div>
                 ) : null}
 
                 {page.kind === "spotlight" ? (
                   <div className="onboarding-page-surface is-spotlight">
-                    <SpotlightScene sector={page.sector} />
+                    <SpotlightScene copy={copy} sector={page.sector} />
                   </div>
                 ) : null}
 
                 {page.kind === "selection" ? (
                   <div className="onboarding-page-surface is-selection">
                     <SectorSelectionScene
+                      copy={copy}
                       isChoosingSector={isChoosingSector}
                       notice={notice}
                       onChooseSector={chooseSector}
@@ -258,9 +488,11 @@ export function OnboardingExperience({ sectors }: OnboardingExperienceProps) {
 }
 
 function WelcomeScene({
+  copy,
   onHeadlineComplete,
   showCopy,
 }: {
+  copy: OnboardingCopy;
   onHeadlineComplete: () => void;
   showCopy: boolean;
 }) {
@@ -268,7 +500,7 @@ function WelcomeScene({
     <div className="onboarding-welcome game-card">
       <div className="game-pill w-fit">
         <Sparkles size={16} />
-        Controlled timeline onboarding
+        {copy.welcome.pill}
       </div>
       <BlurText
         as="h2"
@@ -277,22 +509,23 @@ function WelcomeScene({
         delay={155}
         direction="top"
         onAnimationComplete={onHeadlineComplete}
-        text="Kendi fabrikanı kur. Üretimi yönet. Büyümeyi planla."
+        text={copy.welcome.title}
       />
       <p className={showCopy ? "onboarding-copy is-visible" : "onboarding-copy"}>
-        İlk akışta sektörünü seçer, başlangıç atölyeni hazırlar ve Day 1 için
-        üretim planlamasına geçersin.
+        {copy.welcome.body}
       </p>
     </div>
   );
 }
 
-function IntroScene() {
+function IntroScene({ copy }: { copy: OnboardingCopy }) {
   const [titleReady, setTitleReady] = useState(false);
 
   return (
     <div className="onboarding-intro game-card">
-      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Multi-sector simulation</p>
+      <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+        {copy.intro.eyebrow}
+      </p>
       <BlurText
         as="h2"
         animateBy="words"
@@ -301,12 +534,12 @@ function IntroScene() {
         direction="top"
         onAnimationComplete={() => setTitleReady(true)}
         stepDuration={0.28}
-        text="FACTORY RUNWAY size farklı sektörlerde farklı üretim deneyimleri sunar."
+        text={copy.intro.title}
       />
       <div className={titleReady ? "onboarding-intro-list is-visible" : "onboarding-intro-list"}>
-        <IntroPoint text="Her sektörün kendine özgü üretim hatları vardır." />
-        <IntroPoint text="Her sektör farklı kararlar ve büyüme dinamikleri sunar." />
-        <IntroPoint text="Oyuncu ileride farklı üretim dünyalarına geçebilir." />
+        {copy.intro.points.map((point) => (
+          <IntroPoint key={point} text={point} />
+        ))}
       </div>
     </div>
   );
@@ -321,12 +554,18 @@ function IntroPoint({ text }: { text: string }) {
   );
 }
 
-function SpotlightScene({ sector }: { sector: OnboardingSector }) {
+function SpotlightScene({
+  copy,
+  sector,
+}: {
+  copy: OnboardingCopy;
+  sector: OnboardingSector;
+}) {
   return (
     <article className="onboarding-spotlight-card game-card" style={backgroundStyle(sector.photoUrl)}>
       <div className="onboarding-spotlight-copy">
         <p>{sector.eyebrow}</p>
-        <h2>{sector.title} Sektörü</h2>
+        <h2>{sector.title} {copy.spotlightSectorSuffix}</h2>
         <span>{sector.description}</span>
         <ul>
           {sector.bullets.slice(0, 3).map((bullet) => (
@@ -339,12 +578,14 @@ function SpotlightScene({ sector }: { sector: OnboardingSector }) {
 }
 
 function SectorSelectionScene({
+  copy,
   isChoosingSector,
   notice,
   onChooseSector,
   sectors,
   selectedSectorKey,
 }: {
+  copy: OnboardingCopy;
   isChoosingSector: boolean;
   notice: string;
   onChooseSector: (sector: OnboardingSector) => void;
@@ -361,7 +602,7 @@ function SectorSelectionScene({
   if (!featuredSector) {
     return (
       <div className="game-card p-5">
-        <p className="text-muted-foreground">Onboarding için sektör verisi bulunamadı.</p>
+        <p className="text-muted-foreground">{copy.emptySector}</p>
       </div>
     );
   }
@@ -369,7 +610,7 @@ function SectorSelectionScene({
   return (
     <div className="onboarding-selection game-card">
       <div className="onboarding-selection-heading">
-        <p className="onboarding-selection-kicker">Wizard - Step 1</p>
+        <p className="onboarding-selection-kicker">{copy.selection.kicker}</p>
         <BlurText
           as="h2"
           animateBy="words"
@@ -378,11 +619,10 @@ function SectorSelectionScene({
           direction="top"
           onAnimationComplete={() => setTitleReady(true)}
           stepDuration={0.3}
-          text="Sektörünü Seç"
+          text={copy.selection.title}
         />
         <p className={titleReady ? "onboarding-after-title is-visible" : "onboarding-after-title"}>
-          Yeni şirketin için üretim sektörünü belirle. Aktif sektörler şimdi oynanabilir,
-          pasif sektörler sonraki paketlerde açılacak.
+          {copy.selection.body}
         </p>
         <div
           className={titleReady ? "onboarding-step-dots is-visible" : "onboarding-step-dots"}
@@ -397,9 +637,10 @@ function SectorSelectionScene({
       </div>
 
       <div className="onboarding-sector-list">
-          <SectorCard
-          featured
+        <SectorCard
+          copy={copy}
           disabled={isChoosingSector}
+          featured
           onChooseSector={onChooseSector}
           sector={featuredSector}
           selected={selectedSectorKey === featuredSector.key}
@@ -407,8 +648,9 @@ function SectorSelectionScene({
 
         {secondarySectors.map((sector) => (
           <SectorCard
-            key={sector.key}
+            copy={copy}
             disabled={isChoosingSector}
+            key={sector.key}
             onChooseSector={onChooseSector}
             sector={sector}
             selected={selectedSectorKey === sector.key}
@@ -425,12 +667,14 @@ function SectorSelectionScene({
 }
 
 function SectorCard({
+  copy,
   disabled = false,
   featured = false,
   onChooseSector,
   sector,
   selected,
 }: {
+  copy: OnboardingCopy;
   disabled?: boolean;
   featured?: boolean;
   onChooseSector: (sector: OnboardingSector) => void;
@@ -468,13 +712,13 @@ function SectorCard({
               : "onboarding-status-label is-coming-soon"
           }
         >
-          {available ? "AVAILABLE" : "COMING SOON"}
+          {available ? copy.selection.available : copy.selection.comingSoon}
         </span>
         <strong>{sector.title}</strong>
         <span>{sector.description}</span>
         {featured && available ? (
           <span className="onboarding-sector-action is-button">
-            {sector.shortTitle} ile başla
+            {copy.selection.startWith(sector.shortTitle)}
             <ArrowRight size={17} />
           </span>
         ) : null}
@@ -491,9 +735,13 @@ function SectorCard({
 type FactorySetupStep = "capital" | "identity" | "lines" | "costs" | "review";
 
 function FactorySetupWizard({
+  copy,
+  locale,
   onBackToSectors,
   setup,
 }: {
+  copy: OnboardingCopy;
+  locale: SupportedLocale;
   onBackToSectors: () => void;
   setup: FactorySetupPayload;
 }) {
@@ -544,7 +792,7 @@ function FactorySetupWizard({
   }
 
   function completeOnboarding() {
-    setMessage("Fabrika hazırlanıyor...");
+    setMessage(copy.setup.review.preparing);
     startTransition(async () => {
       const result = await completeFactoryOnboardingAction({
         sectorId: setup.sector.id,
@@ -557,7 +805,7 @@ function FactorySetupWizard({
         return;
       }
 
-      setMessage("Kurulum tamamlandı. Day 1 başlıyor.");
+      setMessage(copy.setup.review.done);
       window.setTimeout(() => {
         window.location.assign(result.redirectTo);
       }, 650);
@@ -566,25 +814,26 @@ function FactorySetupWizard({
 
   return (
     <main className="onboarding-shell min-h-screen overflow-hidden bg-background text-foreground">
+      <GameLocaleSwitcher className="fixed right-4 top-4 z-50" locale={locale} />
       <div className="factory-backdrop" />
       <div className="onboarding-setup-bg" />
       <section className="onboarding-setup-page">
         <div className="onboarding-setup-card game-card">
           <header className="onboarding-setup-header">
             <button
-              aria-label="Sektörlere dön"
+              aria-label={copy.setup.backToSectors}
               className="onboarding-back-button"
               onClick={onBackToSectors}
-              title="Sektörlere dön"
+              title={copy.setup.backToSectors}
               type="button"
             >
               <ArrowLeft size={17} />
             </button>
             <div>
-              <p className="onboarding-selection-kicker">FACTORY LAUNCH</p>
-              <h1>Tekstil Atölyesi Kurulumu</h1>
+              <p className="onboarding-selection-kicker">{copy.setup.headerKicker}</p>
+              <h1>{copy.setup.title}</h1>
             </div>
-            <div className="onboarding-setup-steps" aria-label="Kurulum adımları">
+            <div className="onboarding-setup-steps" aria-label={copy.setup.title}>
               {setupStepOrder.map((item, index) => (
                 <span
                   className={index <= stepIndex ? "is-active" : ""}
@@ -598,7 +847,9 @@ function FactorySetupWizard({
 
           {step === "capital" ? (
             <CapitalStep
+              copy={copy}
               currencyCode={currencyCode}
+              locale={locale}
               onNext={() => setStep("identity")}
               setup={setup}
             />
@@ -606,6 +857,7 @@ function FactorySetupWizard({
 
           {step === "identity" ? (
             <IdentityStep
+              copy={copy}
               currencyCode={currencyCode}
               factoryName={factoryName}
               isPending={isPending}
@@ -620,8 +872,10 @@ function FactorySetupWizard({
           {step === "lines" ? (
             <StarterLinesStep
               activeLine={activeLine}
+              copy={copy}
               currencyCode={currencyCode}
               installedLineCount={installedLineCount}
+              locale={locale}
               onContinue={() => setStep("costs")}
               onInstallLine={installCurrentLine}
               setup={setup}
@@ -630,7 +884,9 @@ function FactorySetupWizard({
 
           {step === "costs" ? (
             <CostsStep
+              copy={copy}
               currencyCode={currencyCode}
+              locale={locale}
               onBack={() => setStep("lines")}
               onNext={() => setStep("review")}
               setup={setup}
@@ -639,9 +895,11 @@ function FactorySetupWizard({
 
           {step === "review" ? (
             <ReviewStep
+              copy={copy}
               currencyCode={currencyCode}
               factoryName={factoryName}
               isPending={isPending}
+              locale={locale}
               message={message}
               onBack={() => setStep("costs")}
               onComplete={completeOnboarding}
@@ -663,11 +921,15 @@ const setupStepOrder: FactorySetupStep[] = [
 ];
 
 function CapitalStep({
+  copy,
   currencyCode,
+  locale,
   onNext,
   setup,
 }: {
+  copy: OnboardingCopy;
   currencyCode: "EUR" | "USD";
+  locale: SupportedLocale;
   onNext: () => void;
   setup: FactorySetupPayload;
 }) {
@@ -678,19 +940,19 @@ function CapitalStep({
       <section className="onboarding-setup-panel">
         <p className="game-pill w-fit">
           <Wallet size={16} />
-          Başlangıç kasası
+          {copy.setup.capital.pill}
         </p>
         <SetupBlurTitle
           onReady={() => setTitleReady(true)}
-          text={formatMoney(setup.simulation.startingCapitalCents, currencyCode)}
+          text={formatMoney(setup.simulation.startingCapitalCents, currencyCode, locale)}
         />
         {titleReady ? (
           <>
-            <RevealText text="İlk üretim gününe güçlü bir kasa ile başlıyorsun. Bu sermaye; hat kurulumu, personel giderleri ve ilk operasyon riskleri için ayrıldı." />
+            <RevealText text={copy.setup.capital.body} />
             <div className="onboarding-metric-row">
-              <SetupMetric icon={BadgeEuro} label="Para birimi" value={currencyCode} />
-              <SetupMetric icon={Landmark} label="İlk finans dönemi" value={`${setup.simulation.financePeriodDays} gün`} />
-              <SetupMetric icon={Factory} label="Başlangıç seviyesi" value={`Level ${setup.simulation.startingLevel}`} />
+              <SetupMetric icon={BadgeEuro} label={copy.setup.capital.currency} value={currencyCode} />
+              <SetupMetric icon={Landmark} label={copy.setup.capital.firstPeriod} value={`${setup.simulation.financePeriodDays} ${copy.setup.days}`} />
+              <SetupMetric icon={Factory} label={copy.setup.capital.startingLevel} value={`Level ${setup.simulation.startingLevel}`} />
             </div>
           </>
         ) : null}
@@ -698,10 +960,10 @@ function CapitalStep({
       <section className="onboarding-setup-aside">
         {titleReady ? (
           <>
-            <RevealSideTitle text="Başlangıç paketi hazır" />
-            <RevealText text="İlk fabrikan üç temel hatla açılır: Kesim, Dikim ve Ütü/Paket. Bu paket küçük atölye ölçeğinde üretime başlamak için dengelendi." />
+            <RevealSideTitle text={copy.setup.capital.sideTitle} />
+            <RevealText text={copy.setup.capital.sideBody} />
             <button className="game-button-primary onboarding-cta-motion" onClick={onNext} type="button">
-              Fabrika kimliğini oluştur
+              {copy.setup.capital.cta}
               <ArrowRight size={17} />
             </button>
           </>
@@ -712,6 +974,7 @@ function CapitalStep({
 }
 
 function IdentityStep({
+  copy,
   currencyCode,
   factoryName,
   isPending,
@@ -721,6 +984,7 @@ function IdentityStep({
   onFactoryNameChange,
   onSubmit,
 }: {
+  copy: OnboardingCopy;
   currencyCode: "EUR" | "USD";
   factoryName: string;
   isPending: boolean;
@@ -743,14 +1007,14 @@ function IdentityStep({
       <section className="onboarding-setup-panel">
         <p className="game-pill w-fit">
           <Factory size={16} />
-          Fabrika kimliği
+          {copy.setup.identity.pill}
         </p>
-        <SetupBlurTitle onReady={() => setTitleReady(true)} text="Atölyenin tabelasını as" />
+        <SetupBlurTitle onReady={() => setTitleReady(true)} text={copy.setup.identity.title} />
         {titleReady ? (
           <>
-            <RevealText text="Fabrika adı raporlarda, sipariş ekranlarında ve üretim özetlerinde görünecek. Son onaya kadar değiştirilebilir." />
+            <RevealText text={copy.setup.identity.body} />
             <label className="onboarding-field">
-              <span>Fabrika adı</span>
+              <span>{copy.setup.identity.field}</span>
               <input
                 maxLength={80}
                 minLength={3}
@@ -759,7 +1023,7 @@ function IdentityStep({
                 value={factoryName}
               />
             </label>
-            <div className="onboarding-currency-toggle" role="radiogroup" aria-label="Para birimi">
+            <div className="onboarding-currency-toggle" role="radiogroup" aria-label={copy.setup.identity.currencyAria}>
               <CurrencyOption
                 active={currencyCode === "EUR"}
                 code="EUR"
@@ -780,20 +1044,20 @@ function IdentityStep({
       <section className="onboarding-setup-aside">
         {titleReady ? (
           <>
-            <RevealSideTitle text="Kimlik kilidi" />
-            <RevealText text="Fabrika adı raporlarda, sipariş ekranlarında ve üretim özetlerinde görünecek. Son onaya kadar değiştirilebilir." />
+            <RevealSideTitle text={copy.setup.identity.sideTitle} />
+            <RevealText text={copy.setup.identity.body} />
             <div className="onboarding-action-row">
               <button
-                aria-label="Geri"
+                aria-label={copy.setup.identity.back}
                 className="game-button-ghost onboarding-step-back-button"
                 onClick={onBack}
-                title="Geri"
+                title={copy.setup.identity.back}
                 type="button"
               >
                 <ArrowLeft size={17} />
               </button>
               <button className="game-button-primary onboarding-cta-motion" disabled={isPending} type="submit">
-                {isPending ? "Kaydediliyor" : "Hat kurulumuna geç"}
+                {isPending ? copy.setup.identity.saving : copy.setup.identity.cta}
                 <ArrowRight size={17} />
               </button>
             </div>
@@ -806,21 +1070,25 @@ function IdentityStep({
 
 function StarterLinesStep({
   activeLine,
+  copy,
   currencyCode,
   installedLineCount,
+  locale,
   onContinue,
   onInstallLine,
   setup,
 }: {
   activeLine: StarterLineSetup | undefined;
+  copy: OnboardingCopy;
   currencyCode: "EUR" | "USD";
   installedLineCount: number;
+  locale: SupportedLocale;
   onContinue: () => void;
   onInstallLine: () => void;
   setup: FactorySetupPayload;
 }) {
   const installedLines = setup.starterLines.slice(0, installedLineCount);
-  const activeLineCopy = activeLine ? getStarterLineCopy(activeLine.key) : null;
+  const activeLineCopy = activeLine ? getStarterLineCopy(activeLine.key, locale) : null;
   const allLinesInstalled = installedLineCount >= setup.starterLines.length;
 
   return (
@@ -841,17 +1109,17 @@ function StarterLinesStep({
           })}
         </div>
         <div className="onboarding-floor-summary">
-          <span>{installedLines.length} / {setup.starterLines.length} hat kuruldu</span>
-          <strong>{setup.costs.totalStaff} kişilik başlangıç kadrosu hazırlanıyor</strong>
+          <span>{copy.setup.lines.installedCount(installedLines.length, setup.starterLines.length)}</span>
+          <strong>{copy.setup.lines.staffPreparing(setup.costs.totalStaff)}</strong>
         </div>
         {allLinesInstalled ? (
           <div className="onboarding-lines-complete">
             <div>
-              <strong>Üç üretim hattı zemine yerleşti.</strong>
-              <span>Kesim, Dikim ve Ütü/Paket hattı Day 1 için hazır.</span>
+              <strong>{copy.setup.lines.completeTitle}</strong>
+              <span>{copy.setup.lines.completeBody}</span>
             </div>
             <button className="game-button-primary onboarding-cta-motion" onClick={onContinue} type="button">
-              Aylık gider brifingine geç
+              {copy.setup.lines.completeCta}
               <ArrowRight size={17} />
             </button>
           </div>
@@ -863,7 +1131,9 @@ function StarterLinesStep({
           key={activeLine.id}
           activeLine={activeLine}
           activeLineCopy={activeLineCopy}
+          copy={copy}
           currencyCode={currencyCode}
+          locale={locale}
           onInstallLine={onInstallLine}
         />
       ) : null}
@@ -874,12 +1144,16 @@ function StarterLinesStep({
 function StarterLineModal({
   activeLine,
   activeLineCopy,
+  copy,
   currencyCode,
+  locale,
   onInstallLine,
 }: {
   activeLine: StarterLineSetup;
   activeLineCopy: ReturnType<typeof getStarterLineCopy>;
+  copy: OnboardingCopy;
   currencyCode: "EUR" | "USD";
+  locale: SupportedLocale;
   onInstallLine: () => void;
 }) {
   const [titleReady, setTitleReady] = useState(false);
@@ -890,7 +1164,7 @@ function StarterLineModal({
         <div className="onboarding-line-visual">
           {activeLine.visual.detailUrl ? (
             <span
-              aria-label={`${activeLine.departmentName} üretim hattı`}
+              aria-label={copy.setup.lines.visualLabel(activeLine.departmentName)}
               className="onboarding-line-visual-asset"
               role="img"
               style={imageBackgroundStyle(activeLine.visual.detailUrl)}
@@ -898,7 +1172,7 @@ function StarterLineModal({
           ) : null}
         </div>
         <div className="onboarding-line-copy">
-          <p className="onboarding-selection-kicker">Workshop segment</p>
+          <p className="onboarding-selection-kicker">{copy.setup.lines.segment}</p>
           <SetupBlurTitle
             onReady={() => setTitleReady(true)}
             text={activeLineCopy.title}
@@ -908,21 +1182,21 @@ function StarterLineModal({
               <RevealText className="onboarding-line-subtitle" text={activeLineCopy.subtitle} />
               <RevealText text={activeLineCopy.description} />
               <div className="onboarding-line-metrics">
-                <SetupMetric icon={Coins} label="Kurulum maliyeti" value={formatMoney(activeLine.purchaseCostCents, currencyCode)} />
-                <SetupMetric icon={Users} label="Personel" value={`${activeLine.staffTotal} kişi`} />
-                <SetupMetric icon={PackageCheck} label="Günlük kapasite" value={`${formatNumber(activeLine.dailyPointCapacity)} puan`} />
-                <SetupMetric icon={Factory} label="Alan ihtiyacı" value={`${activeLine.areaM2} m²`} />
+                <SetupMetric icon={Coins} label={copy.setup.lines.installCost} value={formatMoney(activeLine.purchaseCostCents, currencyCode, locale)} />
+                <SetupMetric icon={Users} label={copy.setup.lines.staff} value={`${activeLine.staffTotal} ${copy.setup.people}`} />
+                <SetupMetric icon={PackageCheck} label={copy.setup.lines.capacity} value={`${formatNumber(activeLine.dailyPointCapacity, locale)} ${copy.setup.points}`} />
+                <SetupMetric icon={Factory} label={copy.setup.lines.area} value={`${activeLine.areaM2} m²`} />
               </div>
               <div className="onboarding-staff-strip">
                 {activeLine.staffRequirements.map((requirement) => (
                   <span key={requirement.id}>
-                    {formatRoleName(activeLine.key, requirement.roleKey, requirement.roleName)}
+                    {formatRoleName(activeLine.key, requirement.roleKey, requirement.roleName, locale)}
                     <strong>{requirement.quantity}</strong>
                   </span>
                 ))}
               </div>
               <button className="game-button-primary onboarding-cta-motion" onClick={onInstallLine} type="button">
-                Hattı zemine yerleştir
+                {copy.setup.lines.cta}
                 <ArrowRight size={17} />
               </button>
             </>
@@ -934,12 +1208,16 @@ function StarterLineModal({
 }
 
 function CostsStep({
+  copy,
   currencyCode,
+  locale,
   onBack,
   onNext,
   setup,
 }: {
+  copy: OnboardingCopy;
   currencyCode: "EUR" | "USD";
+  locale: SupportedLocale;
   onBack: () => void;
   onNext: () => void;
   setup: FactorySetupPayload;
@@ -951,21 +1229,21 @@ function CostsStep({
       <section className="onboarding-setup-panel">
         <p className="game-pill w-fit">
           <Landmark size={16} />
-          Aylık gider brifingi
+          {copy.setup.costs.pill}
         </p>
         <SetupBlurTitle
           onReady={() => setTitleReady(true)}
-          text={formatMoney(setup.costs.monthlyTotalExpenseCents, currencyCode)}
+          text={formatMoney(setup.costs.monthlyTotalExpenseCents, currencyCode, locale)}
         />
         {titleReady ? (
           <>
-            <RevealText text={`İlk ${setup.simulation.financePeriodDays} günlük finans döneminde fabrikanın tahmini sabit gideri. Bu özet, üretim başlamadan önce nakit akışı riskini gösterir.`} />
+            <RevealText text={copy.setup.costs.body(setup.simulation.financePeriodDays)} />
             <div className="grid gap-1">
-              <CostRow label="Personel maaşları" value={setup.costs.monthlyPayrollCents} currencyCode={currencyCode} />
-              <CostRow label="Alan / kira gideri" value={setup.costs.monthlyRentCents} currencyCode={currencyCode} />
-              <CostRow label="Enerji gideri" value={setup.costs.monthlyElectricityCents} currencyCode={currencyCode} />
-              <CostRow label="Yemek ve vardiya desteği" value={setup.costs.monthlyMealCents} currencyCode={currencyCode} />
-              <CostRow label="Sabit operasyon giderleri" value={setup.costs.monthlyOverheadCents} currencyCode={currencyCode} />
+              <CostRow label={copy.setup.costs.payroll} value={setup.costs.monthlyPayrollCents} currencyCode={currencyCode} locale={locale} />
+              <CostRow label={copy.setup.costs.rent} value={setup.costs.monthlyRentCents} currencyCode={currencyCode} locale={locale} />
+              <CostRow label={copy.setup.costs.energy} value={setup.costs.monthlyElectricityCents} currencyCode={currencyCode} locale={locale} />
+              <CostRow label={copy.setup.costs.meal} value={setup.costs.monthlyMealCents} currencyCode={currencyCode} locale={locale} />
+              <CostRow label={copy.setup.costs.overhead} value={setup.costs.monthlyOverheadCents} currencyCode={currencyCode} locale={locale} />
             </div>
           </>
         ) : null}
@@ -973,24 +1251,24 @@ function CostsStep({
       <section className="onboarding-setup-aside">
         {titleReady ? (
           <>
-            <RevealSideTitle text="Operasyon ölçeği" />
+            <RevealSideTitle text={copy.setup.costs.sideTitle} />
             <div className="onboarding-metric-column">
-              <SetupMetric icon={Users} label="Üretim kadrosu" value={`${setup.costs.directStaffTotal} kişi`} />
-              <SetupMetric icon={Users} label="Yönetim ve destek" value={`${setup.costs.supportStaffTotal} kişi`} />
-              <SetupMetric icon={Factory} label="Kurulu alan" value={`${setup.costs.totalAreaM2} m²`} />
+              <SetupMetric icon={Users} label={copy.setup.costs.directStaff} value={`${setup.costs.directStaffTotal} ${copy.setup.people}`} />
+              <SetupMetric icon={Users} label={copy.setup.costs.supportStaff} value={`${setup.costs.supportStaffTotal} ${copy.setup.people}`} />
+              <SetupMetric icon={Factory} label={copy.setup.costs.areaInstalled} value={`${setup.costs.totalAreaM2} m²`} />
             </div>
             <div className="onboarding-action-row">
               <button
-                aria-label="Geri"
+                aria-label={copy.setup.identity.back}
                 className="game-button-ghost onboarding-step-back-button"
                 onClick={onBack}
-                title="Geri"
+                title={copy.setup.identity.back}
                 type="button"
               >
                 <ArrowLeft size={17} />
               </button>
               <button className="game-button-primary onboarding-cta-motion" onClick={onNext} type="button">
-                Final özetine geç
+                {copy.setup.costs.cta}
                 <ArrowRight size={17} />
               </button>
             </div>
@@ -1002,17 +1280,21 @@ function CostsStep({
 }
 
 function ReviewStep({
+  copy,
   currencyCode,
   factoryName,
   isPending,
+  locale,
   message,
   onBack,
   onComplete,
   setup,
 }: {
+  copy: OnboardingCopy;
   currencyCode: "EUR" | "USD";
   factoryName: string;
   isPending: boolean;
+  locale: SupportedLocale;
   message: string;
   onBack: () => void;
   onComplete: () => void;
@@ -1025,23 +1307,23 @@ function ReviewStep({
       <section className="onboarding-setup-panel">
         <p className="game-pill w-fit">
           <CheckCircle2 size={16} />
-          Kurulum özeti
+          {copy.setup.review.pill}
         </p>
         <SetupBlurTitle
           onReady={() => setTitleReady(true)}
-          text={`${factoryName} üretime hazır`}
+          text={copy.setup.review.title(factoryName)}
         />
         {titleReady ? (
           <>
-            <RevealText text="Başlangıç sermayesi, üretim hatları, personel kadrosu ve ilk finans dönemi hazırlandı. Onay verdiğinde fabrika kurulumu tamamlanır ve Day 1 planlama ekranına geçersin." />
+            <RevealText text={copy.setup.review.body} />
             <div className="grid gap-1">
-              <ReviewRow label="Sektör" value={setup.sector.title} />
-              <ReviewRow label="Başlangıç kasası" value={formatMoney(setup.simulation.startingCapitalCents, currencyCode)} />
-              <ReviewRow label="Para birimi" value={currencyCode} />
-              <ReviewRow label="Kurulan üretim hatları" value="Kesim, Dikim, Ütü / Paket" />
-              <ReviewRow label="Dış proses destekleri" value="Nakış, Baskı, Yıkama, Boyama" />
-              <ReviewRow label="Toplam çalışan" value={`${setup.costs.totalStaff} kişi`} />
-              <ReviewRow label="Başlangıç günü" value={`Day ${setup.simulation.startingDay}`} />
+              <ReviewRow label={copy.setup.review.sector} value={setup.sector.title} />
+              <ReviewRow label={copy.setup.review.capital} value={formatMoney(setup.simulation.startingCapitalCents, currencyCode, locale)} />
+              <ReviewRow label={copy.setup.review.currency} value={currencyCode} />
+              <ReviewRow label={copy.setup.review.lines} value={copy.setup.review.linesValue} />
+              <ReviewRow label={copy.setup.review.outsource} value={copy.setup.review.outsourceValue} />
+              <ReviewRow label={copy.setup.review.staff} value={`${setup.costs.totalStaff} ${copy.setup.people}`} />
+              <ReviewRow label={copy.setup.review.startingDay} value={`${copy.setup.day} ${setup.simulation.startingDay}`} />
             </div>
             {message ? <p className="onboarding-error">{message}</p> : null}
           </>
@@ -1050,20 +1332,20 @@ function ReviewStep({
       <section className="onboarding-setup-aside">
         {titleReady ? (
           <>
-            <RevealSideTitle text="Son onay" />
-            <RevealText text="Fabrika kurulduktan sonra başlangıç hatları, personel kadrosu ve ilk finans dönemi aktif hale gelir. Sonraki ekran Day 1 üretim planlamasıdır." />
+            <RevealSideTitle text={copy.setup.review.sideTitle} />
+            <RevealText text={copy.setup.review.sideBody} />
             <div className="onboarding-action-row">
               <button
-                aria-label="Geri"
+                aria-label={copy.setup.identity.back}
                 className="game-button-ghost onboarding-step-back-button"
                 onClick={onBack}
-                title="Geri"
+                title={copy.setup.identity.back}
                 type="button"
               >
                 <ArrowLeft size={17} />
               </button>
               <button className="game-button-primary onboarding-cta-motion" disabled={isPending} onClick={onComplete} type="button">
-                {isPending ? "Fabrika hazırlanıyor..." : "Fabrikayı kur"}
+                {isPending ? copy.setup.review.pending : copy.setup.review.cta}
                 <ArrowRight size={17} />
               </button>
             </div>
@@ -1200,89 +1482,149 @@ function AnimatedValue({ value }: { value: string }) {
   );
 }
 
-function getStarterLineCopy(lineKey: string) {
+function getStarterLineCopy(lineKey: string, locale: SupportedLocale) {
   const copies: Record<
-    string,
-    {
-      title: string;
-      shortTitle: string;
-      subtitle: string;
-      description: string;
-    }
+    SupportedLocale,
+    Record<
+      string,
+      {
+        title: string;
+        shortTitle: string;
+        subtitle: string;
+        description: string;
+      }
+    >
   > = {
-    cutting_workshop: {
-      title: "Kesim Hattı",
-      shortTitle: "Kesim",
-      subtitle: "Kumaş üretime burada girer",
-      description:
-        "Kesim hattı, kumaşı üretime hazır parçalar haline getirir. Bu hat yavaşlarsa dikim hattı kısa sürede beklemeye düşer.",
+    tr: {
+      cutting_workshop: {
+        title: "Kesim Hattı",
+        shortTitle: "Kesim",
+        subtitle: "Kumaş üretime burada girer",
+        description:
+          "Kesim hattı, kumaşı üretime hazır parçalar haline getirir. Bu hat yavaşlarsa dikim hattı kısa sürede beklemeye düşer.",
+      },
+      sewing_workshop: {
+        title: "Dikim Hattı",
+        shortTitle: "Dikim",
+        subtitle: "Üretimin ana temposu burada belirlenir",
+        description:
+          "Dikim hattı fabrikanın ana darboğaz noktasıdır. Operatör dengesi bozulursa kesim kuyruğu büyür ve teslimat riski artar.",
+      },
+      ironing_packing_workshop: {
+        title: "Ütü / Paket Hattı",
+        shortTitle: "Ütü / Paket",
+        subtitle: "Teslimat kalitesi burada netleşir",
+        description:
+          "Ürün burada son kontrol, ütü, katlama ve koli akışından geçer. Bu hattın disiplini teslimat kalitesini doğrudan etkiler.",
+      },
     },
-    sewing_workshop: {
-      title: "Dikim Hattı",
-      shortTitle: "Dikim",
-      subtitle: "Üretimin ana temposu burada belirlenir",
-      description:
-        "Dikim hattı fabrikanın ana darboğaz noktasıdır. Operatör dengesi bozulursa kesim kuyruğu büyür ve teslimat riski artar.",
-    },
-    ironing_packing_workshop: {
-      title: "Ütü / Paket Hattı",
-      shortTitle: "Ütü / Paket",
-      subtitle: "Teslimat kalitesi burada netleşir",
-      description:
-        "Ürün burada son kontrol, ütü, katlama ve koli akışından geçer. Bu hattın disiplini teslimat kalitesini doğrudan etkiler.",
+    en: {
+      cutting_workshop: {
+        title: "Cutting Line",
+        shortTitle: "Cutting",
+        subtitle: "Fabric enters production here",
+        description:
+          "The cutting line turns fabric into production-ready pieces. If it slows down, sewing runs out of input quickly.",
+      },
+      sewing_workshop: {
+        title: "Sewing Line",
+        shortTitle: "Sewing",
+        subtitle: "The main factory tempo is set here",
+        description:
+          "The sewing line is the main bottleneck point of the factory. If operator balance slips, the cutting queue grows and delivery risk rises.",
+      },
+      ironing_packing_workshop: {
+        title: "Ironing / Packing Line",
+        shortTitle: "Ironing / Packing",
+        subtitle: "Delivery quality becomes visible here",
+        description:
+          "Products pass through final control, ironing, folding, and carton flow here. This line directly shapes delivery quality.",
+      },
     },
   };
 
   return (
-    copies[lineKey] ?? {
-      title: "Üretim Hattı",
-      shortTitle: "Hat",
-      subtitle: "Başlangıç üretim modülü",
-      description: "Bu üretim hattı başlangıç atölyesinin operasyon akışına eklenir.",
+    copies[locale][lineKey] ?? {
+      title: locale === "tr" ? "Üretim Hattı" : "Production Line",
+      shortTitle: locale === "tr" ? "Hat" : "Line",
+      subtitle: locale === "tr" ? "Başlangıç üretim modülü" : "Starter production module",
+      description: locale === "tr"
+        ? "Bu üretim hattı başlangıç atölyesinin operasyon akışına eklenir."
+        : "This production line is added to the starter workshop operating flow.",
     }
   );
 }
 
-function formatRoleName(lineKey: string, roleKey: string, fallback: string) {
-  const labels: Record<string, Record<string, string>> = {
-    cutting_workshop: {
-      bundling_staff: "Bundle / Numaralama",
-      cutting_operator: "Kesim Operatörü",
-      cutting_qc_staff: "Hat Destek",
-      fabric_spreading_staff: "Kumaş Serim",
-      marker_staff: "Marker / Şablon",
+function formatRoleName(
+  lineKey: string,
+  roleKey: string,
+  fallback: string,
+  locale: SupportedLocale,
+) {
+  const labels: Record<SupportedLocale, Record<string, Record<string, string>>> = {
+    tr: {
+      cutting_workshop: {
+        bundling_staff: "Bundle / Numaralama",
+        cutting_operator: "Kesim Operatörü",
+        cutting_qc_staff: "Hat Destek",
+        fabric_spreading_staff: "Kumaş Serim",
+        marker_staff: "Marker / Şablon",
+      },
+      sewing_workshop: {
+        inline_qc_staff: "Hat İçi Kalite",
+        sewing_helper: "Yardımcı Personel",
+        sewing_line_leader: "Hat Sorumlusu",
+        sewing_operator: "Dikim Operatörü",
+      },
+      ironing_packing_workshop: {
+        carton_flow_staff: "Koli / Akış",
+        final_qc_staff: "Son Kontrol",
+        ironing_operator: "Ütü / Pres",
+        packing_staff: "Katlama / Paket",
+      },
     },
-    sewing_workshop: {
-      inline_qc_staff: "Hat İçi Kalite",
-      sewing_helper: "Yardımcı Personel",
-      sewing_line_leader: "Hat Sorumlusu",
-      sewing_operator: "Dikim Operatörü",
-    },
-    ironing_packing_workshop: {
-      carton_flow_staff: "Koli / Akış",
-      final_qc_staff: "Son Kontrol",
-      ironing_operator: "Ütü / Pres",
-      packing_staff: "Katlama / Paket",
+    en: {
+      cutting_workshop: {
+        bundling_staff: "Bundling / Numbering",
+        cutting_operator: "Cutting Operator",
+        cutting_qc_staff: "Line Support",
+        fabric_spreading_staff: "Fabric Spreading",
+        marker_staff: "Marker / Pattern",
+      },
+      sewing_workshop: {
+        inline_qc_staff: "Inline Quality",
+        sewing_helper: "Helper Staff",
+        sewing_line_leader: "Line Leader",
+        sewing_operator: "Sewing Operator",
+      },
+      ironing_packing_workshop: {
+        carton_flow_staff: "Carton / Flow",
+        final_qc_staff: "Final Control",
+        ironing_operator: "Ironing / Press",
+        packing_staff: "Folding / Packing",
+      },
     },
   };
 
-  return labels[lineKey]?.[roleKey] ?? fallback;
+  return labels[locale][lineKey]?.[roleKey] ?? fallback;
 }
 
 function CostRow({
   currencyCode,
   label,
+  locale,
   value,
 }: {
   currencyCode: "EUR" | "USD";
   label: string;
+  locale: SupportedLocale;
   value: string;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-secondary px-3 py-2">
       <span className="text-[0.8rem] font-bold text-muted-foreground">{label}</span>
       <strong className="text-right text-[0.86rem] font-extrabold text-card-foreground">
-        <AnimatedValue value={formatMoney(value, currencyCode)} />
+        <AnimatedValue value={formatMoney(value, currencyCode, locale)} />
       </strong>
     </div>
   );
@@ -1299,16 +1641,20 @@ function ReviewRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatMoney(cents: string, currencyCode: "EUR" | "USD") {
-  return new Intl.NumberFormat("tr-TR", {
+function formatMoney(
+  cents: string,
+  currencyCode: "EUR" | "USD",
+  locale: SupportedLocale,
+) {
+  return new Intl.NumberFormat(numberLocale(locale), {
     currency: currencyCode,
     maximumFractionDigits: 0,
     style: "currency",
   }).format(Number(cents) / 100);
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
+function formatNumber(value: number, locale: SupportedLocale) {
+  return new Intl.NumberFormat(numberLocale(locale)).format(value);
 }
 
 function isAvailableSector(sector: OnboardingSector) {

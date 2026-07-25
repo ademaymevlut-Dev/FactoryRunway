@@ -16,6 +16,8 @@ import {
 import { getCurrentUser } from "@/lib/auth/session";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getPrisma } from "@/lib/db";
+import { normalizeLocale } from "@/lib/i18n/locales";
+import { firstOrderCopy, type FirstOrderCopy } from "./first-order-copy";
 
 export type FirstOrderAcceptState = {
   status: "idle" | "error";
@@ -33,17 +35,23 @@ export async function acceptFirstOrderAction(
   _previousState: FirstOrderAcceptState,
   formData: FormData,
 ): Promise<FirstOrderAcceptState> {
-  const optionId = readText(formData, "optionId");
+  const locale = normalizeLocale(formData.get("locale"));
+  const copy = firstOrderCopy[locale];
+  const optionId = readText(
+    formData,
+    "optionId",
+    copy.actionErrors.optionRequired,
+  );
 
   try {
-    await createFirstOrder(optionId);
+    await createFirstOrder(optionId, copy);
   } catch (cause) {
     return {
       status: "error",
       message:
         cause instanceof Error
           ? cause.message
-          : "İlk sipariş kabul edilirken bir sorun oluştu.",
+          : copy.actionErrors.acceptFailed,
     };
   }
 
@@ -53,7 +61,7 @@ export async function acceptFirstOrderAction(
   redirect("/player/first-order/simulation");
 }
 
-async function createFirstOrder(optionId: string) {
+async function createFirstOrder(optionId: string, copy: FirstOrderCopy) {
   const auth = await getCurrentUser();
 
   if (!auth) redirect("/");
@@ -83,7 +91,7 @@ async function createFirstOrder(optionId: string) {
 
       const factory = playerProfile?.factories[0];
       if (!playerProfile || !factory) {
-        throw new Error("Fabrika bulunamadı. Önce onboarding akışını tamamla.");
+        throw new Error(copy.actionErrors.factoryMissing);
       }
 
       const existingTutorial = await tx.tutorialProgress.findUnique({
@@ -122,11 +130,11 @@ async function createFirstOrder(optionId: string) {
       });
 
       if (!option) {
-        throw new Error("Seçilen ilk sipariş ürünü artık kullanılamıyor.");
+        throw new Error(copy.actionErrors.optionMissing);
       }
 
       if (!option.product.routeSteps.length) {
-        throw new Error("Bu ürünün üretim rotası tanımlanmamış.");
+        throw new Error(copy.actionErrors.routeMissing);
       }
 
       const activeOrderCount = await tx.customerOrder.count({
@@ -310,10 +318,10 @@ async function createFirstOrder(optionId: string) {
   );
 }
 
-function readText(formData: FormData, key: string) {
+function readText(formData: FormData, key: string, message: string) {
   const value = formData.get(key);
   const result = typeof value === "string" ? value.trim() : "";
-  if (!result) throw new Error(`${key} zorunlu.`);
+  if (!result) throw new Error(message);
   return result;
 }
 

@@ -13,12 +13,19 @@ import {
   type PrismaClient,
 } from "@/generated/prisma/client";
 import { readCustomerRelationshipImpactFromMetadata } from "@/lib/customer-relationship";
+import {
+  normalizeLocale,
+  numberLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import type {
   ShiftPlayback,
   ShiftPlaybackTimelineEvent,
   ShiftProductResult,
 } from "../types";
+import { shiftPlaybackCopy } from "../shift-playback-copy";
 
 type ProjectionClient = Prisma.TransactionClient | PrismaClient;
 
@@ -34,7 +41,7 @@ type ProductLineResultRow = {
   producedQuantity: number;
   department: {
     key: string;
-    translations: Array<{ name: string }>;
+    translations: Array<{ locale?: string; name: string }>;
   };
   product: {
     id: string;
@@ -78,14 +85,14 @@ type ChaosEventRow = {
   affectedStaffCount: number | null;
   department: {
     key: string;
-    translations: Array<{ name: string }>;
+    translations: Array<{ locale?: string; name: string }>;
   } | null;
   eventType: ChaosEventType;
   factoryProductionLine: {
     lineNumber: number;
     department: {
       key: string;
-      translations: Array<{ name: string }>;
+      translations: Array<{ locale?: string; name: string }>;
     };
   } | null;
   id: string;
@@ -97,9 +104,12 @@ type ChaosEventRow = {
 };
 
 export async function getShiftProductResults(input: {
+  locale?: SupportedLocale;
   prisma: ProjectionClient;
   shiftId: string;
 }): Promise<ShiftProductResult[]> {
+  const locale = normalizeLocale(input.locale);
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
   const lineResults = await input.prisma.shiftLineResult.findMany({
     where: {
       producedQuantity: { gt: 0 },
@@ -118,8 +128,8 @@ export async function getShiftProductResults(input: {
         select: {
           key: true,
           translations: {
-            where: { locale: "tr" },
-            select: { name: true },
+            where: { locale: translationLocaleFilter },
+            select: { locale: true, name: true },
           },
         },
       },
@@ -159,8 +169,11 @@ export async function getShiftProductResults(input: {
     const orderId = result.productionOrder?.id ?? null;
     const key = `${result.product.id}:${orderId ?? "no-order"}`;
     const product = getOrCreateProductGroup(groups, key, result);
-    const departmentName =
-      result.department.translations[0]?.name ?? toTitle(result.department.key);
+    const departmentName = pickTranslation(
+      result.department.translations,
+      result.department.key,
+      locale,
+    );
     const department = product.departments.find(
       (item) => item.departmentId === result.departmentId,
     );
@@ -183,8 +196,8 @@ export async function getShiftProductResults(input: {
     const secondCode = second.orderCode ?? "";
 
     return (
-      firstCode.localeCompare(secondCode, "tr") ||
-      first.productName.localeCompare(second.productName, "tr")
+      firstCode.localeCompare(secondCode, numberLocale(locale)) ||
+      first.productName.localeCompare(second.productName, numberLocale(locale))
     );
   });
 }
@@ -271,12 +284,15 @@ export async function getShiftDepartmentPerformance(input: {
 export async function getShiftTimelineEvents(input: {
   factoryId: string;
   gameDay: number;
+  locale?: SupportedLocale;
   prisma: ProjectionClient;
   shift: Pick<
     ShiftPlayback,
     "departmentResults" | "shiftId" | "summary" | "simulatedGameDay"
   >;
 }): Promise<ShiftPlaybackTimelineEvent[]> {
+  const locale = normalizeLocale(input.locale);
+  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
   const [
     financeTransactions,
     financeDues,
@@ -358,8 +374,8 @@ export async function getShiftTimelineEvents(input: {
             select: {
               key: true,
               translations: {
-                where: { locale: "tr" },
-                select: { name: true },
+                where: { locale: translationLocaleFilter },
+                select: { locale: true, name: true },
               },
             },
           },
@@ -395,8 +411,8 @@ export async function getShiftTimelineEvents(input: {
             select: {
               key: true,
               translations: {
-                where: { locale: "tr" },
-                select: { name: true },
+                where: { locale: translationLocaleFilter },
+                select: { locale: true, name: true },
               },
             },
           },
@@ -408,8 +424,8 @@ export async function getShiftTimelineEvents(input: {
                 select: {
                   key: true,
                   translations: {
-                    where: { locale: "tr" },
-                    select: { name: true },
+                    where: { locale: translationLocaleFilter },
+                    select: { locale: true, name: true },
                   },
                 },
               },
@@ -485,7 +501,7 @@ export async function getShiftTimelineEvents(input: {
   });
 
   for (const chaosEvent of chaosEvents) {
-    add(chaosEventToTimelineEvent(chaosEvent));
+    add(chaosEventToTimelineEvent(chaosEvent, locale));
   }
 
   for (const department of input.shift.departmentResults) {
@@ -669,8 +685,11 @@ export async function getShiftTimelineEvents(input: {
       minute: 450,
       payload: {
         amountCents: job.totalCostCents.toString(),
-        departmentName:
-          job.department.translations[0]?.name ?? toTitle(job.department.key),
+        departmentName: pickTranslation(
+          job.department.translations,
+          job.department.key,
+          locale,
+        ),
         orderCode: job.productionOrder.productionNo,
         quantity: job.quantity,
       },
@@ -755,12 +774,16 @@ function getProductImageUrl(
   return frontThumbnail?.url ?? frontCard?.url ?? thumbnail?.url ?? card?.url ?? null;
 }
 
-function chaosEventToTimelineEvent(chaosEvent: ChaosEventRow): TimelineEventDraft & {
+function chaosEventToTimelineEvent(
+  chaosEvent: ChaosEventRow,
+  locale: SupportedLocale,
+): TimelineEventDraft & {
   id: string;
 } {
-  const departmentName = getChaosDepartmentName(chaosEvent);
+  const copy = shiftPlaybackCopy[locale].service;
+  const departmentName = getChaosDepartmentName(chaosEvent, locale);
   const lineLabel = chaosEvent.factoryProductionLine
-    ? `Hat ${chaosEvent.factoryProductionLine.lineNumber}`
+    ? copy.lineLabel(chaosEvent.factoryProductionLine.lineNumber)
     : null;
 
   return {
@@ -783,13 +806,16 @@ function chaosEventToTimelineEvent(chaosEvent: ChaosEventRow): TimelineEventDraf
   };
 }
 
-function getChaosDepartmentName(chaosEvent: ChaosEventRow) {
+function getChaosDepartmentName(
+  chaosEvent: ChaosEventRow,
+  locale: SupportedLocale,
+) {
   const department =
     chaosEvent.department ?? chaosEvent.factoryProductionLine?.department ?? null;
 
   if (!department) return null;
 
-  return department.translations[0]?.name ?? toTitle(department.key);
+  return pickTranslation(department.translations, department.key, locale);
 }
 
 function getChaosEventMinute(chaosEvent: ChaosEventRow) {
@@ -1029,6 +1055,27 @@ function xpReasonToMinute(reason: XpReason) {
     default:
       return 535;
   }
+}
+
+function getTranslationLocaleFallbacks(locale: SupportedLocale) {
+  return locale === "tr" ? ["tr", "en"] : ["en", "tr"];
+}
+
+function pickTranslation(
+  translations: Array<{ locale?: string; name: string }>,
+  fallback: string,
+  locale: SupportedLocale,
+) {
+  const localizedTranslations = translations.filter(
+    (translation): translation is { locale: string; name: string } =>
+      typeof translation.locale === "string",
+  );
+
+  return (
+    preferredTranslation(localizedTranslations, locale)?.name ??
+    translations[0]?.name ??
+    toTitle(fallback)
+  );
 }
 
 function isJsonRecord(value: Prisma.JsonValue | undefined): value is Prisma.JsonObject {

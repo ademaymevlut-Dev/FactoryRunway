@@ -33,12 +33,18 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
+import {
+  numberLocale as resolveNumberLocale,
+  type NumberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 
 import {
   getFactoryVisitAction,
   getXpRankingAction,
 } from "../actions/ranking-actions";
+import { rankingCopy, type RankingCopy } from "../ranking-copy";
 import type {
   FactoryVisitView,
   RankingFactorySummary,
@@ -47,10 +53,15 @@ import type {
 } from "../types";
 import { VisitorFactoryMap } from "./visitor-factory-map";
 
-export function RankingPanel() {
+type RankingCache = Partial<Record<SupportedLocale, XpRankingView>>;
+type RankingErrorCache = Partial<Record<SupportedLocale, string>>;
+
+export function RankingPanel({ locale }: { locale: SupportedLocale }) {
+  const copy = rankingCopy[locale];
+  const numberLocale = resolveNumberLocale(locale);
   const { rankingVisit, setRankingVisit } = useGameUiStore();
-  const [ranking, setRanking] = useState<XpRankingView | null>(null);
-  const [rankingError, setRankingError] = useState<string | null>(null);
+  const [rankings, setRankings] = useState<RankingCache>({});
+  const [rankingErrors, setRankingErrors] = useState<RankingErrorCache>({});
   const [factoryVisits, setFactoryVisits] = useState<
     Record<string, FactoryVisitView>
   >({});
@@ -62,67 +73,84 @@ export function RankingPanel() {
   const [isFactoryVisitPending, startFactoryVisitTransition] = useTransition();
 
   const loadRankingPage = useCallback((page: number) => {
-    setRankingError(null);
+    setRankingErrors((current) => omitCacheKey(current, locale));
     startRankingTransition(async () => {
-      const result = await getXpRankingAction(page);
+      const result = await getXpRankingAction(page, locale);
 
       if (!result.ok) {
-        setRankingError(result.message);
+        setRankingErrors((current) => ({
+          ...current,
+          [locale]: result.message,
+        }));
         return;
       }
 
-      setRanking(result.ranking);
+      setRankings((current) => ({
+        ...current,
+        [locale]: result.ranking,
+      }));
     });
-  }, []);
+  }, [locale]);
 
   const loadFactoryVisit = useCallback((factoryId: string) => {
-    if (requestedFactoriesRef.current.has(factoryId)) return;
+    const cacheKey = getFactoryVisitCacheKey(locale, factoryId);
 
-    requestedFactoriesRef.current.add(factoryId);
+    if (requestedFactoriesRef.current.has(cacheKey)) return;
+
+    requestedFactoriesRef.current.add(cacheKey);
     setFactoryVisitErrors((current) => {
       const next = { ...current };
-      delete next[factoryId];
+      delete next[cacheKey];
       return next;
     });
     startFactoryVisitTransition(async () => {
-      const result = await getFactoryVisitAction(factoryId);
+      const result = await getFactoryVisitAction(factoryId, locale);
 
-      requestedFactoriesRef.current.delete(factoryId);
+      requestedFactoriesRef.current.delete(cacheKey);
 
       if (!result.ok) {
         setFactoryVisitErrors((current) => ({
           ...current,
-          [factoryId]: result.message,
+          [cacheKey]: result.message,
         }));
         return;
       }
 
       setFactoryVisits((current) => ({
         ...current,
-        [factoryId]: result.factoryVisit,
+        [cacheKey]: result.factoryVisit,
       }));
     });
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     let isCurrent = true;
 
-    void getXpRankingAction(1).then((result) => {
+    void getXpRankingAction(1, locale).then((result) => {
       if (!isCurrent) return;
 
       if (!result.ok) {
-        setRankingError(result.message);
+        setRankingErrors((current) => ({
+          ...current,
+          [locale]: result.message,
+        }));
         return;
       }
 
-      setRanking(result.ranking);
+      setRankingErrors((current) => omitCacheKey(current, locale));
+      setRankings((current) => ({
+        ...current,
+        [locale]: result.ranking,
+      }));
     });
 
     return () => {
       isCurrent = false;
     };
-  }, []);
+  }, [locale]);
 
+  const ranking = rankings[locale] ?? null;
+  const rankingError = rankingErrors[locale] ?? null;
   const visibleEntries = ranking?.entries ?? [];
   const activeEntry = useMemo(() => {
     if (!rankingVisit || !ranking) return null;
@@ -138,6 +166,15 @@ export function RankingPanel() {
         : null)
     );
   }, [ranking, rankingVisit]);
+  const factoryVisitCacheKey = rankingVisit
+    ? getFactoryVisitCacheKey(locale, rankingVisit.factoryId)
+    : null;
+  const selectedFactoryVisit = factoryVisitCacheKey
+    ? factoryVisits[factoryVisitCacheKey] ?? null
+    : null;
+  const selectedFactoryVisitError = factoryVisitCacheKey
+    ? factoryVisitErrors[factoryVisitCacheKey] ?? null
+    : null;
 
   return (
     <div className="relative h-full min-h-0">
@@ -149,7 +186,10 @@ export function RankingPanel() {
         )}
       >
         <RankingListView
+          copy={copy}
           isPending={isRankingPending}
+          locale={locale}
+          numberLocale={numberLocale}
           onLoadPage={loadRankingPage}
           onVisit={(entry, factory) => {
             loadFactoryVisit(factory.id);
@@ -167,24 +207,24 @@ export function RankingPanel() {
       {rankingVisit ? (
         <FactoryVisitViewPanel
           activeEntry={activeEntry}
-          factoryVisit={factoryVisits[rankingVisit.factoryId] ?? null}
+          copy={copy}
+          factoryVisit={selectedFactoryVisit}
           isPending={
             isFactoryVisitPending &&
-            !factoryVisits[rankingVisit.factoryId]
+            !selectedFactoryVisit
           }
           onBack={() => setRankingVisit(null)}
           onRetry={() => loadFactoryVisit(rankingVisit.factoryId)}
-          onSelectFactory={(factoryId) =>
-            {
-              loadFactoryVisit(factoryId);
-              setRankingVisit({
-                factoryId,
-                playerProfileId: rankingVisit.playerProfileId,
-              });
-            }
-          }
+          onSelectFactory={(factoryId) => {
+            loadFactoryVisit(factoryId);
+            setRankingVisit({
+              factoryId,
+              playerProfileId: rankingVisit.playerProfileId,
+            });
+          }}
           selectedFactoryId={rankingVisit.factoryId}
-          visitError={factoryVisitErrors[rankingVisit.factoryId] ?? null}
+          numberLocale={numberLocale}
+          visitError={selectedFactoryVisitError}
         />
       ) : null}
     </div>
@@ -192,14 +232,20 @@ export function RankingPanel() {
 }
 
 function RankingListView({
+  copy,
   isPending,
+  locale,
+  numberLocale,
   onLoadPage,
   onVisit,
   ranking,
   rankingError,
   visibleEntries,
 }: {
+  copy: RankingCopy;
   isPending: boolean;
+  locale: SupportedLocale;
+  numberLocale: NumberLocale;
   onLoadPage: (page: number) => void;
   onVisit: (
     entry: XpRankingEntry,
@@ -216,24 +262,32 @@ function RankingListView({
           <div className="flex items-center gap-2 text-primary">
             <Trophy size={18} />
             <p className="text-xs font-semibold uppercase tracking-[0.18em]">
-              Player Ranking
+              {copy.panel.eyebrow}
             </p>
           </div>
           <h3 className="mt-1 text-2xl font-semibold text-white">
-            Factory Runway liderleri
+            {copy.panel.title}
           </h3>
         </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           {ranking?.currentPlayerEntry ? (
-            <CurrentPlayerRankCompact entry={ranking.currentPlayerEntry} />
+            <CurrentPlayerRankCompact
+              copy={copy}
+              entry={ranking.currentPlayerEntry}
+              numberLocale={numberLocale}
+            />
           ) : null}
           <Badge variant="outline">
-            {ranking ? formatNumber(ranking.totalPlayers) : "—"} oyuncu
+            {ranking
+              ? copy.panel.playerCount(
+                  formatNumber(ranking.totalPlayers, numberLocale),
+                )
+              : copy.panel.playerCount("—")}
           </Badge>
           <Badge className="gap-1" variant="secondary">
             <Zap size={12} />
-            Total XP
+            {copy.panel.totalXp}
           </Badge>
         </div>
       </div>
@@ -248,23 +302,23 @@ function RankingListView({
             variant="outline"
           >
             <RefreshCw size={14} />
-            Yeniden dene
+            {copy.panel.retry}
           </Button>
         </div>
       ) : null}
 
       <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg border border-white/10 bg-card/35">
         {!ranking && !rankingError ? (
-          <RankingLoadingState />
+          <RankingLoadingState label={copy.panel.loading} />
         ) : visibleEntries.length === 0 && !rankingError ? (
           <div className="grid h-full place-items-center p-8 text-center">
             <div>
               <Trophy className="mx-auto size-10 text-muted-foreground" />
               <h3 className="mt-3 font-semibold text-white">
-                Ranking henüz oluşmadı
+                {copy.panel.emptyTitle}
               </h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Aktif fabrikası bulunan oyuncular burada listelenecek.
+                {copy.panel.emptyBody}
               </p>
             </div>
           </div>
@@ -273,19 +327,28 @@ function RankingListView({
             <Table>
               <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <TableRow>
-                  <TableHead className="w-20">Sıra</TableHead>
-                  <TableHead>Oyuncu</TableHead>
-                  <TableHead>Vitrin Fabrikası</TableHead>
-                  <TableHead className="text-center">Fabrikalar</TableHead>
-                  <TableHead className="text-right">Total XP</TableHead>
-                  <TableHead className="w-44 text-right">Ziyaret</TableHead>
+                  <TableHead className="w-20">{copy.panel.table.rank}</TableHead>
+                  <TableHead>{copy.panel.table.player}</TableHead>
+                  <TableHead>{copy.panel.table.showcaseFactory}</TableHead>
+                  <TableHead className="text-center">
+                    {copy.panel.table.factories}
+                  </TableHead>
+                  <TableHead className="text-right">
+                    {copy.panel.table.totalXp}
+                  </TableHead>
+                  <TableHead className="w-44 text-right">
+                    {copy.panel.table.visit}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visibleEntries.map((entry) => (
                   <RankingRow
+                    copy={copy}
                     entry={entry}
                     key={entry.playerProfileId}
+                    locale={locale}
+                    numberLocale={numberLocale}
                     onVisit={onVisit}
                   />
                 ))}
@@ -298,8 +361,8 @@ function RankingListView({
       <div className="flex shrink-0 items-center justify-between gap-4 pt-3">
         <p className="text-xs text-muted-foreground">
           {ranking
-            ? `${ranking.page}. sayfa / ${ranking.totalPages}`
-            : "Ranking yükleniyor"}
+            ? copy.panel.pageStatus(ranking.page, ranking.totalPages)
+            : copy.panel.loading}
         </p>
         <div className="flex items-center gap-2">
           <Button
@@ -310,7 +373,7 @@ function RankingListView({
             variant="outline"
           >
             <ChevronLeft size={14} />
-            Önceki
+            {copy.panel.previous}
           </Button>
           <Button
             disabled={
@@ -323,7 +386,7 @@ function RankingListView({
             type="button"
             variant="outline"
           >
-            Sonraki
+            {copy.panel.next}
             <ChevronRight size={14} />
           </Button>
         </div>
@@ -333,10 +396,16 @@ function RankingListView({
 }
 
 function RankingRow({
+  copy,
   entry,
+  locale,
+  numberLocale,
   onVisit,
 }: {
+  copy: RankingCopy;
   entry: XpRankingEntry;
+  locale: SupportedLocale;
+  numberLocale: NumberLocale;
   onVisit: (
     entry: XpRankingEntry,
     factory: RankingFactorySummary,
@@ -352,12 +421,12 @@ function RankingRow({
       )}
     >
       <TableCell>
-        <RankPosition rank={entry.rankPosition} />
+        <RankPosition numberLocale={numberLocale} rank={entry.rankPosition} />
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
           <div className="grid size-8 shrink-0 place-items-center rounded-full border border-primary/20 bg-primary/10 text-xs font-bold text-primary">
-            {getInitials(entry.displayName)}
+            {getInitials(entry.displayName, locale)}
           </div>
           <div>
             <strong className="block max-w-48 truncate text-sm text-white">
@@ -365,7 +434,7 @@ function RankingRow({
             </strong>
             {entry.isCurrentPlayer ? (
               <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
-                Sen
+                {copy.panel.you}
               </span>
             ) : null}
           </div>
@@ -378,9 +447,11 @@ function RankingRow({
               {showcaseFactory.name}
             </strong>
             <span className="text-xs text-muted-foreground">
-              {showcaseFactory.sectorName} · Lv.
-              {showcaseFactory.currentLevel} ·{" "}
-              {showcaseFactory.productionLineCount} hat
+              {showcaseFactory.sectorName} ·{" "}
+              {copy.visit.levelShort(showcaseFactory.currentLevel)} ·{" "}
+              {copy.visit.productionLineCount(
+                showcaseFactory.productionLineCount,
+              )}
             </span>
           </div>
         ) : (
@@ -391,7 +462,7 @@ function RankingRow({
         <Badge variant="outline">{entry.factories.length}</Badge>
       </TableCell>
       <TableCell className="text-right font-mono font-semibold tabular-nums text-amber-200">
-        {formatXp(entry.totalXp)}
+        {formatXp(entry.totalXp, numberLocale)}
       </TableCell>
       <TableCell className="text-right">
         <Button
@@ -406,30 +477,45 @@ function RankingRow({
           variant={entry.isCurrentPlayer ? "secondary" : "outline"}
         >
           <Eye size={14} />
-          Fabrikayı ziyaret et
+          {copy.panel.visitFactory}
         </Button>
       </TableCell>
     </TableRow>
   );
 }
 
-function CurrentPlayerRankCompact({ entry }: { entry: XpRankingEntry }) {
+function CurrentPlayerRankCompact({
+  copy,
+  entry,
+  numberLocale,
+}: {
+  copy: RankingCopy;
+  entry: XpRankingEntry;
+  numberLocale: NumberLocale;
+}) {
   return (
     <div className="flex shrink-0 items-center gap-2 rounded-lg border border-primary/30 bg-primary/8 px-2.5 py-1.5">
       <Medal className="size-3.5 text-primary" />
       <div>
         <p className="text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-primary">
-          Senin sıran
+          {copy.panel.yourRank}
         </p>
         <strong className="mt-1 block font-mono text-[11px] leading-none text-white">
-          #{formatNumber(entry.rankPosition)} · {formatXp(entry.totalXp)}
+          #{formatNumber(entry.rankPosition, numberLocale)} ·{" "}
+          {formatXp(entry.totalXp, numberLocale)}
         </strong>
       </div>
     </div>
   );
 }
 
-function RankPosition({ rank }: { rank: number }) {
+function RankPosition({
+  numberLocale,
+  rank,
+}: {
+  numberLocale: NumberLocale;
+  rank: number;
+}) {
   if (rank <= 3) {
     return (
       <span
@@ -447,15 +533,17 @@ function RankPosition({ rank }: { rank: number }) {
 
   return (
     <span className="font-mono text-xs font-semibold text-muted-foreground">
-      #{formatNumber(rank)}
+      #{formatNumber(rank, numberLocale)}
     </span>
   );
 }
 
 function FactoryVisitViewPanel({
   activeEntry,
+  copy,
   factoryVisit,
   isPending,
+  numberLocale,
   onBack,
   onRetry,
   onSelectFactory,
@@ -463,8 +551,10 @@ function FactoryVisitViewPanel({
   visitError,
 }: {
   activeEntry: XpRankingEntry | null;
+  copy: RankingCopy;
   factoryVisit: FactoryVisitView | null;
   isPending: boolean;
+  numberLocale: NumberLocale;
   onBack: () => void;
   onRetry: () => void;
   onSelectFactory: (factoryId: string) => void;
@@ -482,18 +572,20 @@ function FactoryVisitViewPanel({
             variant="outline"
           >
             <ArrowLeft size={14} />
-            Ranking’e dön
+            {copy.visit.back}
           </Button>
 
           <div className="flex items-center gap-2">
             <Badge variant="outline">
               {activeEntry
-                ? `#${formatNumber(activeEntry.rankPosition)}`
-                : "Ranking"}
+                ? `#${formatNumber(activeEntry.rankPosition, numberLocale)}`
+                : copy.visit.rankFallback}
             </Badge>
             <Badge className="gap-1" variant="secondary">
               <Zap size={12} />
-              {activeEntry ? formatXp(activeEntry.totalXp) : "— XP"}
+              {activeEntry
+                ? formatXp(activeEntry.totalXp, numberLocale)
+                : copy.visit.totalXpFallback}
             </Badge>
           </div>
         </div>
@@ -501,12 +593,12 @@ function FactoryVisitViewPanel({
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
-              Oyuncu Fabrikaları
+              {copy.visit.factoriesTitle}
             </p>
             <h3 className="truncate text-xl font-semibold text-white">
               {activeEntry?.displayName ??
                 factoryVisit?.player.displayName ??
-                "Fabrika ziyareti"}
+                copy.visit.fallbackTitle}
             </h3>
           </div>
 
@@ -522,7 +614,7 @@ function FactoryVisitViewPanel({
                     <Factory size={13} />
                     {factory.sectorName}
                     <span className="text-[10px] opacity-70">
-                      Lv.{factory.currentLevel}
+                      {copy.visit.levelShort(factory.currentLevel)}
                     </span>
                   </TabsTrigger>
                 ))}
@@ -544,38 +636,41 @@ function FactoryVisitViewPanel({
               variant="outline"
             >
               <RefreshCw size={14} />
-              Yeniden dene
+              {copy.panel.retry}
             </Button>
           </div>
         </div>
       ) : isPending || !factoryVisit ? (
-        <FactoryVisitLoadingState />
+        <FactoryVisitLoadingState label={copy.visit.loading} />
       ) : (
         <>
           <div className="grid shrink-0 grid-cols-2 gap-2 py-3 lg:grid-cols-5">
             <VisitMetric
-              label="Fabrika"
+              label={copy.visit.metrics.factory}
               value={factoryVisit.factory.name}
             />
             <VisitMetric
-              label="Sektör"
+              label={copy.visit.metrics.sector}
               value={factoryVisit.factory.sectorName}
             />
             <VisitMetric
-              label="Seviye"
-              value={`Lv. ${factoryVisit.factory.currentLevel}`}
+              label={copy.visit.metrics.level}
+              value={copy.visit.level(factoryVisit.factory.currentLevel)}
             />
             <VisitMetric
-              label="İşletme Aşaması"
+              label={copy.visit.metrics.operatingStage}
               value={factoryVisit.factory.operatingStageName}
             />
             <VisitMetric
-              label="Üretim Hatları"
-              value={`${factoryVisit.factory.productionLineCount} hat`}
+              label={copy.visit.metrics.productionLines}
+              value={copy.visit.productionLineCount(
+                factoryVisit.factory.productionLineCount,
+              )}
             />
           </div>
           <div className="min-h-0 flex-1">
             <VisitorFactoryMap
+              copy={copy}
               factoryVisit={factoryVisit}
               key={factoryVisit.factory.id}
             />
@@ -599,9 +694,9 @@ function VisitMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RankingLoadingState() {
+function RankingLoadingState({ label }: { label: string }) {
   return (
-    <div className="space-y-2 p-4" aria-label="Ranking yükleniyor">
+    <div className="space-y-2 p-4" aria-label={label}>
       {Array.from({ length: 8 }, (_, index) => (
         <div
           className="h-12 animate-pulse rounded-lg bg-white/5"
@@ -612,21 +707,23 @@ function RankingLoadingState() {
   );
 }
 
-function FactoryVisitLoadingState() {
+function FactoryVisitLoadingState({ label }: { label: string }) {
   return (
     <div
-      aria-label="Fabrika görünümü yükleniyor"
+      aria-label={label}
       className="mt-3 min-h-0 flex-1 animate-pulse rounded-lg border border-white/10 bg-white/5"
     />
   );
 }
 
-function getInitials(name: string) {
+function getInitials(name: string, locale: SupportedLocale) {
+  const upperLocale = resolveNumberLocale(locale);
+
   return name
     .trim()
     .split(/\s+/)
     .slice(0, 2)
-    .map((part) => part.charAt(0).toLocaleUpperCase("tr-TR"))
+    .map((part) => part.charAt(0).toLocaleUpperCase(upperLocale))
     .join("");
 }
 
@@ -642,10 +739,29 @@ function getShowcaseFactory(entry: XpRankingEntry) {
   );
 }
 
-function formatXp(value: string) {
-  return `${new Intl.NumberFormat("tr-TR").format(BigInt(value))} XP`;
+function formatXp(value: string, numberLocale: NumberLocale) {
+  return `${new Intl.NumberFormat(numberLocale).format(BigInt(value))} XP`;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
+function formatNumber(value: number, numberLocale: NumberLocale) {
+  return new Intl.NumberFormat(numberLocale).format(value);
+}
+
+function getFactoryVisitCacheKey(
+  locale: SupportedLocale,
+  factoryId: string,
+) {
+  return `${locale}:${factoryId}`;
+}
+
+function omitCacheKey<TValue>(
+  cache: Partial<Record<SupportedLocale, TValue>>,
+  key: SupportedLocale,
+) {
+  if (!(key in cache)) return cache;
+
+  const next = { ...cache };
+  delete next[key];
+
+  return next;
 }

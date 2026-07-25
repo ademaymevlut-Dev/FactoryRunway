@@ -10,14 +10,21 @@ import {
   SortableItemHandle,
 } from "@/components/ui/sortable";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
+import {
+  DEFAULT_LOCALE,
+  numberLocale as resolveNumberLocale,
+  type NumberLocale,
+} from "@/lib/i18n/locales";
 
 import { updateOrderPriorityAction } from "../actions/update-order-priority-action";
 import type { ActiveOrderPriorityView } from "../types";
 
 export function OrderPriorityList({
   activeOrders,
+  numberLocale = resolveNumberLocale(DEFAULT_LOCALE),
 }: {
   activeOrders: ActiveOrderPriorityView[];
+  numberLocale?: NumberLocale;
 }) {
   const { isShiftPlaybackActive } = useGameUiStore();
   const [items, setItems] = useState(activeOrders);
@@ -129,7 +136,7 @@ export function OrderPriorityList({
                     <CalendarDays size={13} /> Gün {item.targetDeliveryDay}
                   </span>
                   <strong className="mt-1 block font-mono text-sm text-foreground">
-                    {formatNumber(item.remainingQuantity)} kalan
+                    {formatNumber(item.remainingQuantity, numberLocale)} kalan
                   </strong>
                 </div>
               </article>
@@ -145,6 +152,6 @@ function getOrderId(order: ActiveOrderPriorityView) {
   return order.id;
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("tr-TR").format(value);
+function formatNumber(value: number, numberLocale: NumberLocale) {
+  return new Intl.NumberFormat(numberLocale).format(value);
 }

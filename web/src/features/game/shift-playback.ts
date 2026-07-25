@@ -3,6 +3,11 @@ import type {
   ShiftPlaybackTimelineEvent,
   ShiftQuantityPoint,
 } from "./types";
+import {
+  normalizeLocale,
+  preferredTranslation,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 export const SHIFT_PLAYBACK_DURATION_SECONDS = 20;
 export const SHIFT_PLAYBACK_GAME_MINUTES = 540;
@@ -31,7 +36,7 @@ export type ShiftPlaybackRecord = {
     productionEndMinute: number | null;
     department: {
       key: string;
-      translations: Array<{ name: string }>;
+      translations: Array<{ locale?: string; name: string }>;
     };
   }>;
   productResults?: ShiftPlayback["productResults"];
@@ -41,9 +46,11 @@ export type ShiftPlaybackRecord = {
 export function toShiftPlayback(
   record: ShiftPlaybackRecord,
   now: Date = new Date(),
+  localeInput?: SupportedLocale,
 ): ShiftPlayback | null {
   if (!record.completedAt) return null;
 
+  const locale = normalizeLocale(localeInput);
   const durationSeconds = Math.max(
     1,
     record.simulationDurationSeconds || SHIFT_PLAYBACK_DURATION_SECONDS,
@@ -74,7 +81,11 @@ export function toShiftPlayback(
       departmentCode: result.department.key,
       departmentId: result.departmentId,
       departmentName:
-        result.department.translations[0]?.name ?? toTitle(result.department.key),
+        pickTranslation(
+          result.department.translations,
+          result.department.key,
+          locale,
+        ),
       endingQueueQuantity: result.endingQueueQuantity,
       performance: {
         capacityLossBps: 0,
@@ -203,6 +214,23 @@ function buildQueueEnteredTimeline(quantity: number): ShiftQuantityPoint[] {
     { minute: 0, quantity: 0 },
     { minute: SHIFT_PLAYBACK_GAME_MINUTES, quantity: Math.max(0, quantity) },
   ];
+}
+
+function pickTranslation(
+  translations: Array<{ locale?: string; name: string }>,
+  fallback: string,
+  locale: SupportedLocale,
+) {
+  const localizedTranslations = translations.filter(
+    (translation): translation is { locale: string; name: string } =>
+      typeof translation.locale === "string",
+  );
+
+  return (
+    preferredTranslation(localizedTranslations, locale)?.name ??
+    translations[0]?.name ??
+    toTitle(fallback)
+  );
 }
 
 function toTitle(value: string) {

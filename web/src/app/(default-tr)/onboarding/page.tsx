@@ -3,77 +3,161 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getPrisma } from "@/lib/db";
+import {
+  normalizeLocale,
+  translatedDescription,
+  translatedName,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import { OnboardingExperience, type OnboardingSector } from "./onboarding-experience";
 
 export const dynamic = "force-dynamic";
 
+type SectorBlueprint = {
+  key: string;
+  photoUrl: string;
+  slimPhotoUrl: string;
+  status: string;
+  playable: boolean;
+  copy: Record<
+    SupportedLocale,
+    {
+      title: string;
+      shortTitle: string;
+      eyebrow: string;
+      description: string;
+      bullets: string[];
+    }
+  >;
+};
+
 const sectorBlueprints = [
   {
     key: "textile",
-    title: "Textile",
-    shortTitle: "Textile",
-    eyebrow: "Aktif beta sektörü",
-    description: "Kesimden dikime, ütüden sevkiyata kadar tüm üretim sürecini yönet.",
-    bullets: [
-      "Kesim, dikim ve ütü-paketleme ile başlar.",
-      "Nakış, baskı, yıkama ve boyama ilk aşamada outsource edilir.",
-      "Small Workshop sahnesiyle oyuna girer.",
-    ],
     photoUrl: "/sector-images/textile_sector_1600x700.png",
     slimPhotoUrl: "/sector-images/textile_sector_1600x700.png",
     status: "ACTIVE",
     playable: true,
+    copy: {
+      tr: {
+        title: "Textile",
+        shortTitle: "Textile",
+        eyebrow: "Aktif beta sektörü",
+        description: "Kesimden dikime, ütüden sevkiyata kadar tüm üretim sürecini yönet.",
+        bullets: [
+          "Kesim, dikim ve ütü-paketleme ile başlar.",
+          "Nakış, baskı, yıkama ve boyama ilk aşamada outsource edilir.",
+          "Small Workshop sahnesiyle oyuna girer.",
+        ],
+      },
+      en: {
+        title: "Textile",
+        shortTitle: "Textile",
+        eyebrow: "Active beta sector",
+        description: "Manage the full production flow from cutting and sewing to ironing and shipping.",
+        bullets: [
+          "Starts with cutting, sewing, and ironing/packing.",
+          "Embroidery, printing, washing, and dyeing begin as outsourced processes.",
+          "You enter the game at the Small Workshop stage.",
+        ],
+      },
+    },
   },
   {
     key: "toy",
-    title: "Toy Factory",
-    shortTitle: "Toy Factory",
-    eyebrow: "Yakında",
-    description: "Renkli üretim hatları, eğlenceli ürünler ve farklı üretim dinamikleri.",
-    bullets: [
-      "Plastik, kumaş ve paketleme akışları farklılaşır.",
-      "Sezonluk talep dalgaları daha belirgin olur.",
-      "Beta sonrası sektör paketi olarak açılır.",
-    ],
     photoUrl: "/sector-images/textile_sector_1600x700.png",
     slimPhotoUrl: "/sector-images/textile_sector_1600x700.png",
     status: "COMING_SOON",
     playable: false,
+    copy: {
+      tr: {
+        title: "Toy Factory",
+        shortTitle: "Toy Factory",
+        eyebrow: "Yakında",
+        description: "Renkli üretim hatları, eğlenceli ürünler ve farklı üretim dinamikleri.",
+        bullets: [
+          "Plastik, kumaş ve paketleme akışları farklılaşır.",
+          "Sezonluk talep dalgaları daha belirgin olur.",
+          "Beta sonrası sektör paketi olarak açılır.",
+        ],
+      },
+      en: {
+        title: "Toy Factory",
+        shortTitle: "Toy Factory",
+        eyebrow: "Coming soon",
+        description: "Colorful production lines, playful products, and a different operating rhythm.",
+        bullets: [
+          "Plastic, fabric, and packing flows change the factory logic.",
+          "Seasonal demand swings become more visible.",
+          "Opens as a sector pack after beta.",
+        ],
+      },
+    },
   },
   {
     key: "furniture",
-    title: "Furniture",
-    shortTitle: "Furniture",
-    eyebrow: "Yakında",
-    description: "Atölye planlama, hassas üretim ve teslimat dengesini yönet.",
-    bullets: [
-      "Daha uzun üretim döngüleriyle kapasite planlaması öne çıkar.",
-      "Malzeme ve teslimat riski daha ağır hissedilir.",
-      "Beta sonrası sektör paketi olarak açılır.",
-    ],
     photoUrl: "/sector-images/textile_sector_1600x700.png",
     slimPhotoUrl: "/sector-images/textile_sector_1600x700.png",
     status: "COMING_SOON",
     playable: false,
+    copy: {
+      tr: {
+        title: "Furniture",
+        shortTitle: "Furniture",
+        eyebrow: "Yakında",
+        description: "Atölye planlama, hassas üretim ve teslimat dengesini yönet.",
+        bullets: [
+          "Daha uzun üretim döngüleriyle kapasite planlaması öne çıkar.",
+          "Malzeme ve teslimat riski daha ağır hissedilir.",
+          "Beta sonrası sektör paketi olarak açılır.",
+        ],
+      },
+      en: {
+        title: "Furniture",
+        shortTitle: "Furniture",
+        eyebrow: "Coming soon",
+        description: "Balance workshop planning, precision production, and delivery discipline.",
+        bullets: [
+          "Longer production cycles make capacity planning central.",
+          "Material and delivery risk feel heavier.",
+          "Opens as a sector pack after beta.",
+        ],
+      },
+    },
   },
   {
     key: "chocolate",
-    title: "Chocolate",
-    shortTitle: "Chocolate",
-    eyebrow: "Yakında",
-    description: "Hız, kalite ve lezzet odaklı üretim süreçlerini deneyimle.",
-    bullets: [
-      "Tazelik, parti takibi ve kalite kararları öne çıkar.",
-      "Fire ve hız dengesi daha görünür hale gelir.",
-      "Beta sonrası sektör paketi olarak açılır.",
-    ],
     photoUrl: "/sector-images/textile_sector_1600x700.png",
     slimPhotoUrl: "/sector-images/textile_sector_1600x700.png",
     status: "COMING_SOON",
     playable: false,
+    copy: {
+      tr: {
+        title: "Chocolate",
+        shortTitle: "Chocolate",
+        eyebrow: "Yakında",
+        description: "Hız, kalite ve lezzet odaklı üretim süreçlerini deneyimle.",
+        bullets: [
+          "Tazelik, parti takibi ve kalite kararları öne çıkar.",
+          "Fire ve hız dengesi daha görünür hale gelir.",
+          "Beta sonrası sektör paketi olarak açılır.",
+        ],
+      },
+      en: {
+        title: "Chocolate",
+        shortTitle: "Chocolate",
+        eyebrow: "Coming soon",
+        description: "Experience production decisions shaped by speed, quality, and freshness.",
+        bullets: [
+          "Freshness, batch tracking, and quality decisions come forward.",
+          "Waste and speed tradeoffs become more visible.",
+          "Opens as a sector pack after beta.",
+        ],
+      },
+    },
   },
-] satisfies OnboardingSector[];
+] satisfies SectorBlueprint[];
 
 export default async function OnboardingPage() {
   const user = await getCurrentUser();
@@ -91,6 +175,7 @@ export default async function OnboardingPage() {
     prisma.playerProfile.findUnique({
       where: { userId: user.id },
       select: {
+        preferredLocale: true,
         _count: {
           select: { factories: true },
         },
@@ -119,7 +204,14 @@ export default async function OnboardingPage() {
     redirect("/player");
   }
 
-  return <OnboardingExperience sectors={mergeSectorsWithDatabase(dbSectors)} />;
+  const locale = normalizeLocale(playerProfile?.preferredLocale);
+
+  return (
+    <OnboardingExperience
+      locale={locale}
+      sectors={mergeSectorsWithDatabase(dbSectors, locale)}
+    />
+  );
 }
 
 function mergeSectorsWithDatabase(
@@ -135,6 +227,7 @@ function mergeSectorsWithDatabase(
       description: string | null;
     }>;
   }>,
+  locale: SupportedLocale,
 ): OnboardingSector[] {
   const byNormalizedKey = new Map(
     dbSectors.map((sector) => [normalizeSectorKey(sector.key), sector]),
@@ -142,16 +235,22 @@ function mergeSectorsWithDatabase(
 
   return sectorBlueprints.map((blueprint) => {
     const dbSector = findMatchingSector(byNormalizedKey, blueprint.key);
-    const tr = dbSector?.translations.find((translation) => translation.locale === "tr");
-    const firstTranslation = dbSector?.translations[0];
     const status = dbSector?.status ?? blueprint.status;
+    const blueprintCopy = blueprint.copy[locale];
+    const title = dbSector
+      ? translatedName(dbSector.translations, blueprintCopy.title, locale)
+      : blueprintCopy.title;
 
     return {
-      ...blueprint,
+      key: blueprint.key,
       id: dbSector?.id ?? blueprint.key,
-      title: tr?.name ?? firstTranslation?.name ?? blueprint.title,
-      shortTitle: tr?.name ?? firstTranslation?.name ?? blueprint.shortTitle,
-      description: tr?.description ?? firstTranslation?.description ?? blueprint.description,
+      title,
+      shortTitle: dbSector ? title : blueprintCopy.shortTitle,
+      eyebrow: blueprintCopy.eyebrow,
+      description: dbSector
+        ? translatedDescription(dbSector.translations, locale) ?? blueprintCopy.description
+        : blueprintCopy.description,
+      bullets: blueprintCopy.bullets,
       photoUrl: dbSector?.photoUrl ?? blueprint.photoUrl,
       slimPhotoUrl: dbSector?.slimPhotoUrl ?? dbSector?.photoUrl ?? blueprint.slimPhotoUrl,
       status,
