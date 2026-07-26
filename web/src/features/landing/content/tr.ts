@@ -379,7 +379,7 @@ export const landingContentTr = {
         "Departman sonuçlarını karşılaştır, darboğazları incele ve bir sonraki vardiyanın planını buna göre düzenle.",
       summaryPendingLabel:
         "Vardiya tamamlandığında sonuç özeti burada açılır.",
-      summaryTitle: "Gün Sonu Üretim Özeti",
+      summaryTitle: "Gün Sonu Üretim Raporu",
       utilizationLabel: "Kapasite Kullanımı",
       wipNotice:
         "Departmanlar vardiyaya mevcut yarı mamul stoklarıyla başlar. Bugün tamamlanan işler sonraki departmana bir sonraki iş gününde aktarılır.",

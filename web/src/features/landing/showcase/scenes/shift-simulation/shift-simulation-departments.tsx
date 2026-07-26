@@ -45,7 +45,7 @@ export function ShiftSimulationDepartments({
       data-showcase-target="shift-planned"
       data-shift-departments
     >
-      <div className="grid gap-2.5 md:grid-cols-3 xl:grid-cols-1">
+      <div className="grid gap-2.5 md:grid-cols-3">
         {model.departments.map((department) => {
           const isBottleneck = department.status === "bottleneck";
           const actualQuantity =
@@ -71,6 +71,7 @@ export function ShiftSimulationDepartments({
             >
               <ShiftDepartmentResultView
                 activeLineLabel={copy.activeLineLabel}
+                compactMetrics
                 departmentLabel={department.departmentName}
                 isFinal
                 metrics={[

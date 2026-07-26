@@ -71,6 +71,51 @@ test("landing hareket ve viewport yaşam döngüsü reduced-motion ile uyumludur
   assert.match(css, /\.landing-public \*,[\s\S]*transition-duration: 0\.01ms/);
 });
 
+test("hero açılışında blur metinleri, kartı ve CTA'ları sıralı oynatır", () => {
+  const hero = read("./components/landing-hero.tsx");
+  const blurText = read("../../components/effects/blur-text.tsx");
+
+  assert.match(hero, /BlurText/);
+  assert.match(hero, /play=\{visibleStage >= 1\}/);
+  assert.match(hero, /play=\{visibleStage >= 2\}/);
+  assert.match(hero, /visibleStage >= 3/);
+  assert.match(hero, /visibleStage >= 4/);
+  assert.match(hero, /tabIndex=\{visibleStage >= 4 \? 0 : -1\}/);
+  assert.match(blurText, /play\?: boolean/);
+  assert.match(blurText, /as\?: BlurTextElement/);
+  assert.match(blurText, /useReducedMotion/);
+});
+
+test("landing yedi panelli GSAP stack ve kompakt showcase sözleşmesini taşır", () => {
+  const page = read("./components/landing-page.tsx");
+  const panelStack = read("./components/landing-panel-stack.tsx");
+  const gameLoop = read("./components/landing-game-loop.tsx");
+  const calloutRail = read(
+    "./showcase/components/showcase-callout-rail.tsx",
+  );
+  const shiftView = read(
+    "./showcase/scenes/shift-simulation/shift-simulation-scene-view.tsx",
+  );
+  const report = read(
+    "./showcase/components/landing-shift-report-section.tsx",
+  );
+
+  assert.equal(page.match(/data-landing-panel-index=/g)?.length, 7);
+  assert.match(panelStack, /gsap\/dist\/ScrollTrigger/);
+  assert.match(panelStack, /pinSpacing: false/);
+  assert.match(panelStack, /scrub: 1\.2/);
+  assert.match(panelStack, /min-width: 1024px/);
+  assert.match(panelStack, /max-width: 1023px/);
+  assert.match(gameLoop, /BlurText/);
+  assert.match(gameLoop, /index \* 0\.14/);
+  assert.match(calloutRail, /showDescriptions\?: boolean/);
+  assert.match(calloutRail, /showDescriptions \? \(/);
+  assert.match(shiftView, /compact/);
+  assert.match(report, /id="report"/);
+  assert.match(report, /isOpen/);
+  assert.match(report, /showHeader=\{false\}/);
+});
+
 test("sortable DnD ref aktarımı lint-safe context sınırını ve mevcut handle API'sini korur", () => {
   const sortable = read("../../components/ui/sortable.tsx");
 

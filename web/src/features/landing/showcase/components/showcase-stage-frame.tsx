@@ -22,22 +22,22 @@ export function ShowcaseStageFrame({
   return (
     <section
       aria-labelledby={titleId}
-      className="relative scroll-mt-20 py-10 sm:py-14 lg:py-18"
+      className="relative scroll-mt-20 py-6 sm:py-8 lg:py-10"
       data-showcase-stage-frame
       id={id}
       ref={rootRef}
     >
-      <div className="mb-7 max-w-3xl sm:mb-9">
+      <div className="mb-5 max-w-3xl sm:mb-6">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary-readable">
           {eyebrow}
         </p>
         <h2
-          className="mt-3 text-3xl font-semibold leading-tight text-foreground sm:text-4xl lg:text-5xl"
+          className="mt-3 text-2xl font-semibold leading-tight text-foreground sm:text-3xl lg:text-4xl"
           id={titleId}
         >
           {title}
         </h2>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
           {description}
         </p>
       </div>

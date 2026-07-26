@@ -20,6 +20,7 @@ import type {
   ShiftSimulationSceneModel,
 } from "./shift-simulation-scene-types";
 import { ShiftSimulationSceneView } from "./shift-simulation-scene-view";
+import { ShiftSimulationSummary } from "./shift-simulation-summary";
 
 function read(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8");
@@ -263,7 +264,7 @@ test("vardiya saat formatterı 08:00–17:00 checkpointlerini deterministik üre
   assert.equal(formatShiftSimulationTime("08:00", "17:00", 1), "17:00");
 });
 
-test("render başlangıç planını ve final vardiya özetini eksiksiz gösterir", () => {
+test("render başlangıç planını, kompakt vardiya sonucunu ve tam raporu eksiksiz gösterir", () => {
   const model = createRenderableModel();
   const initial = createInitialShiftSimulationSceneState(
     shiftSimulationSceneData,
@@ -290,6 +291,17 @@ test("render başlangıç planını ve final vardiya özetini eksiksiz gösterir
     );
   const initialMarkup = renderView(initial);
   const finalMarkup = renderView(final);
+  const reportMarkup = renderToStaticMarkup(
+    createElement(ShiftSimulationSummary, {
+      copy: shiftSimulationSceneCopyTr,
+      highlighted: false,
+      isOpen: true,
+      model,
+      numberLocale: "tr-TR",
+      sceneId: "shift-report-test",
+      showHeader: false,
+    }),
+  );
 
   assert.match(initialMarkup, /BACKHAM/);
   assert.match(initialMarkup, /Vardiya İlerlemesi/);
@@ -304,12 +316,13 @@ test("render başlangıç planını ve final vardiya özetini eksiksiz gösterir
   assert.match(initialMarkup, /Gerçekleşen/);
   assert.match(finalMarkup, /Dikim hattında makine arızası/);
   assert.match(finalMarkup, /Darboğaz/);
-  assert.match(finalMarkup, /Gün Sonu Üretim Özeti/);
-  assert.match(finalMarkup, /96 BACKHAM/);
-  assert.match(finalMarkup, /-30/);
+  assert.match(finalMarkup, /Gün Sonu Üretim Raporu/);
   assert.match(finalMarkup, /data-shift-summary-open="true"/);
   assert.match(finalMarkup, /aria-hidden="false"/);
   assert.match(finalMarkup, /Vardiya tamamlandı/);
+  assert.match(reportMarkup, /96 BACKHAM/);
+  assert.match(reportMarkup, /-30/);
+  assert.match(reportMarkup, /Gün Sonu Üretim Raporu/);
 });
 
 test("scene dependency, tek timeline, lifecycle ve index sınırlarını korur", () => {

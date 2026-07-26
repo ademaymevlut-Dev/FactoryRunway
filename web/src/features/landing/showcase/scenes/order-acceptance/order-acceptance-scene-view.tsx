@@ -49,7 +49,7 @@ export function OrderAcceptanceSceneView({
       title={copy.sectionTitle}
     >
       <div
-        className="relative p-3 sm:p-5 lg:p-6"
+        className="relative p-3 sm:p-4"
         data-order-acceptance-scene
         data-scene-status={state.status}
         data-showcase-stage-content
@@ -60,7 +60,7 @@ export function OrderAcceptanceSceneView({
           visible={state.isNotificationVisible}
         />
 
-        <div className="grid gap-3 xl:grid-cols-[230px_minmax(0,1fr)_270px] xl:items-start">
+        <div className="grid gap-3 xl:grid-cols-[215px_minmax(0,1fr)_220px] xl:items-start">
           <div
             className={getOrderAcceptanceTargetClass(
               state.activeTarget,
@@ -87,7 +87,7 @@ export function OrderAcceptanceSceneView({
           />
 
           <aside
-            className="rounded-xl border border-white/10 bg-background/38 p-3"
+            className="rounded-xl border border-white/10 bg-background/38 p-2.5"
             data-showcase-callout-column
           >
             <ShowcaseCalloutRail
@@ -95,11 +95,12 @@ export function OrderAcceptanceSceneView({
               ariaLabel={copy.calloutRailLabel}
               callouts={copy.callouts}
               onSelect={onCalloutSelect}
+              showDescriptions={false}
             />
           </aside>
         </div>
 
-        <div className="mt-4 flex justify-end border-t border-white/8 pt-4">
+        <div className="mt-3 flex justify-end border-t border-white/8 pt-3">
           <ShowcaseReplayButton
             disabled={!accepted}
             label={copy.replayLabel}

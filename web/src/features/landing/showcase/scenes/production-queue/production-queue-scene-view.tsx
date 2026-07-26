@@ -43,7 +43,7 @@ export function ProductionQueueSceneView({
       title={copy.sectionTitle}
     >
       <div
-        className="relative p-3 sm:p-5 lg:p-6"
+        className="relative p-3 sm:p-4"
         data-production-queue-scene
         data-scene-status={state.status}
         data-showcase-stage-content
@@ -62,7 +62,7 @@ export function ProductionQueueSceneView({
           {state.liveMessage}
         </p>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(245px,0.75fr)_270px] xl:items-start">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.55fr)_minmax(230px,0.72fr)_220px] xl:items-start">
           <ProductionQueueList
             activeTarget={state.activeTarget}
             copy={copy}
@@ -78,7 +78,7 @@ export function ProductionQueueSceneView({
           />
 
           <aside
-            className="rounded-xl border border-white/10 bg-background/38 p-3"
+            className="rounded-xl border border-white/10 bg-background/38 p-2.5"
             data-showcase-callout-column
           >
             <ShowcaseCalloutRail
@@ -86,11 +86,12 @@ export function ProductionQueueSceneView({
               ariaLabel={copy.calloutRailLabel}
               callouts={copy.callouts}
               onSelect={onCalloutSelect}
+              showDescriptions={false}
             />
           </aside>
         </div>
 
-        <div className="mt-4 flex justify-end border-t border-white/8 pt-4">
+        <div className="mt-3 flex justify-end border-t border-white/8 pt-3">
           <ShowcaseReplayButton
             disabled={state.status !== "completed"}
             label={copy.replayLabel}

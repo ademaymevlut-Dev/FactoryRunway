@@ -379,7 +379,7 @@ export const landingContentEn = {
         "Compare planned and actual production, review bottlenecks, and adjust the next shift accordingly.",
       summaryPendingLabel:
         "The result summary opens when the shift is complete.",
-      summaryTitle: "End-of-Shift Production Summary",
+      summaryTitle: "End-of-Shift Production Report",
       utilizationLabel: "Capacity Utilization",
       wipNotice:
         "Departments begin the shift with their existing work-in-progress inventory. Work completed today moves to the next department on the following working day.",

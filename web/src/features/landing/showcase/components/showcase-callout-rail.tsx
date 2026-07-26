@@ -13,6 +13,7 @@ export type ShowcaseCalloutRailProps<TTarget extends string> = {
   ariaLabel: string;
   callouts: readonly ShowcaseCallout<TTarget>[];
   onSelect: (target: TTarget) => void;
+  showDescriptions?: boolean;
 };
 
 export function ShowcaseCalloutRail<TTarget extends string>({
@@ -20,6 +21,7 @@ export function ShowcaseCalloutRail<TTarget extends string>({
   ariaLabel,
   callouts,
   onSelect,
+  showDescriptions = true,
 }: ShowcaseCalloutRailProps<TTarget>) {
   return (
     <nav aria-label={ariaLabel} data-showcase-callout-rail>
@@ -32,7 +34,10 @@ export function ShowcaseCalloutRail<TTarget extends string>({
               <button
                 aria-pressed={isActive}
                 className={cn(
-                  "group flex w-full items-start gap-3 rounded-xl border border-white/10 bg-background/55 p-3 text-left transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                  "group flex w-full gap-3 rounded-xl border border-white/10 bg-background/55 text-left transition-[border-color,background-color,box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:border-primary/40 hover:bg-background/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70",
+                  showDescriptions
+                    ? "items-start p-3"
+                    : "min-h-11 items-center px-2.5 py-2",
                   isActive &&
                     "border-primary/60 bg-primary/10 shadow-[0_0_24px_color-mix(in_srgb,var(--primary)_16%,transparent)]",
                 )}
@@ -53,9 +58,11 @@ export function ShowcaseCalloutRail<TTarget extends string>({
                   <strong className="block text-sm font-semibold text-foreground">
                     {callout.title}
                   </strong>
-                  <span className="mt-1 block text-xs leading-5 text-muted-foreground">
-                    {callout.description}
-                  </span>
+                  {showDescriptions ? (
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                      {callout.description}
+                    </span>
+                  ) : null}
                 </span>
               </button>
             </li>

@@ -4,8 +4,10 @@ import { LandingFooter } from "./landing-footer";
 import { LandingGameLoop } from "./landing-game-loop";
 import { LandingHeader } from "./landing-header";
 import { LandingHero } from "./landing-hero";
+import { LandingPanelStack } from "./landing-panel-stack";
 import { LandingOrderAcceptanceSection } from "../showcase/components/landing-order-acceptance-section";
 import { LandingProductionQueueSection } from "../showcase/components/landing-production-queue-section";
+import { LandingShiftReportSection } from "../showcase/components/landing-shift-report-section";
 import { LandingShiftSimulationSection } from "../showcase/components/landing-shift-simulation-section";
 
 type LandingPageProps = {
@@ -28,12 +30,77 @@ export function LandingPage({ content }: LandingPageProps) {
         id="main-content"
         tabIndex={-1}
       >
-        <LandingHero content={content} />
-        <LandingGameLoop content={content} />
-        <LandingOrderAcceptanceSection content={content} />
-        <LandingProductionQueueSection content={content} />
-        <LandingShiftSimulationSection content={content} />
-        <LandingAuthSection content={content} />
+        <LandingPanelStack>
+          <div
+            className="landing-scroll-panel landing-scroll-panel-hero"
+            data-landing-panel
+            data-landing-panel-index="1"
+          >
+            <div data-landing-panel-content>
+              <LandingHero content={content} />
+            </div>
+          </div>
+
+          <div
+            className="landing-scroll-panel"
+            data-landing-panel
+            data-landing-panel-index="2"
+          >
+            <div data-landing-panel-content>
+              <LandingGameLoop content={content} />
+            </div>
+          </div>
+
+          <div
+            className="landing-scroll-panel"
+            data-landing-panel
+            data-landing-panel-index="3"
+          >
+            <div data-landing-panel-content>
+              <LandingOrderAcceptanceSection content={content} />
+            </div>
+          </div>
+
+          <div
+            className="landing-scroll-panel"
+            data-landing-panel
+            data-landing-panel-index="4"
+          >
+            <div data-landing-panel-content>
+              <LandingProductionQueueSection content={content} />
+            </div>
+          </div>
+
+          <div
+            className="landing-scroll-panel"
+            data-landing-panel
+            data-landing-panel-index="5"
+          >
+            <div data-landing-panel-content>
+              <LandingShiftSimulationSection content={content} />
+            </div>
+          </div>
+
+          <div
+            className="landing-scroll-panel"
+            data-landing-panel
+            data-landing-panel-index="6"
+          >
+            <div data-landing-panel-content>
+              <LandingShiftReportSection content={content} />
+            </div>
+          </div>
+
+          <div
+            className="landing-scroll-panel landing-scroll-panel-account"
+            data-landing-panel
+            data-landing-panel-index="7"
+          >
+            <div data-landing-panel-content>
+              <LandingAuthSection content={content} />
+            </div>
+          </div>
+        </LandingPanelStack>
       </main>
       <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <LandingFooter content={content} />

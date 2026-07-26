@@ -176,6 +176,7 @@ test("landing nihai public sıralamayı ve stabil anchor'ları taşır", () => {
     read("./showcase/components/landing-order-acceptance-section.tsx"),
     read("./showcase/components/landing-production-queue-section.tsx"),
     read("./showcase/components/landing-shift-simulation-section.tsx"),
+    read("./showcase/components/landing-shift-report-section.tsx"),
   ].join("\n");
   const orderedComponents = [
     "<LandingHeader",
@@ -184,6 +185,7 @@ test("landing nihai public sıralamayı ve stabil anchor'ları taşır", () => {
     "<LandingOrderAcceptanceSection",
     "<LandingProductionQueueSection",
     "<LandingShiftSimulationSection",
+    "<LandingShiftReportSection",
     "<LandingAuthSection",
     "<LandingFooter",
   ];
@@ -200,6 +202,7 @@ test("landing nihai public sıralamayı ve stabil anchor'ları taşır", () => {
     "orders",
     "production",
     "shift",
+    "report",
     "account",
   ]) {
     assert.match(combinedPublicSource, new RegExp(`id="${anchorId}"`));

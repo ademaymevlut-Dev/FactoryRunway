@@ -40,6 +40,7 @@ export type ShiftDepartmentResultTone =
 export type ShiftDepartmentResultViewProps = {
   activeLineLabel: string;
   activeProduct?: ShiftDepartmentActiveProductView | null;
+  compactMetrics?: boolean;
   departmentLabel: string;
   isFinal: boolean;
   metrics: readonly ShiftDepartmentMetric[];
@@ -71,6 +72,7 @@ const statusToneClasses: Record<ShiftDepartmentResultTone, string> = {
 export function ShiftDepartmentResultView({
   activeLineLabel,
   activeProduct,
+  compactMetrics = false,
   departmentLabel,
   isFinal,
   metrics,
@@ -119,6 +121,7 @@ export function ShiftDepartmentResultView({
               key={metric.key}
               label={metric.label}
               locale={numberLocale}
+              compact={compactMetrics}
               metricKey={metric.key}
               separator={numberSeparator}
               value={metric.value}
@@ -211,6 +214,7 @@ export function ShiftDepartmentResultView({
 }
 
 function Metric({
+  compact,
   isFinal,
   label,
   locale,
@@ -218,6 +222,7 @@ function Metric({
   separator,
   value,
 }: {
+  compact: boolean;
   isFinal: boolean;
   label: string;
   locale: string;
@@ -231,11 +236,21 @@ function Metric({
       data-metric-value={value}
       data-shift-department-metric={metricKey}
     >
-      <p className="truncate text-[7px] font-semibold uppercase tracking-wider text-muted-foreground xl:text-[8px]">
+      <p
+        className={cn(
+          "font-semibold uppercase text-muted-foreground",
+          compact
+            ? "whitespace-nowrap text-[7px] tracking-[0.04em]"
+            : "truncate text-[7px] tracking-wider xl:text-[8px]",
+        )}
+      >
         {label}
       </p>
       <CountUp
-        className="block truncate font-mono text-sm font-semibold tabular-nums text-emerald-300 xl:text-base"
+        className={cn(
+          "block truncate font-mono font-semibold tabular-nums text-emerald-300",
+          compact ? "text-xs xl:text-sm" : "text-sm xl:text-base",
+        )}
         immediate={isFinal}
         locale={locale}
         separator={separator}

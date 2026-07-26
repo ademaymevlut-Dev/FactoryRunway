@@ -48,7 +48,7 @@ export function ShiftSimulationSceneView({
       title={copy.sectionTitle}
     >
       <div
-        className="relative p-3 sm:p-5 lg:p-6"
+        className="relative p-3 sm:p-4"
         data-scene-status={state.status}
         data-shift-simulation-scene
         data-showcase-stage-content
@@ -67,16 +67,24 @@ export function ShiftSimulationSceneView({
           {state.liveMessage}
         </p>
 
-        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_300px_270px] xl:items-start">
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_220px] xl:items-start">
           <div data-shift-main-column>
-            <ShiftSimulationPlan
-              copy={copy}
-              data={data}
-              model={model}
-              numberLocale={numberLocale}
-              onStart={onStart}
-              state={state}
-            />
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_250px]">
+              <ShiftSimulationPlan
+                copy={copy}
+                data={data}
+                model={model}
+                numberLocale={numberLocale}
+                onStart={onStart}
+                state={state}
+              />
+              <ShiftSimulationEvents
+                copy={copy}
+                data={data}
+                model={model}
+                state={state}
+              />
+            </div>
             <ShiftSimulationDepartments
               copy={copy}
               model={model}
@@ -85,15 +93,8 @@ export function ShiftSimulationSceneView({
             />
           </div>
 
-          <ShiftSimulationEvents
-            copy={copy}
-            data={data}
-            model={model}
-            state={state}
-          />
-
           <aside
-            className="rounded-xl border border-white/10 bg-background/38 p-3"
+            className="rounded-xl border border-white/10 bg-background/38 p-2.5"
             data-showcase-callout-column
           >
             <ShowcaseCalloutRail
@@ -101,11 +102,13 @@ export function ShiftSimulationSceneView({
               ariaLabel={copy.calloutRailLabel}
               callouts={copy.callouts}
               onSelect={onCalloutSelect}
+              showDescriptions={false}
             />
           </aside>
         </div>
 
         <ShiftSimulationSummary
+          compact
           copy={copy}
           highlighted={state.activeTarget === "shift-summary"}
           isOpen={state.isSummaryOpen}
@@ -114,7 +117,7 @@ export function ShiftSimulationSceneView({
           sceneId={data.sceneId}
         />
 
-        <div className="mt-4 flex justify-end border-t border-white/8 pt-4">
+        <div className="mt-3 flex justify-end border-t border-white/8 pt-3">
           <ShowcaseReplayButton
             disabled={state.status !== "summary_open"}
             label={copy.replayLabel}

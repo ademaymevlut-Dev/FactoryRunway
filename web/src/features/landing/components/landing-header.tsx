@@ -10,7 +10,10 @@ type LandingHeaderProps = {
 
 export function LandingHeader({ content }: LandingHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-xl">
+    <header
+      className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-xl"
+      data-landing-header
+    >
       <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
         <Link
           aria-label="Factory Runway"

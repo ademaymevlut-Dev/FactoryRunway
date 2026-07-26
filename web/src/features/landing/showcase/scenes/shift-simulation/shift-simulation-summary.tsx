@@ -15,23 +15,61 @@ import type {
 } from "./shift-simulation-scene-types";
 
 export type ShiftSimulationSummaryProps = {
+  compact?: boolean;
   copy: ShiftSimulationSceneCopy;
   isOpen: boolean;
   model: ShiftSimulationSceneModel;
   numberLocale: string;
   highlighted: boolean;
   sceneId: string;
+  showHeader?: boolean;
 };
 
 export function ShiftSimulationSummary({
+  compact = false,
   copy,
   highlighted,
   isOpen,
   model,
   numberLocale,
   sceneId,
+  showHeader = true,
 }: ShiftSimulationSummaryProps) {
   const titleId = `${sceneId}-summary-title`;
+
+  if (compact) {
+    return (
+      <section
+        aria-labelledby={titleId}
+        className={cn(
+          "mt-3 rounded-xl border border-white/10 bg-card/55 px-3 py-2.5 transition-[border-color,box-shadow]",
+          highlighted &&
+            "border-primary/60 shadow-[0_0_32px_color-mix(in_srgb,var(--primary)_16%,transparent)]",
+        )}
+        data-highlighted={highlighted}
+        data-shift-summary-open={isOpen}
+        data-showcase-target="shift-summary"
+      >
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-readable">
+              {copy.finishedGoodsLabel}
+            </p>
+            <h3
+              className="mt-0.5 text-sm font-semibold text-foreground"
+              id={titleId}
+            >
+              {copy.summaryTitle}
+            </h3>
+          </div>
+          <p className="text-xs leading-5 text-muted-foreground">
+            {isOpen ? copy.summaryDescription : copy.summaryPendingLabel}
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   const sewing = model.departmentsByKey.sewing;
   const finishedGoods = model.finishedGoods[0];
   const metrics: ProductShowcaseMetric[] = [
@@ -65,7 +103,8 @@ export function ShiftSimulationSummary({
 
   return (
     <section
-      aria-labelledby={titleId}
+      aria-label={showHeader ? undefined : copy.summaryTitle}
+      aria-labelledby={showHeader ? titleId : undefined}
       className={cn(
         "mt-3 rounded-xl border border-white/10 bg-card/55 p-3 transition-[border-color,box-shadow] sm:p-4",
         highlighted &&
@@ -75,20 +114,30 @@ export function ShiftSimulationSummary({
       data-shift-summary-open={isOpen}
       data-showcase-target="shift-summary"
     >
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-readable">
-          {copy.finishedGoodsLabel}
-        </p>
-        <h3 className="mt-1 text-xl font-semibold text-foreground" id={titleId}>
-          {copy.summaryTitle}
-        </h3>
-        <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
-          {isOpen ? copy.summaryDescription : copy.summaryPendingLabel}
-        </p>
-      </div>
+      {showHeader ? (
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary-readable">
+            {copy.finishedGoodsLabel}
+          </p>
+          <h3
+            className="mt-1 text-xl font-semibold text-foreground"
+            id={titleId}
+          >
+            {copy.summaryTitle}
+          </h3>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-muted-foreground">
+            {isOpen ? copy.summaryDescription : copy.summaryPendingLabel}
+          </p>
+        </div>
+      ) : null}
 
       {isOpen && finishedGoods && sewing ? (
-        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]">
+        <div
+          className={cn(
+            "grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(280px,0.85fr)]",
+            showHeader && "mt-4",
+          )}
+        >
           <div>
             <ProductShowcaseCard
               cardColors={model.product.card}
