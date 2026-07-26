@@ -39,12 +39,15 @@ test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiket
   assert.match(panel, /copy\.relationship\.title/);
 });
 
-test("sipariş paneli ürün kart arka planında ArtCard deneme bileşenini kullanır", () => {
+test("sipariş paneli ürün kart arka planında Light Rays efektini kullanır", () => {
   const panel = read("./components/orders-panel.tsx");
   const showcase = read(
     "../../components/game-presentation/product-showcase-card.tsx",
   );
-  const artCard = read("../../components/ui/art-card.tsx");
+  const productLightRays = read(
+    "../../components/game-presentation/product-light-rays-background.tsx",
+  );
+  const lightRays = read("../../components/effects/light-rays.tsx");
   const marketView = read("./services/order-market-view.ts");
 
   assert.match(panel, /ProductShowcaseCard/);
@@ -54,6 +57,23 @@ test("sipariş paneli ürün kart arka planında ArtCard deneme bileşenini kull
   assert.match(panel, /secondaryColor: item\.cardSecondaryColor/);
   assert.match(panel, /svgIconAccentColor: item\.cardSvgIconAccentColor/);
   assert.doesNotMatch(panel, /drop-shadow/);
+  assert.match(panel, /import \{ ProductLightRaysBackground \}/);
+  assert.match(
+    panel,
+    /<ProductLightRaysBackground color=\{item\.cardPrimaryColor\} \/>/,
+  );
+  assert.match(productLightRays, /FALLBACK_RAYS_COLOR = "#38bdf8"/);
+  assert.match(productLightRays, /raysColor=\{raysColor\}/);
+  assert.match(productLightRays, /raysOrigin="top-center"/);
+  assert.match(
+    productLightRays,
+    /className="absolute inset-0 opacity-100 mix-blend-screen"/,
+  );
+  assert.match(productLightRays, /raysSpeed=\{0\.78\}/);
+  assert.doesNotMatch(productLightRays, /followMouse/);
+  assert.doesNotMatch(productLightRays, /mouseInfluence=/);
+  assert.match(showcase, /backgroundLayer\?: ReactNode/);
+  assert.match(showcase, /\{backgroundLayer \?\? \(/);
   assert.match(showcase, /import \{ ArtCard \}/);
   assert.match(showcase, /import Image from "next\/image"/);
   assert.match(showcase, /data-product-art-layer="true"/);
@@ -62,11 +82,16 @@ test("sipariş paneli ürün kart arka planında ArtCard deneme bileşenini kull
   assert.match(showcase, /alt=\{name\}/);
   assert.match(showcase, /className="object-contain object-bottom"/);
   assert.match(showcase, /fill/);
-  assert.match(artCard, /linear-gradient\(to top left, \$\{gradientFrom\}/);
-  assert.match(artCard, /colorToTopLeftGradient\(secondaryColor\)/);
-  assert.match(artCard, /colorToTopLeftGradient\(svgIconAccentColor\)/);
-  assert.match(artCard, /colorToTopLeftGradient\(primaryColor\)/);
-  assert.doesNotMatch(artCard, /absolute inset-0 bg-\[linear-gradient/);
+  assert.doesNotMatch(showcase, /name\.charAt\(0\)/);
+  assert.match(lightRays, /"use client";/);
+  assert.match(lightRays, /aria-hidden="true"/);
+  assert.match(lightRays, /prefers-reduced-motion: reduce/);
+  assert.match(lightRays, /IntersectionObserver/);
+  assert.match(lightRays, /ResizeObserver/);
+  assert.match(lightRays, /requestAnimationFrame/);
+  assert.match(lightRays, /import\("ogl"\)/);
+  assert.match(lightRays, /dpr: getDevicePixelRatio\(\)/);
+  assert.doesNotMatch(lightRays, /console\.(warn|error|log)/);
   assert.match(marketView, /productImage\.variant === ProductImageVariant\.CARD/);
 });
 

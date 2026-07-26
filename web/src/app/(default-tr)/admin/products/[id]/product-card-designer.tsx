@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { ArtCard } from "@/components/ui/art-card";
+import { ProductLightRaysBackground } from "@/components/game-presentation/product-light-rays-background";
 
 import { updateProductCardAction } from "../product-actions";
 import { Field, FormGrid, Input, Options, Select } from "../../form-ui";
@@ -183,16 +183,9 @@ export function ProductCardDesigner({ product }: { product: CardProduct }) {
               <div
                 className="absolute inset-x-0 bottom-0 h-[310px] overflow-hidden rounded-[28px] border border-white/10"
               >
-                <ArtCard
-                  gradientFrom={colors.cardGradientFrom}
-                  gradientTo={colors.cardGradientTo}
-                  primaryColor={colors.cardPrimaryColor}
-                  secondaryColor={colors.cardSecondaryColor}
-                  svgIconAccentColor={colors.cardSvgIconAccentColor}
+                <ProductLightRaysBackground
+                  color={colors.cardPrimaryColor}
                 />
-                <span className="absolute left-6 top-5 z-10 text-8xl font-extralight text-white/20">
-                  {product.name.charAt(0).toUpperCase()}
-                </span>
                 <div className="absolute bottom-6 left-6 z-20 max-w-[180px]">
                   <p className="text-[10px] font-bold uppercase tracking-[.22em] text-white/55">
                     Model

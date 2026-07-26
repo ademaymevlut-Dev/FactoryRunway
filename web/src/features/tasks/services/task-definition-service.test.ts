@@ -64,6 +64,7 @@ test("hikaye zinciri oyuncu sipariş kabul etmezse ilk görevi aktif bırakır",
 
   await harness.ensureProgress();
 
+  assert.equal(harness.getCreateManyCallCount(), 1);
   assert.equal(harness.getStatus("story_first_normal_order"), TaskProgressStatus.ACTIVE);
   assert.equal(harness.getStatus("story_first_shift"), TaskProgressStatus.LOCKED);
 });
@@ -191,6 +192,7 @@ function buildStoryTaskHarness(startingLevel = 25) {
   const factoryId = "factory-1";
   const definitions = buildStoryDefinitions();
   const progressRows: StoryProgress[] = [];
+  let createManyCallCount = 0;
 
   const tx = {
     factory: {
@@ -204,38 +206,42 @@ function buildStoryTaskHarness(startingLevel = 25) {
       findMany: async () => definitions,
     },
     factoryTaskProgress: {
-      upsert: async ({
-        create,
-        where,
+      createMany: async ({
+        data,
       }: {
-        create: StoryProgress;
-        where: {
-          factoryId_taskDefinitionId_instanceKey: {
-            taskDefinitionId: string;
-          };
-        };
+        data: Array<{
+          metadata: Prisma.JsonValue | null;
+          rewardSnapshot: Prisma.JsonValue | null;
+          status: TaskProgressStatus;
+          targetValue: number;
+          taskDefinitionId: string;
+        }>;
       }) => {
-        const existing = progressRows.find(
-          (row) =>
-            row.taskDefinitionId ===
-            where.factoryId_taskDefinitionId_instanceKey.taskDefinitionId,
-        );
+        createManyCallCount += 1;
+        let count = 0;
 
-        if (existing) return existing;
+        for (const create of data) {
+          const existing = progressRows.some(
+            (row) => row.taskDefinitionId === create.taskDefinitionId,
+          );
 
-        progressRows.push({
-          completedDay: null,
-          currentValue: 0,
-          id: `progress-${progressRows.length + 1}`,
-          metadata: create.metadata,
-          rewardSnapshot: create.rewardSnapshot,
-          startedDay: null,
-          status: create.status,
-          targetValue: create.targetValue,
-          taskDefinitionId: create.taskDefinitionId,
-        });
+          if (existing) continue;
 
-        return progressRows.at(-1);
+          progressRows.push({
+            completedDay: null,
+            currentValue: 0,
+            id: `progress-${progressRows.length + 1}`,
+            metadata: create.metadata,
+            rewardSnapshot: create.rewardSnapshot,
+            startedDay: null,
+            status: create.status,
+            targetValue: create.targetValue,
+            taskDefinitionId: create.taskDefinitionId,
+          });
+          count += 1;
+        }
+
+        return { count };
       },
       findMany: async (args: {
         where?: {
@@ -351,6 +357,7 @@ function buildStoryTaskHarness(startingLevel = 25) {
         : null;
       return row?.status ?? null;
     },
+    getCreateManyCallCount: () => createManyCallCount,
     setLevel: (level: number) => {
       currentLevel = level;
     },

@@ -22,6 +22,7 @@ export type ProductShowcaseMetric = {
 };
 
 export type ProductShowcaseCardProps = {
+  backgroundLayer?: ReactNode;
   cardColors: ProductShowcaseCardColors;
   imageUrl: string | null;
   metaLabel?: string;
@@ -30,6 +31,7 @@ export type ProductShowcaseCardProps = {
 };
 
 export function ProductShowcaseCard({
+  backgroundLayer,
   cardColors,
   imageUrl,
   metaLabel,
@@ -68,16 +70,15 @@ export function ProductShowcaseCard({
           className="absolute inset-0 z-0 overflow-hidden rounded-lg border border-white/10 bg-[#15141d]"
           data-product-art-layer="true"
         >
-          <ArtCard
-            gradientFrom={cardColors.gradientFrom}
-            gradientTo={cardColors.gradientTo}
-            primaryColor={cardColors.primaryColor}
-            secondaryColor={cardColors.secondaryColor}
-            svgIconAccentColor={cardColors.svgIconAccentColor}
-          />
-          <span className="absolute left-5 top-3 z-10 text-8xl font-extralight text-white/20">
-            {name.charAt(0).toUpperCase()}
-          </span>
+          {backgroundLayer ?? (
+            <ArtCard
+              gradientFrom={cardColors.gradientFrom}
+              gradientTo={cardColors.gradientTo}
+              primaryColor={cardColors.primaryColor}
+              secondaryColor={cardColors.secondaryColor}
+              svgIconAccentColor={cardColors.svgIconAccentColor}
+            />
+          )}
         </div>
         {imageUrl ? (
           <div

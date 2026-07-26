@@ -71,16 +71,9 @@ export async function ensureFactoryTaskProgress(input: {
     },
   });
 
-  for (const definition of definitions) {
-    await input.tx.factoryTaskProgress.upsert({
-      where: {
-        factoryId_taskDefinitionId_instanceKey: {
-          factoryId: input.factoryId,
-          instanceKey: STORY_TASK_INSTANCE_KEY,
-          taskDefinitionId: definition.id,
-        },
-      },
-      create: {
+  if (definitions.length > 0) {
+    await input.tx.factoryTaskProgress.createMany({
+      data: definitions.map((definition) => ({
         factoryId: input.factoryId,
         taskDefinitionId: definition.id,
         instanceKey: STORY_TASK_INSTANCE_KEY,
@@ -92,8 +85,8 @@ export async function ensureFactoryTaskProgress(input: {
           objectiveType: definition.objectiveType,
           objectiveConfig: definition.objectiveConfig ?? null,
         },
-      },
-      update: {},
+      })),
+      skipDuplicates: true,
     });
   }
 

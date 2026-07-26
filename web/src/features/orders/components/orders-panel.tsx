@@ -36,6 +36,7 @@ import {
   ProductShowcaseCard,
   type ProductShowcaseMetric,
 } from "@/components/game-presentation/product-showcase-card";
+import { ProductLightRaysBackground } from "@/components/game-presentation/product-light-rays-background";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -782,6 +783,9 @@ function ProductShowcase({
 
   return (
     <ProductShowcaseCard
+      backgroundLayer={
+        <ProductLightRaysBackground color={item.cardPrimaryColor} />
+      }
       cardColors={cardColors}
       imageUrl={item.imageUrl}
       metrics={metrics}

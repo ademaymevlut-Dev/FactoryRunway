@@ -1,3 +1,5 @@
+//web/src/components/ui/art-card.tsx
+
 "use client";
 
 type ArtCardProps = {
