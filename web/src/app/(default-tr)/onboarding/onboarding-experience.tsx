@@ -101,7 +101,7 @@ const onboardingCopy = {
       points: "puan",
       capital: {
         pill: "Başlangıç kasası",
-        body: "İlk üretim gününe güçlü bir kasa ile başlıyorsun. Bu sermaye; hat kurulumu, personel giderleri ve ilk operasyon riskleri için ayrıldı.",
+        body: "İlk üretim gününe kontrollü bir kasa ile başlıyorsun. Bu sermaye; hat kurulumu, personel giderleri ve ilk operasyon riskleri için ayrıldı.",
         currency: "Para birimi",
         firstPeriod: "İlk finans dönemi",
         startingLevel: "Başlangıç seviyesi",
@@ -209,7 +209,7 @@ const onboardingCopy = {
       points: "pts",
       capital: {
         pill: "Starting cash",
-        body: "You begin your first production day with a strong cash position. This capital covers line setup, staff costs, and early operating risk.",
+        body: "You begin your first production day with a controlled cash position. This capital covers line setup, staff costs, and early operating risk.",
         currency: "Currency",
         firstPeriod: "First finance period",
         startingLevel: "Starting level",

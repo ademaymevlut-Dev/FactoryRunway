@@ -1,4 +1,8 @@
 import { Badge } from "@/components/ui/badge";
+import {
+  DEFAULT_STARTING_CAPITAL_CENTS_INPUT,
+  resolveStartingCapitalCents,
+} from "@/features/onboarding/starting-capital";
 import { getPrisma } from "@/lib/db";
 
 import { jsonText } from "../admin-data";
@@ -97,7 +101,7 @@ export default async function SimulationConfigPage() {
               sectors={availableSectors}
               values={{
                 sectorId: availableSectors[0]?.id ?? "",
-                startingCapitalCents: "100000000",
+                startingCapitalCents: DEFAULT_STARTING_CAPITAL_CENTS_INPUT,
                 defaultCurrencyCode: "EUR",
                 startingDay: 1,
                 startingLevel: 1,
@@ -128,7 +132,9 @@ export default async function SimulationConfigPage() {
         );
         const values: SimulationValues = {
           sectorId: config.sectorId,
-          startingCapitalCents: config.startingCapitalCents.toString(),
+          startingCapitalCents: resolveStartingCapitalCents(
+            config.startingCapitalCents,
+          ).toString(),
           defaultCurrencyCode: config.defaultCurrencyCode,
           startingDay: config.startingDay,
           startingLevel: config.startingLevel,
@@ -182,7 +188,7 @@ function SimulationFields({
         </Field>
         <Field
           label="Başlangıç sermayesi (cent)"
-          hint="100.000.000 cent = 1.000.000 para birimi."
+          hint="30.000.000 cent = 300.000 para birimi."
         >
           <Input
             defaultValue={values.startingCapitalCents}

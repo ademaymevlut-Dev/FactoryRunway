@@ -73,7 +73,7 @@ export function LandingHero({ content }: LandingHeroProps) {
             {content.hero.primaryCta}
           </a>
           <a
-            className="game-button-ghost w-full sm:w-auto"
+            className="game-button-ghost landing-hero-play-cta w-full sm:w-auto"
             href="#gameplay"
             tabIndex={visibleStage >= 4 ? 0 : -1}
           >

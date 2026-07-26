@@ -194,6 +194,17 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 20%, transparent);
   }
 
+  .landing-public .landing-hero-play-cta {
+    animation: landing-hero-cta-breath 2.85s ease-in-out infinite;
+    border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+  }
+
+  .landing-public .landing-hero-play-cta svg {
+    animation: landing-hero-cta-arrow 1.35s ease-in-out infinite;
+    transform-origin: center;
+  }
+
   .landing-public .game-button-primary:focus-visible,
   .landing-public .game-button-ghost:focus-visible,
   .landing-public .game-tab:focus-visible {
@@ -1339,6 +1350,32 @@
     }
   }
 
+  @keyframes landing-hero-cta-breath {
+    0%,
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent);
+    }
+    45% {
+      transform: scale(1.035);
+      box-shadow: 0 0 0 0.34rem color-mix(in srgb, var(--primary) 9%, transparent);
+    }
+    70% {
+      transform: scale(0.995);
+      box-shadow: 0 0 0 0.08rem color-mix(in srgb, var(--primary) 5%, transparent);
+    }
+  }
+
+  @keyframes landing-hero-cta-arrow {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(0.22rem);
+    }
+  }
+
   @keyframes order-route-marquee {
     0%,
     14% {
@@ -2026,7 +2063,9 @@
   .onboarding-step-dots,
   .onboarding-step-dots.is-visible,
   .onboarding-cta-motion,
-  .onboarding-cta-motion svg {
+  .onboarding-cta-motion svg,
+  .landing-public .landing-hero-play-cta,
+  .landing-public .landing-hero-play-cta svg {
     opacity: 1;
     transform: none;
     animation: none;

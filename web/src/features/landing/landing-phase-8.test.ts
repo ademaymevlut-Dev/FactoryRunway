@@ -74,6 +74,7 @@ test("landing hareket ve viewport yaşam döngüsü reduced-motion ile uyumludur
 test("hero açılışında blur metinleri, kartı ve CTA'ları sıralı oynatır", () => {
   const hero = read("./components/landing-hero.tsx");
   const blurText = read("../../components/effects/blur-text.tsx");
+  const css = read("../../app/globals.css");
 
   assert.match(hero, /BlurText/);
   assert.match(hero, /play=\{visibleStage >= 1\}/);
@@ -81,6 +82,10 @@ test("hero açılışında blur metinleri, kartı ve CTA'ları sıralı oynatır
   assert.match(hero, /visibleStage >= 3/);
   assert.match(hero, /visibleStage >= 4/);
   assert.match(hero, /tabIndex=\{visibleStage >= 4 \? 0 : -1\}/);
+  assert.match(hero, /landing-hero-play-cta/);
+  assert.match(css, /landing-hero-cta-breath/);
+  assert.match(css, /landing-hero-cta-arrow/);
+  assert.match(css, /\.landing-public \.landing-hero-play-cta,[\s\S]*animation: none/);
   assert.match(blurText, /play\?: boolean/);
   assert.match(blurText, /as\?: BlurTextElement/);
   assert.match(blurText, /useReducedMotion/);

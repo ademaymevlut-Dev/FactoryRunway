@@ -18,6 +18,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
 import { translatedName, type SupportedLocale } from "@/lib/i18n/locales";
 import { getPlayerPreferredLocale } from "@/lib/i18n/player-locale";
+import { resolveStartingCapitalCents } from "@/features/onboarding/starting-capital";
 import { ensureFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 
 export type StarterStaffRequirement = {
@@ -349,13 +350,17 @@ export async function completeFactoryOnboardingAction(input: {
       throw new Error(copy.missingFactoryStage);
     }
 
+    const startingCapitalCents = resolveStartingCapitalCents(
+      simulationConfig?.startingCapitalCents,
+    );
+
     const factory = await tx.factory.create({
       data: {
         playerProfileId: playerProfile.id,
         sectorId: sector.id,
         name: factoryName,
         currencyCode,
-        cashBalanceCents: simulationConfig?.startingCapitalCents ?? BigInt(100_000_000),
+        cashBalanceCents: startingCapitalCents,
         currentDay: simulationConfig?.startingDay ?? 1,
         currentLevel: simulationConfig?.startingLevel ?? 1,
         currentXp: 0,
@@ -723,7 +728,9 @@ async function buildFactorySetupPayload(
         title: displayName(sector.translations, sector.key, locale),
       },
       simulation: {
-        startingCapitalCents: String(simulationConfig?.startingCapitalCents ?? BigInt(100_000_000)),
+        startingCapitalCents: String(
+          resolveStartingCapitalCents(simulationConfig?.startingCapitalCents),
+        ),
         defaultCurrencyCode:
           normalizeCurrencyCode(
             draft?.currencyCode ?? simulationConfig?.defaultCurrencyCode ?? CurrencyCode.EUR,
