@@ -213,6 +213,19 @@ test("shift, olay ve bildirim görünümleri yalnızca verilen durumu yansıtır
       title: "Machine issue",
     }),
   );
+  const levelUpEvent = render(
+    createElement(DailyEventRowView, {
+      categoryKey: "SYSTEM",
+      categoryLabel: "System",
+      description: "+120 XP unlocked a new level.",
+      iconKey: "sparkles",
+      severity: "SUCCESS",
+      timestampLabel: "16:32",
+      title: "Reached level 7",
+      tone: "violet",
+      variant: "levelUp",
+    }),
+  );
   const notification = render(
     createElement(NotificationToastView, {
       body: "Order was accepted.",
@@ -226,7 +239,11 @@ test("shift, olay ve bildirim görünümleri yalnızca verilen durumu yansıtır
   assert.match(department, /data-utilization-percent="90"/);
   assert.match(department, /data-metric-value="400"/);
   assert.match(event, /data-event-tone="danger"/);
+  assert.match(event, /data-event-variant="default"/);
   assert.match(event, /Machine issue/);
+  assert.match(levelUpEvent, /data-event-variant="levelUp"/);
+  assert.match(levelUpEvent, /Level Up/);
+  assert.match(levelUpEvent, /Reached level 7/);
   assert.match(notification, /data-notification-tone="success"/);
 });
 

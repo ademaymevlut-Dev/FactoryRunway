@@ -86,6 +86,10 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.match(panel, /DailyEventRowView/);
   assert.match(panel, /getEventTone/);
   assert.match(panel, /getEventIconKey/);
+  assert.match(panel, /badgeLabel=\{copy\.levelUpBadge\}/);
+  assert.match(panel, /isLevelUpEvent/);
+  assert.match(panel, /payload\.leveledUp === true/);
+  assert.match(panel, /variant=\{isLevelUpEvent\(event\) \? "levelUp" : "default"\}/);
   assert.match(panel, /return "user"/);
   assert.match(panel, /return "wrench"/);
   assert.match(panel, /event\.category === "STAFF"/);

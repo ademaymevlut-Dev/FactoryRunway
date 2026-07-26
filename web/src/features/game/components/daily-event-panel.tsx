@@ -180,6 +180,7 @@ export function DailyEventPanel({
         {visibleEvents.map((event, index) => (
           <DailyEventRowView
             animationDelayMs={Math.min(index, 8) * 70}
+            badgeLabel={copy.levelUpBadge}
             categoryKey={event.category}
             categoryLabel={copy.categories[event.category]}
             description={renderEventDescription({
@@ -198,6 +199,7 @@ export function DailyEventPanel({
               numberLocale,
             })}
             tone={getEventTone(event)}
+            variant={isLevelUpEvent(event) ? "levelUp" : "default"}
           />
         ))}
       </div>
@@ -279,6 +281,10 @@ function shouldShowDailyEvent(event: ShiftPlaybackTimelineEvent) {
   return !event.eventKey.startsWith("department.");
 }
 
+function isLevelUpEvent(event: ShiftPlaybackTimelineEvent) {
+  return event.eventKey.startsWith("xp.") && event.payload.leveledUp === true;
+}
+
 function renderEventTitle({
   copy,
   event,
@@ -291,7 +297,7 @@ function renderEventTitle({
   const payload = event.payload;
   const xp = formatNumber(Number(payload.amountXp ?? 0), numberLocale);
 
-  if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
+  if (isLevelUpEvent(event)) {
     return copy.titles.levelUp(
       formatNumber(Number(payload.currentLevel ?? 0), numberLocale),
     );
@@ -403,7 +409,7 @@ function renderEventDescription({
     numberLocale,
   );
 
-  if (event.eventKey.startsWith("xp.") && payload.leveledUp === true) {
+  if (isLevelUpEvent(event)) {
     return copy.descriptions.levelUp(
       formatNumber(Number(payload.amountXp ?? 0), numberLocale),
       balanceAfterXp,
