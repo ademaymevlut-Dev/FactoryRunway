@@ -27,8 +27,8 @@ const offerTypeRules = [
     maxDeliveryDays: 24,
     offerExpiryDays: 3,
     minimumIntervalDays: 0,
-    priceMultiplierMinBps: 9800,
-    priceMultiplierMaxBps: 10300,
+    priceMultiplierMinBps: 10_000,
+    priceMultiplierMaxBps: 10_000,
   },
   {
     offerType: MarketOrderOfferType.OPPORTUNITY,
@@ -37,18 +37,18 @@ const offerTypeRules = [
     maxDeliveryDays: 15,
     offerExpiryDays: 2,
     minimumIntervalDays: 5,
-    priceMultiplierMinBps: 11000,
-    priceMultiplierMaxBps: 12500,
+    priceMultiplierMinBps: 10_400,
+    priceMultiplierMaxBps: 10_800,
   },
   {
     offerType: MarketOrderOfferType.EXPRESS,
     generationWeightBps: 700,
-    minDeliveryDays: 12,
-    maxDeliveryDays: 15,
+    minDeliveryDays: 7,
+    maxDeliveryDays: 10,
     offerExpiryDays: 1,
     minimumIntervalDays: 2,
-    priceMultiplierMinBps: 11500,
-    priceMultiplierMaxBps: 13500,
+    priceMultiplierMinBps: 11_000,
+    priceMultiplierMaxBps: 11_600,
   },
   {
     offerType: MarketOrderOfferType.REPEAT,
@@ -57,8 +57,8 @@ const offerTypeRules = [
     maxDeliveryDays: 24,
     offerExpiryDays: 3,
     minimumIntervalDays: 3,
-    priceMultiplierMinBps: 10000,
-    priceMultiplierMaxBps: 10800,
+    priceMultiplierMinBps: 9_900,
+    priceMultiplierMaxBps: 10_200,
   },
 ] as const;
 
@@ -109,14 +109,14 @@ async function main() {
           ...rule,
           sectorId: sector.id,
           metadata: {
-            balanceVersion: 1,
+            balanceVersion: 2,
             seedSource: "market-offer-rules",
           },
         },
         update: {
           ...rule,
           metadata: {
-            balanceVersion: 1,
+            balanceVersion: 2,
             seedSource: "market-offer-rules",
           },
         },
@@ -133,14 +133,14 @@ async function main() {
           sectorId: sector.id,
           operatingStageId: stage.id,
           metadata: {
-            balanceVersion: 1,
+            balanceVersion: 2,
             seedSource: "market-offer-rules",
           },
         },
         update: {
           ...cadence,
           metadata: {
-            balanceVersion: 1,
+            balanceVersion: 2,
             seedSource: "market-offer-rules",
           },
         },

@@ -5,14 +5,207 @@ import { MarketOrderOfferType } from "@/generated/prisma/enums";
 
 import {
   areCollectionTiersCompatible,
+  calculateDepartmentCostProfiles,
   calculateMarketOfferCreationCount,
   calculateCapacityTargetQuantity,
+  calculateOfferUnitPriceCents,
+  calculatePlannedUnitCostCents,
+  calculateSharedFactoryMonthlyCostCents,
   filterCollectionCompatibleCandidates,
   pickProductTierForOffer,
   resolveOfferDeliveryRange,
   resolveOfferLoadProfile,
+  resolveOfferPriceBand,
   resolveMarketStageRule,
 } from "./market-offer-generator";
+
+test("teklif fiyatı admin baz fiyatını yalnızca sipariş türü bandıyla değiştirir", () => {
+  assert.deepEqual(resolveOfferPriceBand(MarketOrderOfferType.NORMAL), {
+    minBps: 10_000,
+    maxBps: 10_000,
+  });
+  assert.deepEqual(resolveOfferPriceBand(MarketOrderOfferType.OPPORTUNITY), {
+    minBps: 10_400,
+    maxBps: 10_800,
+  });
+  assert.deepEqual(resolveOfferPriceBand(MarketOrderOfferType.EXPRESS), {
+    minBps: 11_000,
+    maxBps: 11_600,
+  });
+  assert.deepEqual(
+    resolveOfferPriceBand(MarketOrderOfferType.EXPRESS, {
+      minBps: 11_500,
+      maxBps: 13_500,
+    }),
+    { minBps: 11_500, maxBps: 11_600 },
+  );
+  assert.deepEqual(
+    resolveOfferPriceBand(MarketOrderOfferType.OPPORTUNITY, {
+      minBps: 11_000,
+      maxBps: 12_500,
+    }),
+    { minBps: 10_400, maxBps: 10_800 },
+  );
+  assert.equal(
+    calculateOfferUnitPriceCents({
+      baseUnitPriceCents: 845,
+      typePriceMultiplierBps: 10_000,
+    }),
+    845,
+  );
+  assert.equal(
+    calculateOfferUnitPriceCents({
+      baseUnitPriceCents: 845,
+      typePriceMultiplierBps: 10_800,
+    }),
+    913,
+  );
+});
+
+test("departman maliyeti hatları tek havuzda toplar ve kondisyon kaybını puan maliyetine yansıtır", () => {
+  const costs = calculateDepartmentCostProfiles({
+    monthlyWorkDays: 22,
+    lines: [
+      {
+        departmentId: "sewing",
+        conditionBps: 10_000,
+        status: "IDLE",
+        productionLineTemplate: {
+          dailyPointCapacity: 10_000,
+          directCostPer1000PointsCents: 2_000,
+        },
+      },
+      {
+        departmentId: "sewing",
+        conditionBps: 5_000,
+        status: "RUNNING",
+        productionLineTemplate: {
+          dailyPointCapacity: 10_000,
+          directCostPer1000PointsCents: 2_000,
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(costs.get("sewing"), {
+    departmentId: "sewing",
+    effectiveDailyPointCapacity: 15_000,
+    monthlyDirectCostCents: 880_000,
+    costPer1000PointsCents: 2_667,
+  });
+});
+
+test("ortak fabrika maliyeti destek kadrosunu ve üretim dışı alanı rota sayısına bölmeden toplar", () => {
+  const breakdown = calculateSharedFactoryMonthlyCostCents({
+    monthlyWorkDays: 22,
+    rentPerM2Cents: 200,
+    stage: {
+      accessoryWarehouseM2: 30,
+      canteenFixedCents: 12_000,
+      commonAreaBps: 1_200,
+      dailySupportMealPerStaffCents: 235,
+      fabricWarehouseM2: 100,
+      facilityElectricityCents: 45_000,
+      officeSocialTechnicalM2: 120,
+      overheadBaseCents: 65_000,
+      productWarehouseM2: 70,
+      staffElectricityExtraCents: 10_000,
+      supportOverheadPerStaffCents: 600,
+    },
+    supportStaffAssignments: [
+      { quantity: 2, staffRole: { monthlySalaryCents: 50_000 } },
+      { quantity: 1, staffRole: { monthlySalaryCents: 70_000 } },
+    ],
+    totalProductionLineAreaM2: 300,
+  });
+
+  assert.deepEqual(breakdown, {
+    supportStaffCount: 3,
+    supportPayrollCents: 170_000,
+    totalProductionLineAreaM2: 300,
+    commonAreaM2: 60,
+    nonProductionAreaM2: 380,
+    nonProductionAreaRentCents: 76_000,
+    facilityElectricityCents: 55_000,
+    supportMealCents: 15_510,
+    supportOverheadCents: 1_800,
+    fixedStageCostCents: 77_000,
+    sharedFactoryCostCents: 395_310,
+  });
+});
+
+test("planlanan maliyet rota, setup, ortak gider, leasing ve fasonu bir kez toplar", () => {
+  const breakdown = calculatePlannedUnitCostCents({
+    bottleneckDailyQuantity: 100,
+    departmentCostById: new Map([
+      [
+        "cutting",
+        {
+          departmentId: "cutting",
+          effectiveDailyPointCapacity: 10_000,
+          monthlyDirectCostCents: 440_000,
+          costPer1000PointsCents: 2_000,
+        },
+      ],
+      [
+        "sewing",
+        {
+          departmentId: "sewing",
+          effectiveDailyPointCapacity: 10_000,
+          monthlyDirectCostCents: 660_000,
+          costPer1000PointsCents: 3_000,
+        },
+      ],
+      [
+        "finishing",
+        {
+          departmentId: "finishing",
+          effectiveDailyPointCapacity: 10_000,
+          monthlyDirectCostCents: 220_000,
+          costPer1000PointsCents: 1_000,
+        },
+      ],
+    ]),
+    leasingPaymentCents: 22_000,
+    monthlySharedFactoryCostCents: 100_000,
+    monthlyWorkDays: 22,
+    outsourceUnitCostCents: 20,
+    quantity: 100,
+    routeSteps: [
+      {
+        departmentDailyPointCapacity: 10_000,
+        departmentId: "cutting",
+        isRequired: true,
+        setupPoints: 100,
+        workloadPointsPerUnit: 50,
+      },
+      {
+        departmentDailyPointCapacity: 10_000,
+        departmentId: "sewing",
+        isRequired: true,
+        setupPoints: 200,
+        workloadPointsPerUnit: 100,
+      },
+      {
+        departmentDailyPointCapacity: 10_000,
+        departmentId: "finishing",
+        isRequired: true,
+        setupPoints: 50,
+        workloadPointsPerUnit: 20,
+      },
+    ],
+  });
+
+  assert.deepEqual(breakdown, {
+    directRouteUnitCostCents: 420,
+    setupUnitCostCents: 9,
+    sharedFactoryUnitCostCents: 46,
+    leasingUnitCostCents: 10,
+    outsourceUnitCostCents: 20,
+    referenceMonthlyQuantity: 2_200,
+    totalUnitCostCents: 505,
+  });
+});
 
 test("normal standard sipariş hedef yükü 4-6 planlanan üretim gününde kalır", () => {
   const profile = resolveOfferLoadProfile({

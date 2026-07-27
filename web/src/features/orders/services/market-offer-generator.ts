@@ -8,6 +8,8 @@ import {
   MarketOrderOfferType,
   ProductionOrderStatus,
   RouteProcessingMode,
+  StaffAssignmentStatus,
+  StaffType,
   type ProductTier,
 } from "@/generated/prisma/enums";
 import { getPrisma } from "@/lib/db";
@@ -29,6 +31,7 @@ const DEFAULT_MONTHLY_WORK_DAYS = 22;
 const DELIVERY_CAPACITY_HORIZON_DAYS = 20;
 const MATERIAL_READY_DAYS = 1;
 const RECENT_OFFER_LOOKBACK = 48;
+const MARKET_OFFER_POLICY_VERSION = 4;
 
 const COST_LINE_STATUSES = [
   FactoryProductionLineStatus.IDLE,
@@ -98,6 +101,15 @@ const PRODUCT_TIER_RANK: Record<ProductTier, number> = {
   PREMIUM: 2,
   LUXURY: 3,
 };
+const OFFER_PRICE_BANDS_BPS: Record<
+  MarketOrderOfferType,
+  { minBps: number; maxBps: number }
+> = {
+  NORMAL: { minBps: 10_000, maxBps: 10_000 },
+  OPPORTUNITY: { minBps: 10_400, maxBps: 10_800 },
+  EXPRESS: { minBps: 11_000, maxBps: 11_600 },
+  REPEAT: { minBps: 9_900, maxBps: 10_200 },
+};
 
 type MarketOfferTypeRule = {
   offerType: MarketOrderOfferType;
@@ -123,8 +135,8 @@ const DEFAULT_MARKET_TYPE_RULES: MarketOfferTypeRule[] = [
     maxDeliveryDays: 24,
     offerExpiryDays: 3,
     minimumIntervalDays: 0,
-    priceMultiplierMinBps: 9800,
-    priceMultiplierMaxBps: 10300,
+    priceMultiplierMinBps: 10_000,
+    priceMultiplierMaxBps: 10_000,
   },
   {
     offerType: MarketOrderOfferType.OPPORTUNITY,
@@ -133,8 +145,8 @@ const DEFAULT_MARKET_TYPE_RULES: MarketOfferTypeRule[] = [
     maxDeliveryDays: 15,
     offerExpiryDays: 2,
     minimumIntervalDays: 5,
-    priceMultiplierMinBps: 11000,
-    priceMultiplierMaxBps: 12500,
+    priceMultiplierMinBps: 10_400,
+    priceMultiplierMaxBps: 10_800,
   },
   {
     offerType: MarketOrderOfferType.EXPRESS,
@@ -143,8 +155,8 @@ const DEFAULT_MARKET_TYPE_RULES: MarketOfferTypeRule[] = [
     maxDeliveryDays: 10,
     offerExpiryDays: 1,
     minimumIntervalDays: 2,
-    priceMultiplierMinBps: 11500,
-    priceMultiplierMaxBps: 13500,
+    priceMultiplierMinBps: 11_000,
+    priceMultiplierMaxBps: 11_600,
   },
   {
     offerType: MarketOrderOfferType.REPEAT,
@@ -153,8 +165,8 @@ const DEFAULT_MARKET_TYPE_RULES: MarketOfferTypeRule[] = [
     maxDeliveryDays: 24,
     offerExpiryDays: 3,
     minimumIntervalDays: 3,
-    priceMultiplierMinBps: 10000,
-    priceMultiplierMaxBps: 10800,
+    priceMultiplierMinBps: 9_900,
+    priceMultiplierMaxBps: 10_200,
   },
 ];
 
@@ -187,6 +199,23 @@ type CustomerRelationshipById = Map<string, CustomerRelationshipSummary>;
 
 type FactoryCostContext = Awaited<ReturnType<typeof fetchFactoryCostContext>>;
 
+export type DepartmentCostProfile = {
+  departmentId: string;
+  effectiveDailyPointCapacity: number;
+  monthlyDirectCostCents: number;
+  costPer1000PointsCents: number;
+};
+
+export type PlannedUnitCostBreakdown = {
+  directRouteUnitCostCents: number;
+  setupUnitCostCents: number;
+  sharedFactoryUnitCostCents: number;
+  leasingUnitCostCents: number;
+  outsourceUnitCostCents: number;
+  referenceMonthlyQuantity: number;
+  totalUnitCostCents: number;
+};
+
 type PlannedOfferItem = {
   product: OrderProductCandidate;
   quantity: number;
@@ -194,6 +223,7 @@ type PlannedOfferItem = {
   totalPriceCents: bigint;
   estimatedUnitCostCents: number;
   estimatedProfitCents: bigint;
+  plannedCostBreakdown: PlannedUnitCostBreakdown;
   requiredTotalPoints: number;
   estimatedLoadDaysBps: number;
   colors: Array<OrderProductCandidateColor & { quantity: number }>;
@@ -273,6 +303,7 @@ export async function ensureMarketOfferForFactory(
         },
         select: {
           id: true,
+          metadata: true,
           offeredDay: true,
           productTier: true,
           virtualCustomerId: true,
@@ -492,12 +523,15 @@ function isActiveOfferCompatible(input: {
   eligibleCustomerIds: Set<string>;
   offer: {
     items: Array<{ productId: string; productTier: ProductTier }>;
+    metadata: unknown;
     productTier: ProductTier;
     virtualCustomer: { productTier: ProductTier };
     virtualCustomerId: string;
   };
 }) {
   return (
+    readMarketOfferPolicyVersion(input.offer.metadata) ===
+      MARKET_OFFER_POLICY_VERSION &&
     input.offer.items.length > 0 &&
     input.eligibleCustomerIds.has(input.offer.virtualCustomerId) &&
     input.offer.virtualCustomer.productTier === input.offer.productTier &&
@@ -508,6 +542,12 @@ function isActiveOfferCompatible(input: {
           input.offer.productTier,
     )
   );
+}
+
+function readMarketOfferPolicyVersion(metadata: unknown) {
+  if (!isRecord(metadata)) return null;
+
+  return readPositiveNumber(metadata.marketOfferPolicyVersion);
 }
 
 async function expireOldOffers(input: {
@@ -538,7 +578,10 @@ async function fetchFactoryCostContext(factoryId: string) {
       sector: {
         select: {
           operatingCostConfig: {
-            select: { monthlyWorkDays: true },
+            select: {
+              monthlyWorkDays: true,
+              rentPerM2Cents: true,
+            },
           },
         },
       },
@@ -548,9 +591,17 @@ async function fetchFactoryCostContext(factoryId: string) {
             select: {
               id: true,
               sortOrder: true,
+              fabricWarehouseM2: true,
+              accessoryWarehouseM2: true,
+              productWarehouseM2: true,
+              officeSocialTechnicalM2: true,
+              commonAreaBps: true,
               facilityElectricityCents: true,
+              staffElectricityExtraCents: true,
+              dailySupportMealPerStaffCents: true,
               canteenFixedCents: true,
               overheadBaseCents: true,
+              supportOverheadPerStaffCents: true,
             },
           },
         },
@@ -560,11 +611,33 @@ async function fetchFactoryCostContext(factoryId: string) {
           status: { in: [...COST_LINE_STATUSES] },
         },
         select: {
+          departmentId: true,
+          conditionBps: true,
+          status: true,
           productionLineTemplate: {
             select: {
+              areaM2: true,
               dailyPointCapacity: true,
               directCostPer1000PointsCents: true,
             },
+          },
+        },
+      },
+      staffAssignments: {
+        where: {
+          factoryProductionLineId: null,
+          quantity: { gt: 0 },
+          status: StaffAssignmentStatus.ACTIVE,
+          staffRole: {
+            staffType: {
+              in: [StaffType.SUPPORT, StaffType.MANAGEMENT],
+            },
+          },
+        },
+        select: {
+          quantity: true,
+          staffRole: {
+            select: { monthlySalaryCents: true },
           },
         },
       },
@@ -835,41 +908,211 @@ function calculateFactoryMonthlyExpenseCents(input: {
   factory: NonNullable<FactoryCostContext>;
   monthlyWorkDays: number;
 }) {
-  const directLineCostCents = input.factory.productionLines.reduce(
-    (total, line) => {
-      const template = line.productionLineTemplate;
-      const monthlyReferencePointCapacity =
-        template.dailyPointCapacity * input.monthlyWorkDays;
-
-      return (
-        total +
-        Math.round(
-          (template.directCostPer1000PointsCents *
-            monthlyReferencePointCapacity) /
-            1000,
-        )
-      );
-    },
+  const departmentCostById = calculateDepartmentCostProfiles({
+    lines: input.factory.productionLines,
+    monthlyWorkDays: input.monthlyWorkDays,
+  });
+  const directLineCostCents = Array.from(
+    departmentCostById.values(),
+  ).reduce(
+    (total, department) => total + department.monthlyDirectCostCents,
     0,
   );
   const stage = input.factory.operatingStageState?.currentStage;
-  const sharedStageCostCents = stage
-    ? stage.facilityElectricityCents +
-      stage.canteenFixedCents +
-      stage.overheadBaseCents
-    : 0;
+  const totalProductionLineAreaM2 = input.factory.productionLines.reduce(
+    (total, line) => total + line.productionLineTemplate.areaM2,
+    0,
+  );
+  const rentPerM2Cents =
+    input.factory.sector.operatingCostConfig?.rentPerM2Cents ?? 0;
+  const sharedCostBreakdown = calculateSharedFactoryMonthlyCostCents({
+    monthlyWorkDays: input.monthlyWorkDays,
+    rentPerM2Cents,
+    stage,
+    supportStaffAssignments: input.factory.staffAssignments,
+    totalProductionLineAreaM2,
+  });
+  const sharedFactoryCostCents =
+    sharedCostBreakdown.sharedFactoryCostCents;
   const leasingPaymentCents = input.factory.leasingContracts.reduce(
     (total, contract) => total + Number(contract.monthlyPaymentCents),
     0,
   );
 
   return {
+    departmentCostById,
     directLineCostCents,
-    sharedStageCostCents,
+    sharedFactoryCostCents,
     leasingPaymentCents,
+    sharedCostBreakdown,
     totalCents:
-      directLineCostCents + sharedStageCostCents + leasingPaymentCents,
+      directLineCostCents + sharedFactoryCostCents + leasingPaymentCents,
   };
+}
+
+export function calculateSharedFactoryMonthlyCostCents(input: {
+  monthlyWorkDays: number;
+  rentPerM2Cents: number;
+  stage: {
+    accessoryWarehouseM2: number;
+    canteenFixedCents: number;
+    commonAreaBps: number;
+    dailySupportMealPerStaffCents: number;
+    fabricWarehouseM2: number;
+    facilityElectricityCents: number;
+    officeSocialTechnicalM2: number;
+    overheadBaseCents: number;
+    productWarehouseM2: number;
+    staffElectricityExtraCents: number;
+    supportOverheadPerStaffCents: number;
+  } | null | undefined;
+  supportStaffAssignments: Array<{
+    quantity: number;
+    staffRole: { monthlySalaryCents: number };
+  }>;
+  totalProductionLineAreaM2: number;
+}) {
+  const supportStaffCount = input.supportStaffAssignments.reduce(
+    (total, assignment) => total + assignment.quantity,
+    0,
+  );
+  const supportPayrollCents = input.supportStaffAssignments.reduce(
+    (total, assignment) =>
+      total + assignment.quantity * assignment.staffRole.monthlySalaryCents,
+    0,
+  );
+  const stage = input.stage;
+  const warehouseAreaM2 = stage
+    ? stage.fabricWarehouseM2 +
+      stage.accessoryWarehouseM2 +
+      stage.productWarehouseM2
+    : 0;
+  const commonAreaM2 = stage
+    ? Math.round(
+        ((input.totalProductionLineAreaM2 + warehouseAreaM2) *
+          stage.commonAreaBps) /
+          10_000,
+      )
+    : 0;
+  const nonProductionAreaM2 = stage
+    ? warehouseAreaM2 + stage.officeSocialTechnicalM2 + commonAreaM2
+    : 0;
+  const nonProductionAreaRentCents =
+    nonProductionAreaM2 * input.rentPerM2Cents;
+  const facilityElectricityCents =
+    (stage?.facilityElectricityCents ?? 0) +
+    (stage?.staffElectricityExtraCents ?? 0);
+  const supportMealCents =
+    supportStaffCount *
+    (stage?.dailySupportMealPerStaffCents ?? 0) *
+    input.monthlyWorkDays;
+  const supportOverheadCents =
+    supportStaffCount * (stage?.supportOverheadPerStaffCents ?? 0);
+  const fixedStageCostCents =
+    (stage?.canteenFixedCents ?? 0) + (stage?.overheadBaseCents ?? 0);
+  const sharedFactoryCostCents =
+    supportPayrollCents +
+    nonProductionAreaRentCents +
+    facilityElectricityCents +
+    supportMealCents +
+    supportOverheadCents +
+    fixedStageCostCents;
+
+  return {
+    supportStaffCount,
+    supportPayrollCents,
+    totalProductionLineAreaM2: input.totalProductionLineAreaM2,
+    commonAreaM2,
+    nonProductionAreaM2,
+    nonProductionAreaRentCents,
+    facilityElectricityCents,
+    supportMealCents,
+    supportOverheadCents,
+    fixedStageCostCents,
+    sharedFactoryCostCents,
+  };
+}
+
+export function calculateDepartmentCostProfiles(input: {
+  lines: Array<{
+    departmentId: string;
+    conditionBps: number;
+    status: FactoryProductionLineStatus;
+    productionLineTemplate: {
+      dailyPointCapacity: number;
+      directCostPer1000PointsCents: number;
+    };
+  }>;
+  monthlyWorkDays: number;
+}) {
+  const aggregateByDepartmentId = new Map<
+    string,
+    {
+      effectiveDailyPointCapacity: number;
+      monthlyDirectCostCents: number;
+    }
+  >();
+
+  for (const line of input.lines) {
+    const template = line.productionLineTemplate;
+    const current = aggregateByDepartmentId.get(line.departmentId) ?? {
+      effectiveDailyPointCapacity: 0,
+      monthlyDirectCostCents: 0,
+    };
+    const isAvailableForCapacity =
+      line.status === FactoryProductionLineStatus.IDLE ||
+      line.status === FactoryProductionLineStatus.RUNNING;
+    const effectiveDailyPointCapacity = isAvailableForCapacity
+      ? Math.floor(
+          (template.dailyPointCapacity * Math.max(0, line.conditionBps)) /
+            10_000,
+        )
+      : 0;
+    const monthlyReferencePointCapacity =
+      template.dailyPointCapacity * input.monthlyWorkDays;
+    const monthlyDirectCostCents = Math.round(
+      (template.directCostPer1000PointsCents *
+        monthlyReferencePointCapacity) /
+        1000,
+    );
+
+    aggregateByDepartmentId.set(line.departmentId, {
+      effectiveDailyPointCapacity:
+        current.effectiveDailyPointCapacity +
+        Math.max(0, effectiveDailyPointCapacity),
+      monthlyDirectCostCents:
+        current.monthlyDirectCostCents +
+        Math.max(0, monthlyDirectCostCents),
+    });
+  }
+
+  return new Map<string, DepartmentCostProfile>(
+    Array.from(
+      aggregateByDepartmentId,
+      ([departmentId, department]) => {
+        const monthlyEffectivePointCapacity =
+          department.effectiveDailyPointCapacity *
+          Math.max(1, input.monthlyWorkDays);
+
+        return [
+          departmentId,
+          {
+            departmentId,
+            effectiveDailyPointCapacity:
+              department.effectiveDailyPointCapacity,
+            monthlyDirectCostCents: department.monthlyDirectCostCents,
+            costPer1000PointsCents:
+              monthlyEffectivePointCapacity > 0
+                ? Math.ceil(
+                    (department.monthlyDirectCostCents * 1000) /
+                      monthlyEffectivePointCapacity,
+                  )
+                : 0,
+          },
+        ];
+      },
+    ),
+  );
 }
 
 function pickOfferTypeRule(input: {
@@ -1146,12 +1389,16 @@ function buildPlannedOffer(input: {
       input.customer.customerVolumeClass.targetProductionDayMin,
     volumeClassKey: input.customer.customerVolumeClass.key,
   });
+  const priceBand = resolveOfferPriceBand(
+    input.offerTypeRule.offerType,
+    {
+      maxBps: input.offerTypeRule.priceMultiplierMaxBps,
+      minBps: input.offerTypeRule.priceMultiplierMinBps,
+    },
+  );
   const typePriceMultiplierBps = seededInt({
-    max: Math.max(
-      input.offerTypeRule.priceMultiplierMinBps,
-      input.offerTypeRule.priceMultiplierMaxBps,
-    ),
-    min: input.offerTypeRule.priceMultiplierMinBps,
+    max: priceBand.maxBps,
+    min: priceBand.minBps,
     seed: `${input.seed}:type-price`,
   });
   const itemPlans = buildItemPlans({
@@ -1261,7 +1508,8 @@ function buildPlannedOffer(input: {
       targetDeliveryDays,
     }),
     metadata: {
-      generator: "product_tier_market_v3",
+      generator: "product_tier_market_v4",
+      marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
       isCollection,
       isLargeBasicBlock: targetLoadProfile.isLargeBasicBlock,
       tierRange,
@@ -1280,8 +1528,10 @@ function buildPlannedOffer(input: {
       ),
       monthlyDirectLineCostCents: input.factoryExpenseBreakdown.directLineCostCents,
       monthlyLeasingPaymentCents: input.factoryExpenseBreakdown.leasingPaymentCents,
-      monthlySharedStageCostCents:
-        input.factoryExpenseBreakdown.sharedStageCostCents,
+      monthlySharedFactoryCostCents:
+        input.factoryExpenseBreakdown.sharedFactoryCostCents,
+      sharedFactoryCostBreakdown:
+        input.factoryExpenseBreakdown.sharedCostBreakdown,
       monthlyWorkDays: input.monthlyWorkDays,
       typePriceMultiplierBps,
     },
@@ -1305,7 +1555,18 @@ function buildPlannedOffer(input: {
           estimatedOutsourceUnitCostCents:
             item.product.estimatedOutsourceUnitCostCents,
           estimatedUnitCostCents: item.estimatedUnitCostCents,
+          directRouteUnitCostCents:
+            item.plannedCostBreakdown.directRouteUnitCostCents,
+          setupUnitCostCents:
+            item.plannedCostBreakdown.setupUnitCostCents,
+          sharedFactoryUnitCostCents:
+            item.plannedCostBreakdown.sharedFactoryUnitCostCents,
+          leasingUnitCostCents:
+            item.plannedCostBreakdown.leasingUnitCostCents,
+          referenceMonthlyQuantity:
+            item.plannedCostBreakdown.referenceMonthlyQuantity,
           factoryMonthlyExpenseCents: input.factoryExpenseBreakdown.totalCents,
+          marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
           monthlyWorkDays: input.monthlyWorkDays,
           offerType: input.offerTypeRule.offerType,
           productTier: item.product.tier,
@@ -1320,7 +1581,8 @@ function buildPlannedOffer(input: {
           tierQuantityCapMin: item.tierCap.min,
         },
         metadata: {
-          generator: "product_tier_market_v3",
+          generator: "product_tier_market_v4",
+          marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
           requiresOutsource: item.product.requiresOutsource,
           estimatedOutsourceLeadDays: item.product.estimatedOutsourceLeadDays,
           estimatedOutsourceUnitCostCents:
@@ -1450,6 +1712,121 @@ function getBasicLargeBlockChanceBps(input: {
   return clamp(baseChance + multiplierBonus, 200, 5000);
 }
 
+export function resolveOfferPriceBand(
+  offerType: MarketOrderOfferType,
+  configuredBand?: { minBps: number; maxBps: number },
+) {
+  const policyBand =
+    OFFER_PRICE_BANDS_BPS[offerType] ?? OFFER_PRICE_BANDS_BPS.NORMAL;
+
+  if (!configuredBand) return policyBand;
+
+  const configuredMin = Math.min(
+    configuredBand.minBps,
+    configuredBand.maxBps,
+  );
+  const configuredMax = Math.max(
+    configuredBand.minBps,
+    configuredBand.maxBps,
+  );
+  const minBps = Math.max(policyBand.minBps, configuredMin);
+  const maxBps = Math.min(policyBand.maxBps, configuredMax);
+
+  return minBps <= maxBps ? { minBps, maxBps } : policyBand;
+}
+
+export function calculateOfferUnitPriceCents(input: {
+  baseUnitPriceCents: number;
+  typePriceMultiplierBps: number;
+}) {
+  return Math.max(
+    1,
+    Math.round(
+      (input.baseUnitPriceCents * input.typePriceMultiplierBps) / 10_000,
+    ),
+  );
+}
+
+export function calculatePlannedUnitCostCents(input: {
+  bottleneckDailyQuantity: number;
+  departmentCostById: ReadonlyMap<string, DepartmentCostProfile>;
+  leasingPaymentCents: number;
+  monthlySharedFactoryCostCents: number;
+  monthlyWorkDays: number;
+  outsourceUnitCostCents: number;
+  quantity: number;
+  routeSteps: Array<{
+    departmentDailyPointCapacity: number;
+    departmentId: string;
+    isRequired: boolean;
+    setupPoints: number;
+    workloadPointsPerUnit: number;
+  }>;
+}): PlannedUnitCostBreakdown | null {
+  const quantity = Math.max(1, input.quantity);
+  let directRouteCostPer1000Numerator = 0;
+  let setupCostPer1000Numerator = 0;
+
+  for (const step of input.routeSteps) {
+    if (!step.isRequired || step.departmentDailyPointCapacity <= 0) continue;
+
+    const departmentCost = input.departmentCostById.get(step.departmentId);
+
+    if (
+      !departmentCost ||
+      departmentCost.effectiveDailyPointCapacity <= 0
+    ) {
+      return null;
+    }
+
+    directRouteCostPer1000Numerator +=
+      Math.max(0, step.workloadPointsPerUnit) *
+      departmentCost.costPer1000PointsCents;
+    setupCostPer1000Numerator +=
+      Math.max(0, step.setupPoints) *
+      departmentCost.costPer1000PointsCents;
+  }
+
+  const referenceMonthlyQuantity =
+    Math.max(0, input.bottleneckDailyQuantity) *
+    Math.max(1, input.monthlyWorkDays);
+
+  if (referenceMonthlyQuantity <= 0) return null;
+
+  const directRouteUnitCostCents = Math.ceil(
+    directRouteCostPer1000Numerator / 1000,
+  );
+  const setupUnitCostCents = Math.ceil(
+    setupCostPer1000Numerator / (1000 * quantity),
+  );
+  const sharedFactoryUnitCostCents = Math.ceil(
+    Math.max(0, input.monthlySharedFactoryCostCents) /
+      referenceMonthlyQuantity,
+  );
+  const leasingUnitCostCents = Math.ceil(
+    Math.max(0, input.leasingPaymentCents) / referenceMonthlyQuantity,
+  );
+  const outsourceUnitCostCents = Math.max(
+    0,
+    input.outsourceUnitCostCents,
+  );
+
+  return {
+    directRouteUnitCostCents,
+    setupUnitCostCents,
+    sharedFactoryUnitCostCents,
+    leasingUnitCostCents,
+    outsourceUnitCostCents,
+    referenceMonthlyQuantity,
+    totalUnitCostCents:
+      directRouteUnitCostCents +
+      setupUnitCostCents +
+      sharedFactoryUnitCostCents +
+      leasingUnitCostCents +
+      outsourceUnitCostCents,
+  };
+}
+
 function buildItemPlans(input: {
   customer: VirtualCustomerForOffer;
   factoryExpenseBreakdown: ReturnType<typeof calculateFactoryMonthlyExpenseCents>;
@@ -1507,22 +1884,26 @@ function buildItemPlans(input: {
 
     if (quantity <= 0) return [];
 
-    const unitPriceCents = Math.max(
-      1,
-      Math.round(
-        (product.baseUnitPriceCents *
-          input.customer.customerSegment.priceMultiplierBps *
-          input.customer.customerVolumeClass.priceMultiplierBps *
-          input.typePriceMultiplierBps) /
-          1_000_000_000_000,
-      ),
-    );
-    const monthlyOutput = product.bottleneckDailyQuantity * input.monthlyWorkDays;
+    const unitPriceCents = calculateOfferUnitPriceCents({
+      baseUnitPriceCents: product.baseUnitPriceCents,
+      typePriceMultiplierBps: input.typePriceMultiplierBps,
+    });
+    const plannedCostBreakdown = calculatePlannedUnitCostCents({
+      bottleneckDailyQuantity: product.bottleneckDailyQuantity,
+      departmentCostById: input.factoryExpenseBreakdown.departmentCostById,
+      leasingPaymentCents: input.factoryExpenseBreakdown.leasingPaymentCents,
+      monthlySharedFactoryCostCents:
+        input.factoryExpenseBreakdown.sharedFactoryCostCents,
+      monthlyWorkDays: input.monthlyWorkDays,
+      outsourceUnitCostCents: product.estimatedOutsourceUnitCostCents,
+      quantity,
+      routeSteps: product.routeSteps,
+    });
+
+    if (!plannedCostBreakdown) return [];
+
     const estimatedUnitCostCents =
-      monthlyOutput > 0
-        ? Math.ceil(input.factoryExpenseBreakdown.totalCents / monthlyOutput) +
-          product.estimatedOutsourceUnitCostCents
-        : 0;
+      plannedCostBreakdown.totalUnitCostCents;
     const totalPriceCents = BigInt(unitPriceCents) * BigInt(quantity);
     const estimatedProfitCents =
       BigInt(unitPriceCents - estimatedUnitCostCents) * BigInt(quantity);
@@ -1547,6 +1928,7 @@ function buildItemPlans(input: {
         totalPriceCents,
         estimatedUnitCostCents,
         estimatedProfitCents,
+        plannedCostBreakdown,
         requiredTotalPoints,
         estimatedLoadDaysBps,
         colors,
