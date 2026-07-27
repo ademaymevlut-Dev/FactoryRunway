@@ -11,6 +11,7 @@ import {
 import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "@/features/tasks/department-group-semantics";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "./admin-action-errors";
 import { requireAdminUser } from "./admin-auth";
 import { bool, integer, optionalText, text } from "./admin-data";
 import type { AdminActionState } from "./product-form-state";
@@ -38,12 +39,20 @@ const error = (message: string): AdminActionState => ({
   message,
 });
 
-function actionError(cause: unknown, duplicateMessage: string) {
+function actionError(
+  action: string,
+  cause: unknown,
+  duplicateMessage: string,
+) {
   if (cause instanceof Prisma.PrismaClientKnownRequestError && cause.code === "P2002") {
     return error(duplicateMessage);
   }
 
-  return error(cause instanceof Error ? cause.message : "İşlem tamamlanamadı.");
+  if (cause instanceof Error && cause.name === "Error") {
+    return error(cause.message);
+  }
+
+  return unexpectedAdminActionState(action, cause);
 }
 
 function technicalKey(formData: FormData) {
@@ -135,7 +144,11 @@ export async function createSectorAction(
     refreshDefinitions();
     return success("Sektör oluşturuldu.", sector.id);
   } catch (cause) {
-    return actionError(cause, "Bu sektör anahtarı daha önce kullanılmış.");
+    return actionError(
+      "createSector",
+      cause,
+      "Bu sektör anahtarı daha önce kullanılmış.",
+    );
   }
 }
 
@@ -177,6 +190,7 @@ export async function createDepartmentGroupAction(
     return success("Departman grubu oluşturuldu.", group.id);
   } catch (cause) {
     return actionError(
+      "createDepartmentGroup",
       cause,
       "Bu departman grubu anahtarı seçilen sektörde daha önce kullanılmış.",
     );
@@ -229,6 +243,7 @@ export async function createDepartmentAction(
     return success("Departman oluşturuldu.", department.id);
   } catch (cause) {
     return actionError(
+      "createDepartment",
       cause,
       "Bu departman anahtarı seçilen sektörde daha önce kullanılmış.",
     );
@@ -263,6 +278,7 @@ export async function createProductCategoryAction(
     return success("Ürün kategorisi oluşturuldu.", category.id);
   } catch (cause) {
     return actionError(
+      "createProductCategory",
       cause,
       "Bu kategori anahtarı seçilen sektörde daha önce kullanılmış.",
     );
@@ -304,6 +320,7 @@ export async function createProductTypeAction(
     return success("Ürün tipi oluşturuldu.", productType.id);
   } catch (cause) {
     return actionError(
+      "createProductType",
       cause,
       "Bu ürün tipi anahtarı seçilen sektörde daha önce kullanılmış.",
     );
@@ -345,6 +362,7 @@ export async function createProductColorVariantAction(
     return success("Ürün rengi oluşturuldu.", color.id);
   } catch (cause) {
     return actionError(
+      "createProductColorVariant",
       cause,
       "Bu renk anahtarı seçilen sektörde daha önce kullanılmış.",
     );
@@ -359,46 +377,55 @@ export async function setDefinitionStatusAction(
   await requireAdminUser();
   const prisma = getPrisma();
 
-  switch (entity) {
-    case "sector":
-      await prisma.sector.update({
-        where: { id },
-        data: { status: activate ? SectorStatus.ACTIVE : SectorStatus.IN_DEVELOPMENT },
-      });
-      break;
-    case "departmentGroup":
-      await prisma.departmentGroup.update({
-        where: { id },
-        data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
-      });
-      break;
-    case "department":
-      await prisma.department.update({
-        where: { id },
-        data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
-      });
-      break;
-    case "productCategory":
-      await prisma.productCategory.update({
-        where: { id },
-        data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
-      });
-      break;
-    case "productType":
-      await prisma.productType.update({
-        where: { id },
-        data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
-      });
-      break;
-    case "productColorVariant":
-      await prisma.productColorVariant.update({
-        where: { id },
-        data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
-      });
-      break;
-  }
+  try {
+    switch (entity) {
+      case "sector":
+        await prisma.sector.update({
+          where: { id },
+          data: { status: activate ? SectorStatus.ACTIVE : SectorStatus.IN_DEVELOPMENT },
+        });
+        break;
+      case "departmentGroup":
+        await prisma.departmentGroup.update({
+          where: { id },
+          data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
+        });
+        break;
+      case "department":
+        await prisma.department.update({
+          where: { id },
+          data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
+        });
+        break;
+      case "productCategory":
+        await prisma.productCategory.update({
+          where: { id },
+          data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
+        });
+        break;
+      case "productType":
+        await prisma.productType.update({
+          where: { id },
+          data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
+        });
+        break;
+      case "productColorVariant":
+        await prisma.productColorVariant.update({
+          where: { id },
+          data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
+        });
+        break;
+    }
 
-  refreshDefinitions();
+    refreshDefinitions();
+  } catch (cause) {
+    unexpectedAdminActionState(
+      "setDefinitionStatus",
+      cause,
+      "Tanım durumu güncellenemedi.",
+      { activate, entity, id },
+    );
+  }
 }
 
 export async function createProductValueAddCategoryAction(

@@ -1438,7 +1438,19 @@
     align-items: center;
   }
 
+  .landing-panel-scroll-spacer {
+    display: none;
+    height: 0;
+    pointer-events: none;
+    background: var(--background);
+  }
+
   @media (min-width: 1024px) {
+    .landing-panel-stack[data-landing-panel-stack-ready="true"] .landing-panel-scroll-spacer {
+      display: block;
+      height: var(--landing-panel-scroll-spacer-height, 160svh);
+    }
+
     .landing-scroll-panel {
       will-change: transform;
     }

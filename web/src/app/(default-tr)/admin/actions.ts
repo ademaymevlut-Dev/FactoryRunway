@@ -2,16 +2,16 @@
 
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
-import sharp from "sharp";
 
 import { Prisma, ProductImageVariant, ProductImageView } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "./admin-action-errors";
 import { requireAdminUser } from "./admin-auth";
 import { cleanupFailedProductImageUpload } from "./product-image-blob-cleanup";
 import type { AdminActionState } from "./product-form-state";
 
-const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+const MAX_SERVER_UPLOAD_BYTES = 4 * 1024 * 1024;
 const PRODUCT_IMAGE_VARIANTS = [
   { variant: ProductImageVariant.DETAIL, width: 1000, height: 1250, sortOffset: 0 },
   { variant: ProductImageVariant.CARD, width: 600, height: 750, sortOffset: 1 },
@@ -40,10 +40,6 @@ function successState(message: string, entityId?: string): AdminActionState {
   return { status: "success", message, entityId };
 }
 
-function formatServerError(error: unknown) {
-  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
-}
-
 export async function uploadProductImagesAction(
   _previousState: AdminActionState,
   formData: FormData,
@@ -60,21 +56,43 @@ export async function uploadProductImagesAction(
   if (!productId) errors.productId = "Ürün zorunlu.";
   if (!imageFile) errors.imageFile = "PNG master görsel seçmelisin.";
   else if (!["image/png", "image/webp"].includes(imageFile.type)) errors.imageFile = "Kaynak görsel PNG veya WEBP olmalı.";
-  else if (imageFile.size > MAX_SERVER_UPLOAD_BYTES) errors.imageFile = "Görsel 4.5 MB sınırını aşıyor.";
+  else if (imageFile.size > MAX_SERVER_UPLOAD_BYTES) errors.imageFile = "Görsel 4 MB sınırını aşıyor.";
   if (!process.env.BLOB_READ_WRITE_TOKEN) errors.imageFile = "BLOB_READ_WRITE_TOKEN ortam değişkeni bulunamadı.";
   if (Object.keys(errors).length) return errorState("Görsel yüklenemedi. Alanları kontrol et.", errors);
 
   const prisma = getPrisma();
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    select: {
-      code: true,
-      name: true,
-    },
-  });
+  let product: { code: string | null; name: string } | null;
+
+  try {
+    product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        code: true,
+        name: true,
+      },
+    });
+  } catch (cause) {
+    return unexpectedAdminActionState(
+      "uploadProductImages.lookupProduct",
+      cause,
+      "Ürün bilgisi okunamadı.",
+      { productId },
+    );
+  }
+
   if (!product || !imageFile) return errorState("Ürün bulunamadı.");
 
-  const sourceBuffer = Buffer.from(await imageFile.arrayBuffer());
+  let sourceBuffer: Buffer;
+  try {
+    sourceBuffer = Buffer.from(await imageFile.arrayBuffer());
+  } catch (cause) {
+    return unexpectedAdminActionState(
+      "uploadProductImages.readFile",
+      cause,
+      "Görsel dosyası okunamadı.",
+      { productId },
+    );
+  }
   const productCode =
     normalizeBlobSegment(product.code ?? product.name) || productId;
   const versionKey = Date.now().toString();
@@ -91,6 +109,7 @@ export async function uploadProductImagesAction(
   for (const imageVariant of PRODUCT_IMAGE_VARIANTS) {
     let outputBuffer: Buffer;
     try {
+      const { default: sharp } = await import("sharp");
       outputBuffer = await sharp(sourceBuffer)
         .rotate()
         .resize(imageVariant.width, imageVariant.height, {
@@ -100,8 +119,12 @@ export async function uploadProductImagesAction(
         .webp({ alphaQuality: 100, quality: 92 })
         .toBuffer();
     } catch (error) {
-      console.error("Product image conversion failed", formatServerError(error));
-      return errorState("Görsel WEBP formatına dönüştürülemedi.", { imageFile: "Kaynak dosya bozuk veya desteklenmiyor." });
+      return unexpectedAdminActionState(
+        "uploadProductImages.convert",
+        error,
+        "Görsel WEBP formatına dönüştürülemedi.",
+        { productId, variant: imageVariant.variant, view },
+      );
     }
 
     try {
@@ -122,11 +145,15 @@ export async function uploadProductImagesAction(
         sortOrder: (view === ProductImageView.FRONT ? 0 : 10) + imageVariant.sortOffset,
       });
     } catch (error) {
-      console.error("Product image Blob upload failed", formatServerError(error));
       await cleanupFailedProductImageUpload(
         uploadedImages.map((image) => image.pathname),
       );
-      return errorState("Görsel Blob'a yüklenemedi.", { imageFile: "Blob bağlantısını kontrol et." });
+      return unexpectedAdminActionState(
+        "uploadProductImages.blobUpload",
+        error,
+        "Görsel Blob depolama alanına yüklenemedi.",
+        { productId, variant: imageVariant.variant, view },
+      );
     }
   }
 
@@ -156,6 +183,11 @@ export async function uploadProductImagesAction(
       uploadedImages.map((image) => image.pathname),
     );
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return errorState("Ürün bulunamadı.");
-    return errorState("Görsel kayıtları veritabanına yazılamadı.");
+    return unexpectedAdminActionState(
+      "uploadProductImages.persist",
+      error,
+      "Görsel kayıtları veritabanına yazılamadı.",
+      { productId, view },
+    );
   }
 }

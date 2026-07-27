@@ -14,7 +14,7 @@ export function LineUploadForm({ lineId }: { lineId: string }) {
       <Field label="Alt metin">
         <Input name="altText" placeholder="Kesim atölyesi üretim hattı" />
       </Field>
-      <Field label="PNG / WEBP master" hint="En fazla 4.5 MB">
+      <Field label="PNG / WEBP master" hint="En fazla 4 MB">
         <Input
           accept="image/png,image/webp"
           name="imageFile"

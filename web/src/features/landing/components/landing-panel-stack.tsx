@@ -3,14 +3,21 @@
 import { gsap } from "gsap";
 import { useReducedMotion } from "motion/react";
 import {
+  Children,
+  Fragment,
   type PropsWithChildren,
   useEffect,
   useRef,
 } from "react";
 
+const DESKTOP_PANEL_SCROLL_DISTANCE_MULTIPLIER = 2.7;
+const DESKTOP_PANEL_SCROLL_SPACER_FACTOR =
+  DESKTOP_PANEL_SCROLL_DISTANCE_MULTIPLIER - 1;
+
 export function LandingPanelStack({ children }: PropsWithChildren) {
   const rootRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const panels = Children.toArray(children);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -38,27 +45,42 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
       );
       const getHeaderHeight = () =>
         Math.ceil(header?.getBoundingClientRect().height ?? 0);
+      const getAvailablePanelHeight = () =>
+        Math.max(window.innerHeight - getHeaderHeight(), 1);
       const getPanelPinStart = (panel: HTMLElement) => {
-        const availableHeight = window.innerHeight - getHeaderHeight();
+        const availableHeight = getAvailablePanelHeight();
 
         return panel.offsetHeight > availableHeight
           ? "bottom bottom"
           : `top ${getHeaderHeight()}px`;
       };
-      const updateHeaderHeight = () => {
+      const updateScrollMetrics = () => {
+        const headerHeight = getHeaderHeight();
+        const spacerHeight = Math.round(
+          Math.max(window.innerHeight - headerHeight, 1) *
+            DESKTOP_PANEL_SCROLL_SPACER_FACTOR,
+        );
+
         root.style.setProperty(
           "--landing-header-height",
-          `${getHeaderHeight()}px`,
+          `${headerHeight}px`,
+        );
+        root.style.setProperty(
+          "--landing-panel-scroll-spacer-height",
+          `${spacerHeight}px`,
         );
       };
 
-      updateHeaderHeight();
-      ScrollTrigger.addEventListener("refreshInit", updateHeaderHeight);
+      updateScrollMetrics();
+      ScrollTrigger.addEventListener("refreshInit", updateScrollMetrics);
 
       context = gsap.context(() => {
         media = gsap.matchMedia();
 
         media.add("(min-width: 1024px)", () => {
+          root.dataset.landingPanelStackReady = "true";
+          updateScrollMetrics();
+
           const panels = gsap.utils.toArray<HTMLElement>(
             "[data-landing-panel]",
             root,
@@ -108,6 +130,10 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
               trigger: panel,
             });
           });
+
+          return () => {
+            delete root.dataset.landingPanelStackReady;
+          };
         });
 
         media.add("(max-width: 1023px)", () => {
@@ -148,7 +174,7 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
       return () => {
         ScrollTrigger.removeEventListener(
           "refreshInit",
-          updateHeaderHeight,
+          updateScrollMetrics,
         );
       };
     }
@@ -174,7 +200,9 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
 
       media?.revert();
       context?.revert();
+      delete root.dataset.landingPanelStackReady;
       root.style.removeProperty("--landing-header-height");
+      root.style.removeProperty("--landing-panel-scroll-spacer-height");
     };
   }, [prefersReducedMotion]);
 
@@ -184,7 +212,18 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
       data-landing-panel-stack
       ref={rootRef}
     >
-      {children}
+      {panels.map((panel, index) => (
+        <Fragment key={index}>
+          {panel}
+          {index < panels.length - 1 ? (
+            <div
+              aria-hidden="true"
+              className="landing-panel-scroll-spacer"
+              data-landing-panel-scroll-spacer
+            />
+          ) : null}
+        </Fragment>
+      ))}
     </div>
   );
 }

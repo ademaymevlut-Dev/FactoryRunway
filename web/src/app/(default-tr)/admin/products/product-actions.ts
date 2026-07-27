@@ -13,6 +13,7 @@ import { getPrisma } from "@/lib/db";
 import { getProductTierMinimumLevel } from "@/features/orders/product-tier-rules";
 
 import { requireAdminUser } from "../admin-auth";
+import { unexpectedAdminActionState } from "../admin-action-errors";
 import {
   bool,
   integer,
@@ -47,7 +48,7 @@ function refreshProduct(productId?: string) {
   if (productId) revalidatePath(productPath(productId));
 }
 
-function actionError(cause: unknown) {
+function actionError(action: string, cause: unknown) {
   if (cause instanceof Prisma.PrismaClientKnownRequestError) {
     if (cause.code === "P2002") {
       return error("Ürün anahtarı veya ürün kodu daha önce kullanılmış.");
@@ -57,7 +58,11 @@ function actionError(cause: unknown) {
     }
   }
 
-  return error(cause instanceof Error ? cause.message : "İşlem tamamlanamadı.");
+  if (cause instanceof Error && cause.name === "Error") {
+    return error(cause.message);
+  }
+
+  return unexpectedAdminActionState(action, cause);
 }
 
 function technicalKey(formData: FormData) {
@@ -198,104 +203,117 @@ export async function createProductAction(
     refreshProduct(product.id);
     return success("Ürün ana kaydı oluşturuldu. Tablodaki Details bağlantısından devam edebilirsin.", product.id);
   } catch (cause) {
-    return actionError(cause);
+    return actionError("createProduct", cause);
   }
 }
 
 export async function updateProductMainAction(
   productId: string,
+  _previousState: AdminActionState,
   formData: FormData,
-) {
+): Promise<AdminActionState> {
   await requireAdminUser();
-  const prisma = getPrisma();
-  const input = mainProductInput(formData);
-  await assertProductScope(
-    input.sectorId,
-    input.categoryId,
-    input.productTypeId,
-  );
 
-  const existing = await prisma.product.findUnique({
-    where: { id: productId },
-    select: {
-      sectorId: true,
-      requiredPlayerLevel: true,
-      _count: { select: { allowedColors: true, routeSteps: true } },
-    },
-  });
-
-  if (!existing) throw new Error("Ürün bulunamadı.");
-  if (
-    existing.sectorId !== input.sectorId &&
-    (existing._count.routeSteps > 0 || existing._count.allowedColors > 0)
-  ) {
-    throw new Error(
-      "Üretim rotası veya renk tanımı bulunan ürünün sektörü değiştirilemez. Önce bağlı tanımları kaldırmalısın.",
+  try {
+    const prisma = getPrisma();
+    const input = mainProductInput(formData);
+    await assertProductScope(
+      input.sectorId,
+      input.categoryId,
+      input.productTypeId,
     );
-  }
 
-  const { requiredPlayerLevel, ...mainInput } = input;
-  await prisma.product.update({
-    where: { id: productId },
-    data: {
-      ...mainInput,
-      requiredPlayerLevel: Math.max(
-        requiredPlayerLevel ?? existing.requiredPlayerLevel,
-        getProductTierMinimumLevel(input.tier),
-      ),
-    },
-  });
-  refreshProduct(productId);
+    const existing = await prisma.product.findUnique({
+      where: { id: productId },
+      select: {
+        sectorId: true,
+        requiredPlayerLevel: true,
+        _count: { select: { allowedColors: true, routeSteps: true } },
+      },
+    });
+
+    if (!existing) throw new Error("Ürün bulunamadı.");
+    if (
+      existing.sectorId !== input.sectorId &&
+      (existing._count.routeSteps > 0 || existing._count.allowedColors > 0)
+    ) {
+      throw new Error(
+        "Üretim rotası veya renk tanımı bulunan ürünün sektörü değiştirilemez. Önce bağlı tanımları kaldırmalısın.",
+      );
+    }
+
+    const { requiredPlayerLevel, ...mainInput } = input;
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        ...mainInput,
+        requiredPlayerLevel: Math.max(
+          requiredPlayerLevel ?? existing.requiredPlayerLevel,
+          getProductTierMinimumLevel(input.tier),
+        ),
+      },
+    });
+    refreshProduct(productId);
+    return success("Ürün ana bilgileri güncellendi.", productId);
+  } catch (cause) {
+    return actionError("updateProductMain", cause);
+  }
 }
 
 export async function updateProductDefinitionsAction(
   productId: string,
+  _previousState: AdminActionState,
   formData: FormData,
-) {
+): Promise<AdminActionState> {
   await requireAdminUser();
 
-  const descriptionTr = optionalText(formData, "descriptionTr");
-  const descriptionEn = optionalText(formData, "descriptionEn");
+  try {
+    const descriptionTr = optionalText(formData, "descriptionTr");
+    const descriptionEn = optionalText(formData, "descriptionEn");
 
-  const prisma = getPrisma();
-  const product = await prisma.product.findUnique({
-    where: { id: productId },
-    select: { tier: true },
-  });
+    const prisma = getPrisma();
+    const product = await prisma.product.findUnique({
+      where: { id: productId },
+      select: { tier: true },
+    });
 
-  if (!product) throw new Error("Ürün bulunamadı.");
+    if (!product) throw new Error("Ürün bulunamadı.");
 
-  const requiredPlayerLevel = integer(formData, "requiredPlayerLevel", {
-    min: 1,
-  });
-  const minimumLevel = getProductTierMinimumLevel(product.tier);
+    const requiredPlayerLevel = integer(formData, "requiredPlayerLevel", {
+      min: 1,
+    });
+    const minimumLevel = getProductTierMinimumLevel(product.tier);
 
-  if (requiredPlayerLevel < minimumLevel) {
-    throw new Error(
-      `${product.tier} ürünler için gerekli oyuncu seviyesi en az ${minimumLevel} olmalı.`,
-    );
-  }
+    if (requiredPlayerLevel < minimumLevel) {
+      throw new Error(
+        `${product.tier} ürünler için gerekli oyuncu seviyesi en az ${minimumLevel} olmalı.`,
+      );
+    }
 
-  await prisma.product.update({
-    where: { id: productId },
-    data: {
-      baseUnitPriceCents: productUnitPriceCents(formData),
-      requiredPlayerLevel,
-      translations: {
-        deleteMany: {},
-        create: [
-          ...(descriptionTr
-            ? [{ locale: "tr", description: descriptionTr }]
-            : []),
-          ...(descriptionEn
-            ? [{ locale: "en", description: descriptionEn }]
-            : []),
-        ],
+    await prisma.product.update({
+      where: { id: productId },
+      data: {
+        baseUnitPriceCents: productUnitPriceCents(formData),
+        requiredPlayerLevel,
+        translations: {
+          deleteMany: {},
+          create: [
+            ...(descriptionTr
+              ? [{ locale: "tr", description: descriptionTr }]
+              : []),
+            ...(descriptionEn
+              ? [{ locale: "en", description: descriptionEn }]
+              : []),
+          ],
+        },
+        metadata: json(formData),
       },
-      metadata: json(formData),
-    },
-  });
-  refreshProduct(productId);
+    });
+    refreshProduct(productId);
+    return success("Ürün fiyatı ve tanımları güncellendi.", productId);
+  } catch (cause) {
+    return actionError("updateProductDefinitions", cause);
+  }
 }
 
 export async function saveProductColorsAction(
@@ -320,7 +338,6 @@ export async function saveProductColorsAction(
     if (!selectedColorIds.length) {
       return error("Sipariş teklifleri için en az bir renk seçmelisin.");
     }
-
     const offerColorCountMin = integer(formData, "offerColorCountMin", {
       min: 1,
     });
@@ -330,7 +347,6 @@ export async function saveProductColorsAction(
     if (offerColorCountMin > offerColorCountMax) {
       return error("Minimum renk sayısı maksimum değerden büyük olamaz.");
     }
-
     const colors = await prisma.productColorVariant.findMany({
       where: {
         id: { in: selectedColorIds },
@@ -341,7 +357,6 @@ export async function saveProductColorsAction(
     if (colors.length !== selectedColorIds.length) {
       return error("Seçilen renklerden biri ürün sektörüyle uyumlu değil.");
     }
-
     const activeColorIds = selectedColorIds.filter((colorId) =>
       bool(formData, `isActive:${colorId}`),
     );
@@ -429,30 +444,36 @@ export async function saveProductColorsAction(
       return error("Aynı renk bu ürüne birden fazla eklenemez.");
     }
 
-    return actionError(cause);
+    return actionError("saveProductColors", cause);
   }
 }
 
 export async function updateProductCardAction(
   productId: string,
+  _previousState: AdminActionState,
   formData: FormData,
-) {
+): Promise<AdminActionState> {
   await requireAdminUser();
 
-  await getPrisma().product.update({
-    where: { id: productId },
-    data: {
-      cardPrimaryColor: text(formData, "cardPrimaryColor"),
-      cardSecondaryColor: text(formData, "cardSecondaryColor"),
-      cardGradientFrom: text(formData, "cardGradientFrom"),
-      cardGradientTo: text(formData, "cardGradientTo"),
-      cardTextColor: text(formData, "cardTextColor"),
-      cardSvgIconColor: text(formData, "cardSvgIconColor"),
-      cardSvgIconAccentColor: text(formData, "cardSvgIconAccentColor"),
-      cardForegroundTone: text(formData, "cardForegroundTone"),
-    },
-  });
-  refreshProduct(productId);
+  try {
+    await getPrisma().product.update({
+      where: { id: productId },
+      data: {
+        cardPrimaryColor: text(formData, "cardPrimaryColor"),
+        cardSecondaryColor: text(formData, "cardSecondaryColor"),
+        cardGradientFrom: text(formData, "cardGradientFrom"),
+        cardGradientTo: text(formData, "cardGradientTo"),
+        cardTextColor: text(formData, "cardTextColor"),
+        cardSvgIconColor: text(formData, "cardSvgIconColor"),
+        cardSvgIconAccentColor: text(formData, "cardSvgIconAccentColor"),
+        cardForegroundTone: text(formData, "cardForegroundTone"),
+      },
+    });
+    refreshProduct(productId);
+    return success("Ürün kartı görünümü güncellendi.", productId);
+  } catch (cause) {
+    return actionError("updateProductCard", cause);
+  }
 }
 
 function uniqueStrings(values: FormDataEntryValue[]) {
@@ -574,8 +595,16 @@ export async function deleteProductRouteStepAction(
   routeStepId: string,
 ) {
   await requireAdminUser();
-  await getPrisma().productRouteStep.delete({
-    where: { id: routeStepId, productId },
-  });
-  refreshProduct(productId);
+
+  try {
+    await getPrisma().productRouteStep.delete({
+      where: { id: routeStepId, productId },
+    });
+    refreshProduct(productId);
+  } catch (cause) {
+    unexpectedAdminActionState("deleteProductRouteStep", cause, "Rota adımı silinemedi.", {
+      productId,
+      routeStepId,
+    });
+  }
 }

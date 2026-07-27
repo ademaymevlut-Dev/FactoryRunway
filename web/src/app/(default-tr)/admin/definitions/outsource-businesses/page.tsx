@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/db";
 
 import { jsonText } from "../../admin-data";
+import { AdminForm } from "../../admin-form";
 import {
   deleteOutsourceOptionAction,
   saveOutsourceOptionAction,
@@ -116,7 +117,7 @@ export default async function OutsourceBusinessesPage() {
           title="Yeni fason işletme tanımı"
           description="Aynı departmanda FAST, STANDARD ve SAFE kimliklerinden yalnızca birer tane bulunabilir."
         >
-          <form
+          <AdminForm
             action={saveOutsourceOptionAction.bind(null, null)}
             className="grid gap-4"
           >
@@ -124,7 +125,7 @@ export default async function OutsourceBusinessesPage() {
             <button className="game-button-primary w-full sm:w-fit" type="submit">
               Fason Tanımını Oluştur
             </button>
-          </form>
+          </AdminForm>
         </Panel>
       ) : (
         <Panel
@@ -172,7 +173,7 @@ export default async function OutsourceBusinessesPage() {
                       {config.optionType}
                     </Badge>
                   </div>
-                  <form
+                  <AdminForm
                     action={saveOutsourceOptionAction.bind(null, config.id)}
                     className="grid gap-4"
                   >
@@ -190,7 +191,7 @@ export default async function OutsourceBusinessesPage() {
                         Sil
                       </button>
                     </div>
-                  </form>
+                  </AdminForm>
                 </section>
               );
             })}

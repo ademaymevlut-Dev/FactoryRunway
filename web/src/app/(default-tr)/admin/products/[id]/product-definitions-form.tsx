@@ -11,6 +11,7 @@ import {
   Select,
   Textarea,
 } from "../../form-ui";
+import { AdminForm } from "../../admin-form";
 import { updateProductDefinitionsAction } from "../product-actions";
 import {
   getProductTierMinimumLevel,
@@ -77,7 +78,7 @@ export function ProductDefinitionsForm({
       description="Fiyat, oyuncu seviyesi, çok dilli açıklamalar ve ek JSON verileri."
       title="Ürün tanımlamaları"
     >
-      <form
+      <AdminForm
         action={updateProductDefinitionsAction.bind(null, product.id)}
         className="grid gap-5"
       >
@@ -169,7 +170,7 @@ export function ProductDefinitionsForm({
           <Save size={16} />
           Tanımlamaları Kaydet
         </button>
-      </form>
+      </AdminForm>
     </Panel>
   );
 }

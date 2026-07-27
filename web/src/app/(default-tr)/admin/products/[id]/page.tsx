@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/db";
 
 import { jsonText } from "../../admin-data";
+import { AdminForm } from "../../admin-form";
 import {
   Field,
   FormGrid,
@@ -205,7 +206,7 @@ export default async function ProductDetailPage({
             description="Ürünün kimliği, sınıflandırması ve yayın durumu."
             title="Ana ürün bilgileri"
           >
-            <form
+            <AdminForm
               action={updateProductMainAction.bind(null, product.id)}
               className="grid gap-5"
             >
@@ -259,7 +260,7 @@ export default async function ProductDetailPage({
               <button className="game-button-primary w-fit" type="submit">
                 Ana Bilgileri Kaydet
               </button>
-            </form>
+            </AdminForm>
           </Panel>
         }
         definitions={

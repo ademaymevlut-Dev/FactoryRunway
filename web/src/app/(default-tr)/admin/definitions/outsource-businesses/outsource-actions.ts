@@ -8,8 +8,10 @@ import {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "../../admin-action-errors";
 import { integer, json, text } from "../../admin-data";
 import { requireAdminUser } from "../../admin-auth";
+import type { AdminActionState } from "../../product-form-state";
 
 const pagePath = "/admin/definitions/outsource-businesses";
 
@@ -33,11 +35,10 @@ function currencyToCents(formData: FormData, key: string) {
   return cents;
 }
 
-export async function saveOutsourceOptionAction(
+async function saveOutsourceOption(
   configId: string | null,
   formData: FormData,
 ) {
-  await requireAdminUser();
   const prisma = getPrisma();
   const departmentId = text(formData, "departmentId");
   const department = await prisma.department.findUnique({
@@ -84,8 +85,48 @@ export async function saveOutsourceOptionAction(
   revalidatePath(pagePath);
 }
 
+export async function saveOutsourceOptionAction(
+  configId: string | null,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdminUser();
+
+  try {
+    await saveOutsourceOption(configId, formData);
+    return {
+      status: "success",
+      message: configId
+        ? "Fason üretim tanımı güncellendi."
+        : "Fason üretim tanımı oluşturuldu.",
+      entityId: configId ?? undefined,
+    };
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === "Error") {
+      return { status: "error", message: cause.message };
+    }
+
+    return unexpectedAdminActionState(
+      "saveOutsourceOption",
+      cause,
+      "Fason üretim tanımı kaydedilemedi.",
+      { configId },
+    );
+  }
+}
+
 export async function deleteOutsourceOptionAction(configId: string) {
   await requireAdminUser();
-  await getPrisma().outsourceOptionConfig.delete({ where: { id: configId } });
-  revalidatePath(pagePath);
+
+  try {
+    await getPrisma().outsourceOptionConfig.delete({ where: { id: configId } });
+    revalidatePath(pagePath);
+  } catch (cause) {
+    unexpectedAdminActionState(
+      "deleteOutsourceOption",
+      cause,
+      "Fason üretim tanımı silinemedi.",
+      { configId },
+    );
+  }
 }

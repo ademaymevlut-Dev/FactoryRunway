@@ -95,6 +95,7 @@ test("landing yedi panelli GSAP stack ve kompakt showcase sözleşmesini taşır
   const page = read("./components/landing-page.tsx");
   const panelStack = read("./components/landing-panel-stack.tsx");
   const gameLoop = read("./components/landing-game-loop.tsx");
+  const css = read("../../app/globals.css");
   const calloutRail = read(
     "./showcase/components/showcase-callout-rail.tsx",
   );
@@ -109,8 +110,13 @@ test("landing yedi panelli GSAP stack ve kompakt showcase sözleşmesini taşır
   assert.match(panelStack, /gsap\/dist\/ScrollTrigger/);
   assert.match(panelStack, /pinSpacing: false/);
   assert.match(panelStack, /scrub: 1\.2/);
+  assert.match(panelStack, /DESKTOP_PANEL_SCROLL_DISTANCE_MULTIPLIER = 2\.7/);
+  assert.match(panelStack, /landingPanelStackReady/);
+  assert.match(panelStack, /data-landing-panel-scroll-spacer/);
   assert.match(panelStack, /min-width: 1024px/);
   assert.match(panelStack, /max-width: 1023px/);
+  assert.match(css, /landing-panel-scroll-spacer/);
+  assert.match(css, /--landing-panel-scroll-spacer-height/);
   assert.match(gameLoop, /BlurText/);
   assert.match(gameLoop, /index \* 0\.14/);
   assert.match(calloutRail, /showDescriptions\?: boolean/);

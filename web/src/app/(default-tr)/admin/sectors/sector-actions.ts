@@ -2,15 +2,15 @@
 
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
-import sharp from "sharp";
 
 import { Prisma } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "../admin-action-errors";
 import { requireAdminUser } from "../admin-auth";
 import type { AdminActionState } from "../product-form-state";
 
-const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+const MAX_SERVER_UPLOAD_BYTES = 4 * 1024 * 1024;
 const sectorImageSlots = {
   FEATURED: {
     width: 1600,
@@ -67,10 +67,6 @@ function slotFromForm(formData: FormData) {
   return rawSlot;
 }
 
-function formatServerError(cause: unknown) {
-  return cause instanceof Error ? `${cause.name}: ${cause.message}` : String(cause);
-}
-
 export async function uploadSectorImageAction(
   _previousState: AdminActionState,
   formData: FormData,
@@ -86,7 +82,7 @@ export async function uploadSectorImageAction(
     return error("Kaynak görsel PNG veya WEBP olmalı.");
   }
   if (imageFile.size > MAX_SERVER_UPLOAD_BYTES) {
-    return error("Görsel 4.5 MB sınırını aşıyor.");
+    return error("Görsel 4 MB sınırını aşıyor.");
   }
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return error("BLOB_READ_WRITE_TOKEN bulunamadı.");
@@ -101,19 +97,47 @@ export async function uploadSectorImageAction(
 
   const imageSlot = sectorImageSlots[slot];
   const prisma = getPrisma();
-  const sector = await prisma.sector.findUnique({
-    where: { id: sectorId },
-    select: {
-      key: true,
-      photoPathname: true,
-      slimPhotoPathname: true,
-    },
-  });
+  let sector: {
+    key: string;
+    photoPathname: string | null;
+    slimPhotoPathname: string | null;
+  } | null;
+
+  try {
+    sector = await prisma.sector.findUnique({
+      where: { id: sectorId },
+      select: {
+        key: true,
+        photoPathname: true,
+        slimPhotoPathname: true,
+      },
+    });
+  } catch (cause) {
+    return unexpectedAdminActionState(
+      "uploadSectorImage.lookupSector",
+      cause,
+      "Sektör bilgisi okunamadı.",
+      { sectorId, slot },
+    );
+  }
+
   if (!sector) return error("Sektör bulunamadı.");
 
-  const sourceBuffer = Buffer.from(await imageFile.arrayBuffer());
+  let sourceBuffer: Buffer;
+  try {
+    sourceBuffer = Buffer.from(await imageFile.arrayBuffer());
+  } catch (cause) {
+    return unexpectedAdminActionState(
+      "uploadSectorImage.readFile",
+      cause,
+      "Görsel dosyası okunamadı.",
+      { sectorId, slot },
+    );
+  }
+
   let outputBuffer: Buffer;
   try {
+    const { default: sharp } = await import("sharp");
     outputBuffer = await sharp(sourceBuffer)
       .rotate()
       .resize(imageSlot.width, imageSlot.height, {
@@ -123,8 +147,12 @@ export async function uploadSectorImageAction(
       .webp({ alphaQuality: 100, quality: 92 })
       .toBuffer();
   } catch (cause) {
-    console.error("Sector image conversion failed", formatServerError(cause));
-    return error("Görsel WEBP formatına dönüştürülemedi.");
+    return unexpectedAdminActionState(
+      "uploadSectorImage.convert",
+      cause,
+      "Görsel WEBP formatına dönüştürülemedi.",
+      { sectorId, slot },
+    );
   }
 
   const sectorKey = normalizeBlobSegment(sector.key) || sectorId;
@@ -141,8 +169,12 @@ export async function uploadSectorImageAction(
     });
     uploaded = { url: blob.url, pathname: blob.pathname };
   } catch (cause) {
-    console.error("Sector image Blob upload failed", formatServerError(cause));
-    return error("Görsel Blob depolama alanına yüklenemedi.");
+    return unexpectedAdminActionState(
+      "uploadSectorImage.blobUpload",
+      cause,
+      "Görsel Blob depolama alanına yüklenemedi.",
+      { sectorId, slot },
+    );
   }
 
   try {
@@ -178,6 +210,11 @@ export async function uploadSectorImageAction(
     if (cause instanceof Prisma.PrismaClientKnownRequestError && cause.code === "P2025") {
       return error("Sektör bulunamadı.");
     }
-    return error("Görsel kayıtları veritabanına yazılamadı.");
+    return unexpectedAdminActionState(
+      "uploadSectorImage.persist",
+      cause,
+      "Görsel kayıtları veritabanına yazılamadı.",
+      { sectorId, slot },
+    );
   }
 }

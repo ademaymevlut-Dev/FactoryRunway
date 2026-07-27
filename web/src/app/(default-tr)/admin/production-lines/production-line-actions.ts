@@ -2,7 +2,6 @@
 
 import { del, put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
-import sharp from "sharp";
 
 import {
   ContentStatus,
@@ -15,11 +14,12 @@ import {
 import { getPrisma } from "@/lib/db";
 import { recalculateDirectLineCost } from "@/lib/production-line-cost";
 
+import { unexpectedAdminActionState } from "../admin-action-errors";
 import { integer, json, optionalText, text } from "../admin-data";
 import { requireAdminUser } from "../admin-auth";
 import type { AdminActionState } from "../product-form-state";
 
-const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
+const MAX_SERVER_UPLOAD_BYTES = 4 * 1024 * 1024;
 const grades = new Set<string>(Object.values(ProductionGrade));
 const statuses = new Set<string>(Object.values(ContentStatus));
 const imageVariants = [
@@ -111,7 +111,7 @@ function currencyToCents(formData: FormData, key: string) {
   return cents;
 }
 
-function actionError(cause: unknown, fallback: string) {
+function actionError(action: string, cause: unknown, fallback: string) {
   if (cause instanceof Prisma.PrismaClientKnownRequestError) {
     if (cause.code === "P2002") {
       return error(
@@ -126,7 +126,11 @@ function actionError(cause: unknown, fallback: string) {
     }
   }
 
-  return error(cause instanceof Error ? cause.message : fallback);
+  if (cause instanceof Error && cause.name === "Error") {
+    return error(cause.message);
+  }
+
+  return unexpectedAdminActionState(action, cause, fallback);
 }
 
 async function assertProductionDepartment(
@@ -189,7 +193,11 @@ export async function createProductionLineTemplateAction(
       line.id,
     );
   } catch (cause) {
-    return actionError(cause, "Üretim hattı oluşturulamadı.");
+    return actionError(
+      "createProductionLineTemplate",
+      cause,
+      "Üretim hattı oluşturulamadı.",
+    );
   }
 }
 
@@ -252,7 +260,11 @@ export async function updateProductionLineBasicsAction(
     refreshLine(lineId);
     return success("Ana bilgiler güncellendi.", lineId);
   } catch (cause) {
-    return actionError(cause, "Ana bilgiler güncellenemedi.");
+    return actionError(
+      "updateProductionLineBasics",
+      cause,
+      "Ana bilgiler güncellenemedi.",
+    );
   }
 }
 
@@ -281,7 +293,11 @@ export async function updateProductionLineCapacityAction(
     refreshLine(lineId);
     return success("Kapasite ve alan bilgileri güncellendi.", lineId);
   } catch (cause) {
-    return actionError(cause, "Kapasite bilgileri güncellenemedi.");
+    return actionError(
+      "updateProductionLineCapacity",
+      cause,
+      "Kapasite bilgileri güncellenemedi.",
+    );
   }
 }
 
@@ -310,7 +326,11 @@ export async function updateProductionLineCostsAction(
     refreshLine(lineId);
     return success("Maliyet girdileri güncellendi.", lineId);
   } catch (cause) {
-    return actionError(cause, "Maliyet bilgileri güncellenemedi.");
+    return actionError(
+      "updateProductionLineCosts",
+      cause,
+      "Maliyet bilgileri güncellenemedi.",
+    );
   }
 }
 
@@ -383,7 +403,11 @@ export async function saveProductionLineStaffRequirementAction(
       requirementId ?? undefined,
     );
   } catch (cause) {
-    return actionError(cause, "Personel gereksinimi kaydedilemedi.");
+    return actionError(
+      "saveProductionLineStaffRequirement",
+      cause,
+      "Personel gereksinimi kaydedilemedi.",
+    );
   }
 }
 
@@ -393,22 +417,32 @@ export async function deleteProductionLineStaffRequirementAction(
 ) {
   await requireAdminUser();
 
-  await getPrisma().$transaction(async (tx) => {
-    await tx.productionLineTemplateStaffRequirement.delete({
-      where: { id: requirementId, productionLineTemplateId: lineId },
+  try {
+    await getPrisma().$transaction(async (tx) => {
+      await tx.productionLineTemplateStaffRequirement.delete({
+        where: { id: requirementId, productionLineTemplateId: lineId },
+      });
+      const totals =
+        await tx.productionLineTemplateStaffRequirement.aggregate({
+          where: { productionLineTemplateId: lineId },
+          _sum: { requiredQuantity: true },
+        });
+      await tx.productionLineTemplate.update({
+        where: { id: lineId },
+        data: { idealStaff: totals._sum.requiredQuantity ?? 0 },
+      });
+      await recalculateDirectLineCost(tx, lineId);
     });
-    const totals = await tx.productionLineTemplateStaffRequirement.aggregate({
-      where: { productionLineTemplateId: lineId },
-      _sum: { requiredQuantity: true },
-    });
-    await tx.productionLineTemplate.update({
-      where: { id: lineId },
-      data: { idealStaff: totals._sum.requiredQuantity ?? 0 },
-    });
-    await recalculateDirectLineCost(tx, lineId);
-  });
 
-  refreshLine(lineId);
+    refreshLine(lineId);
+  } catch (cause) {
+    unexpectedAdminActionState(
+      "deleteProductionLineStaffRequirement",
+      cause,
+      "Personel gereksinimi silinemedi.",
+      { lineId, requirementId },
+    );
+  }
 }
 
 export async function uploadLineVisualAssetsAction(
@@ -428,24 +462,50 @@ export async function uploadLineVisualAssetsAction(
     return error("Kaynak görsel PNG veya WEBP olmalı.");
   }
   if (imageFile.size > MAX_SERVER_UPLOAD_BYTES) {
-    return error("Görsel 4.5 MB sınırını aşıyor.");
+    return error("Görsel 4 MB sınırını aşıyor.");
   }
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return error("BLOB_READ_WRITE_TOKEN bulunamadı.");
   }
 
   const prisma = getPrisma();
-  const line = await prisma.productionLineTemplate.findUnique({
-    where: { id: lineId },
-    select: {
-      key: true,
-      grade: true,
-      visualAssets: { select: { pathname: true } },
-    },
-  });
+  let line: {
+    grade: ProductionGrade;
+    key: string;
+    visualAssets: Array<{ pathname: string | null }>;
+  } | null;
+
+  try {
+    line = await prisma.productionLineTemplate.findUnique({
+      where: { id: lineId },
+      select: {
+        key: true,
+        grade: true,
+        visualAssets: { select: { pathname: true } },
+      },
+    });
+  } catch (cause) {
+    return unexpectedAdminActionState(
+      "uploadLineVisualAssets.lookupLine",
+      cause,
+      "Üretim hattı bilgisi okunamadı.",
+      { lineId },
+    );
+  }
+
   if (!line) return error("Üretim hattı bulunamadı.");
 
-  const sourceBuffer = Buffer.from(await imageFile.arrayBuffer());
+  let sourceBuffer: Buffer;
+  try {
+    sourceBuffer = Buffer.from(await imageFile.arrayBuffer());
+  } catch (cause) {
+    return unexpectedAdminActionState(
+      "uploadLineVisualAssets.readFile",
+      cause,
+      "Görsel dosyası okunamadı.",
+      { lineId },
+    );
+  }
   const lineKey =
     line.key
       .toLowerCase()
@@ -465,6 +525,7 @@ export async function uploadLineVisualAssetsAction(
   for (const imageVariant of imageVariants) {
     let outputBuffer: Buffer;
     try {
+      const { default: sharp } = await import("sharp");
       outputBuffer = await sharp(sourceBuffer)
         .rotate()
         .resize(imageVariant.width, imageVariant.height, {
@@ -474,8 +535,13 @@ export async function uploadLineVisualAssetsAction(
         })
         .webp({ alphaQuality: 100, quality: 90 })
         .toBuffer();
-    } catch {
-      return error("Görsel WEBP formatına dönüştürülemedi.");
+    } catch (cause) {
+      return unexpectedAdminActionState(
+        "uploadLineVisualAssets.convert",
+        cause,
+        "Görsel WEBP formatına dönüştürülemedi.",
+        { lineId, variant: imageVariant.variant },
+      );
     }
 
     try {
@@ -491,14 +557,19 @@ export async function uploadLineVisualAssetsAction(
         pathname: blob.pathname,
         fileSizeBytes: outputBuffer.byteLength,
       });
-    } catch {
+    } catch (cause) {
       const paths = uploaded.map((image) => image.pathname);
       if (paths.length) {
         await del(paths, {
           token: process.env.BLOB_READ_WRITE_TOKEN,
         }).catch(() => undefined);
       }
-      return error("Görsel Blob depolama alanına yüklenemedi.");
+      return unexpectedAdminActionState(
+        "uploadLineVisualAssets.blobUpload",
+        cause,
+        "Görsel Blob depolama alanına yüklenemedi.",
+        { lineId, variant: imageVariant.variant },
+      );
     }
   }
 
@@ -571,6 +642,10 @@ export async function uploadLineVisualAssetsAction(
         token: process.env.BLOB_READ_WRITE_TOKEN,
       }).catch(() => undefined);
     }
-    return actionError(cause, "Görsel kayıtları veritabanına yazılamadı.");
+    return actionError(
+      "uploadLineVisualAssets.persist",
+      cause,
+      "Görsel kayıtları veritabanına yazılamadı.",
+    );
   }
 }

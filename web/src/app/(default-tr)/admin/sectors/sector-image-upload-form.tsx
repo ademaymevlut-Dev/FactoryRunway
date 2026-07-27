@@ -24,7 +24,7 @@ export function SectorImageUploadForm({
     <form action={action} className="grid gap-2">
       <input name="sectorId" type="hidden" value={sectorId} />
       <input name="slot" type="hidden" value={slot} />
-      <Field label="PNG / WEBP master" hint="En fazla 4.5 MB">
+      <Field label="PNG / WEBP master" hint="En fazla 4 MB">
         <Input accept="image/png,image/webp" name="imageFile" required type="file" />
       </Field>
       <button className="game-button-primary" disabled={pending} type="submit">

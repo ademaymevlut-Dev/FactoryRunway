@@ -14,7 +14,7 @@ export function ProductUploadForm({ productId }: { productId: string }) {
       <Field label="Görünüm">
         <Select name="view"><option value="FRONT">FRONT</option><option value="BACK">BACK</option></Select>
       </Field>
-      <Field label="PNG / WEBP master">
+      <Field label="PNG / WEBP master" hint="En fazla 4 MB">
         <Input accept="image/png,image/webp" name="imageFile" required type="file" />
       </Field>
       <button className="game-button-primary md:col-span-2" disabled={pending} type="submit">

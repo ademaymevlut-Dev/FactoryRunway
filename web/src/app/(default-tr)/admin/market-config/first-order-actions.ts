@@ -9,8 +9,10 @@ import {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "../admin-action-errors";
 import { requireAdminUser } from "../admin-auth";
 import { integer, json, text } from "../admin-data";
+import type { AdminActionState } from "../product-form-state";
 
 const pagePath = "/admin/market-config";
 const maxFirstOrderOptions = 3;
@@ -30,14 +32,28 @@ function enumValue<T extends string>(
 function actionError(cause: unknown) {
   if (cause instanceof Prisma.PrismaClientKnownRequestError) {
     if (cause.code === "P2002") {
-      return new Error("Bu ürün aynı sektör için ilk sipariş seçeneklerinde zaten var.");
+      return {
+        status: "error",
+        message: "Bu ürün aynı sektör için ilk sipariş seçeneklerinde zaten var.",
+      } satisfies AdminActionState;
     }
     if (cause.code === "P2003") {
-      return new Error("Seçilen sektör veya ürün artık kullanılamıyor.");
+      return {
+        status: "error",
+        message: "Seçilen sektör veya ürün artık kullanılamıyor.",
+      } satisfies AdminActionState;
     }
   }
 
-  return cause instanceof Error ? cause : new Error("İşlem tamamlanamadı.");
+  if (cause instanceof Error && cause.name === "Error") {
+    return { status: "error", message: cause.message } satisfies AdminActionState;
+  }
+
+  return unexpectedAdminActionState(
+    "saveFirstOrderOption",
+    cause,
+    "İlk sipariş seçeneği kaydedilemedi.",
+  );
 }
 
 async function assertOptionScope({
@@ -80,8 +96,9 @@ async function assertOptionScope({
 
 export async function saveFirstOrderOptionAction(
   optionId: string | null,
+  _previousState: AdminActionState,
   formData: FormData,
-) {
+): Promise<AdminActionState> {
   await requireAdminUser();
 
   try {
@@ -120,8 +137,15 @@ export async function saveFirstOrderOptionAction(
     }
 
     revalidatePath(pagePath);
+    return {
+      status: "success",
+      message: optionId
+        ? "İlk sipariş seçeneği güncellendi."
+        : "İlk sipariş seçeneği oluşturuldu.",
+      entityId: optionId ?? undefined,
+    };
   } catch (cause) {
-    throw actionError(cause);
+    return actionError(cause);
   }
 }
 
@@ -134,6 +158,11 @@ export async function deleteFirstOrderOptionAction(optionId: string) {
     });
     revalidatePath(pagePath);
   } catch (cause) {
-    throw actionError(cause);
+    unexpectedAdminActionState(
+      "deleteFirstOrderOption",
+      cause,
+      "İlk sipariş seçeneği silinemedi.",
+      { optionId },
+    );
   }
 }

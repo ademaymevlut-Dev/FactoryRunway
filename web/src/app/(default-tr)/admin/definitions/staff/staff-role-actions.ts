@@ -10,6 +10,7 @@ import {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "../../admin-action-errors";
 import { requireAdminUser } from "../../admin-auth";
 import { integer, optionalText, text } from "../../admin-data";
 import type { AdminActionState } from "../../product-form-state";
@@ -35,7 +36,7 @@ function refreshStaffRoles() {
   revalidatePath("/admin/production-lines");
 }
 
-function actionError(cause: unknown) {
+function actionError(action: string, cause: unknown) {
   if (cause instanceof Prisma.PrismaClientKnownRequestError) {
     if (cause.code === "P2002") {
       return error("Bu teknik anahtar seçilen sektörde daha önce kullanılmış.");
@@ -48,7 +49,11 @@ function actionError(cause: unknown) {
     }
   }
 
-  return error(cause instanceof Error ? cause.message : "İşlem tamamlanamadı.");
+  if (cause instanceof Error && cause.name === "Error") {
+    return error(cause.message);
+  }
+
+  return unexpectedAdminActionState(action, cause);
 }
 
 function technicalKey(formData: FormData) {
@@ -210,7 +215,7 @@ export async function createStaffRoleAction(
     refreshStaffRoles();
     return success("Personel rolü oluşturuldu.", role.id);
   } catch (cause) {
-    return actionError(cause);
+    return actionError("createStaffRole", cause);
   }
 }
 
@@ -285,7 +290,7 @@ export async function updateStaffRoleAction(
     refreshStaffRoles();
     return success("Personel rolü güncellendi.", roleId);
   } catch (cause) {
-    return actionError(cause);
+    return actionError("updateStaffRole", cause);
   }
 }
 
@@ -327,7 +332,7 @@ export async function deleteStaffRoleAction(
     refreshStaffRoles();
     return success("Personel rolü silindi.");
   } catch (cause) {
-    return actionError(cause);
+    return actionError("deleteStaffRole", cause);
   }
 }
 
@@ -337,10 +342,19 @@ export async function setStaffRoleStatusAction(
 ) {
   await requireAdminUser();
 
-  await getPrisma().staffRole.update({
-    where: { id: roleId },
-    data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
-  });
+  try {
+    await getPrisma().staffRole.update({
+      where: { id: roleId },
+      data: { status: activate ? ContentStatus.ACTIVE : ContentStatus.INACTIVE },
+    });
 
-  refreshStaffRoles();
+    refreshStaffRoles();
+  } catch (cause) {
+    unexpectedAdminActionState(
+      "setStaffRoleStatus",
+      cause,
+      "Personel rolü durumu güncellenemedi.",
+      { activate, roleId },
+    );
+  }
 }

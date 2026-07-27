@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { getPrisma } from "@/lib/db";
 
 import { jsonText } from "../admin-data";
+import { AdminForm } from "../admin-form";
 import {
   Field,
   FormGrid,
@@ -199,26 +200,26 @@ export default async function CustomersPage() {
               title="Yeni müşteri segmenti"
               description="Fiyat davranışı, kalite beklentisi ve termin baskısı. Ürün grubu müşteri kaydında seçilir."
             >
-              <form
+              <AdminForm
                 action={saveCustomerSegmentAction.bind(null, null)}
                 className="grid gap-4"
               >
                 <SegmentFields sectors={sectorOptions} />
                 <SubmitButton label="Segment Oluştur" />
-              </form>
+              </AdminForm>
             </Panel>
 
             <Panel
               title="Yeni hacim sınıfı"
               description="Sipariş büyüklüğü, üretim yükü ve kaç ürün satırı içereceği."
             >
-              <form
+              <AdminForm
                 action={saveCustomerVolumeClassAction.bind(null, null)}
                 className="grid gap-4"
               >
                 <VolumeFields sectors={sectorOptions} />
                 <SubmitButton label="Hacim Sınıfı Oluştur" />
-              </form>
+              </AdminForm>
             </Panel>
           </section>
 
@@ -227,7 +228,7 @@ export default async function CustomersPage() {
             description="Müşteri kimliği, bir segment ile bir hacim sınıfını birleştirir."
           >
             {canCreateCustomer ? (
-              <form
+              <AdminForm
                 action={saveVirtualCustomerAction.bind(null, null)}
                 className="grid gap-4"
               >
@@ -238,7 +239,7 @@ export default async function CustomersPage() {
                   volumeClasses={volumeOptions}
                 />
                 <SubmitButton label="Müşteri Oluştur" />
-              </form>
+              </AdminForm>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Müşteri oluşturmak için aynı sektörde en az bir segment ve hacim sınıfı gerekli.
@@ -287,13 +288,13 @@ export default async function CustomersPage() {
               )}
               title={displayName(segment.translations, segment.key)}
             >
-              <form
+              <AdminForm
                 action={saveCustomerSegmentAction.bind(null, segment.id)}
                 className="grid gap-4"
               >
                 <SegmentFields sectors={sectorOptions} values={values} />
                 <SubmitButton label="Segmenti Güncelle" />
-              </form>
+              </AdminForm>
             </EditableDefinition>
           );
         })}
@@ -341,7 +342,7 @@ export default async function CustomersPage() {
               )}
               title={displayName(volumeClass.translations, volumeClass.key)}
             >
-              <form
+              <AdminForm
                 action={saveCustomerVolumeClassAction.bind(
                   null,
                   volumeClass.id,
@@ -350,7 +351,7 @@ export default async function CustomersPage() {
               >
                 <VolumeFields sectors={sectorOptions} values={values} />
                 <SubmitButton label="Hacim Sınıfını Güncelle" />
-              </form>
+              </AdminForm>
             </EditableDefinition>
           );
         })}
@@ -382,7 +383,7 @@ export default async function CustomersPage() {
               subtitle={`${displayName(customer.customerSegment.translations, customer.customerSegment.key)} · ${displayName(customer.customerVolumeClass.translations, customer.customerVolumeClass.key)}`}
               title={customer.name}
             >
-              <form
+              <AdminForm
                 action={saveVirtualCustomerAction.bind(null, customer.id)}
                 className="grid gap-4"
               >
@@ -394,7 +395,7 @@ export default async function CustomersPage() {
                   volumeClasses={volumeOptions}
                 />
                 <SubmitButton label="Müşteriyi Güncelle" />
-              </form>
+              </AdminForm>
             </EditableDefinition>
           );
         })}

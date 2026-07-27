@@ -6,6 +6,7 @@ import {
 import { getPrisma } from "@/lib/db";
 
 import { jsonText } from "../admin-data";
+import { AdminForm } from "../admin-form";
 import {
   Field,
   FormGrid,
@@ -93,7 +94,7 @@ export default async function SimulationConfigPage() {
           title="Yeni sektör simülasyon ayarı"
           description="Her sektör için yalnızca bir simülasyon ayarı oluşturulabilir."
         >
-          <form
+          <AdminForm
             action={saveSimulationConfigAction.bind(null, null)}
             className="grid gap-4"
           >
@@ -112,7 +113,7 @@ export default async function SimulationConfigPage() {
               }}
             />
             <SubmitButton label="Simülasyon Ayarını Oluştur" />
-          </form>
+          </AdminForm>
         </Panel>
       ) : sectors.length === 0 ? (
         <Panel
@@ -150,7 +151,7 @@ export default async function SimulationConfigPage() {
             key={config.id}
             title={sectorLabel}
           >
-            <form
+            <AdminForm
               action={saveSimulationConfigAction.bind(null, config.id)}
               className="grid gap-4"
             >
@@ -159,7 +160,7 @@ export default async function SimulationConfigPage() {
                 values={values}
               />
               <SubmitButton label="Ayarları Güncelle" />
-            </form>
+            </AdminForm>
           </Panel>
         );
       })}

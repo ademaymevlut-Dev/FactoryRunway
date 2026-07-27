@@ -9,6 +9,7 @@ import {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
+import { unexpectedAdminActionState } from "../admin-action-errors";
 import { requireAdminUser } from "../admin-auth";
 import {
   assertMinMax,
@@ -17,6 +18,7 @@ import {
   optionalText,
   text,
 } from "../admin-data";
+import type { AdminActionState } from "../product-form-state";
 
 const pagePath = "/admin/customers";
 const productTiers = new Set<string>(Object.values(ProductTier));
@@ -65,11 +67,10 @@ function handleKnownError(cause: unknown, duplicateMessage: string): never {
   throw cause;
 }
 
-export async function saveCustomerSegmentAction(
+async function saveCustomerSegment(
   segmentId: string | null,
   formData: FormData,
 ) {
-  await requireAdminUser();
   const prisma = getPrisma();
   const sectorId = text(formData, "sectorId");
   if (segmentId) {
@@ -134,11 +135,10 @@ export async function saveCustomerSegmentAction(
   revalidatePath(pagePath);
 }
 
-export async function saveCustomerVolumeClassAction(
+async function saveCustomerVolumeClass(
   volumeClassId: string | null,
   formData: FormData,
 ) {
-  await requireAdminUser();
   const prisma = getPrisma();
   const sectorId = text(formData, "sectorId");
   if (volumeClassId) {
@@ -224,11 +224,10 @@ export async function saveCustomerVolumeClassAction(
   revalidatePath(pagePath);
 }
 
-export async function saveVirtualCustomerAction(
+async function saveVirtualCustomer(
   customerId: string | null,
   formData: FormData,
 ) {
-  await requireAdminUser();
   const prisma = getPrisma();
   const sectorId = text(formData, "sectorId");
   const customerSegmentId = text(formData, "customerSegmentId");
@@ -309,4 +308,82 @@ export async function saveVirtualCustomerAction(
   }
 
   revalidatePath(pagePath);
+}
+
+function customerActionError(
+  action: string,
+  cause: unknown,
+): AdminActionState {
+  if (cause instanceof Error && cause.name === "Error") {
+    return { status: "error", message: cause.message };
+  }
+
+  return unexpectedAdminActionState(
+    action,
+    cause,
+    "Müşteri tanımı kaydedilemedi.",
+  );
+}
+
+export async function saveCustomerSegmentAction(
+  segmentId: string | null,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdminUser();
+
+  try {
+    await saveCustomerSegment(segmentId, formData);
+    return {
+      status: "success",
+      message: segmentId
+        ? "Müşteri segmenti güncellendi."
+        : "Müşteri segmenti oluşturuldu.",
+      entityId: segmentId ?? undefined,
+    };
+  } catch (cause) {
+    return customerActionError("saveCustomerSegment", cause);
+  }
+}
+
+export async function saveCustomerVolumeClassAction(
+  volumeClassId: string | null,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdminUser();
+
+  try {
+    await saveCustomerVolumeClass(volumeClassId, formData);
+    return {
+      status: "success",
+      message: volumeClassId
+        ? "Müşteri hacim sınıfı güncellendi."
+        : "Müşteri hacim sınıfı oluşturuldu.",
+      entityId: volumeClassId ?? undefined,
+    };
+  } catch (cause) {
+    return customerActionError("saveCustomerVolumeClass", cause);
+  }
+}
+
+export async function saveVirtualCustomerAction(
+  customerId: string | null,
+  _previousState: AdminActionState,
+  formData: FormData,
+): Promise<AdminActionState> {
+  await requireAdminUser();
+
+  try {
+    await saveVirtualCustomer(customerId, formData);
+    return {
+      status: "success",
+      message: customerId
+        ? "Sanal müşteri güncellendi."
+        : "Sanal müşteri oluşturuldu.",
+      entityId: customerId ?? undefined,
+    };
+  } catch (cause) {
+    return customerActionError("saveVirtualCustomer", cause);
+  }
 }

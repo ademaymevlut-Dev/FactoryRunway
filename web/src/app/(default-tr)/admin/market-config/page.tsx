@@ -11,6 +11,7 @@ import { ContentStatus, TutorialKey } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 
 import { jsonText } from "../admin-data";
+import { AdminForm } from "../admin-form";
 import {
   Field,
   FormGrid,
@@ -158,7 +159,7 @@ export default async function MarketConfigPage() {
           title="Yeni ilk sipariş ürünü"
           description="Her sektör için en fazla 3 ürün tanımlanabilir. Ürün seçimi aynı sektörle uyumlu olmalı."
         >
-          <form
+          <AdminForm
             action={saveFirstOrderOptionAction.bind(null, null)}
             className="grid gap-4"
           >
@@ -179,7 +180,7 @@ export default async function MarketConfigPage() {
             <button className="game-button-primary w-full sm:w-fit" type="submit">
               İlk Sipariş Ürünü Ekle
             </button>
-          </form>
+          </AdminForm>
         </Panel>
       ) : (
         <Panel
@@ -249,7 +250,7 @@ export default async function MarketConfigPage() {
                     <InfoPill label="Termin" value={`${option.targetDeliveryDays} gün`} />
                   </div>
 
-                  <form
+                  <AdminForm
                     action={saveFirstOrderOptionAction.bind(null, option.id)}
                     className="grid gap-4"
                   >
@@ -274,7 +275,7 @@ export default async function MarketConfigPage() {
                         Sil
                       </button>
                     </div>
-                  </form>
+                  </AdminForm>
                 </section>
               );
             })}

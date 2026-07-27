@@ -14,6 +14,7 @@ import { useState, type ReactNode } from "react";
 import { ProductLightRaysBackground } from "@/components/game-presentation/product-light-rays-background";
 
 import { updateProductCardAction } from "../product-actions";
+import { AdminForm } from "../../admin-form";
 import { Field, FormGrid, Input, Options, Select } from "../../form-ui";
 
 type CardProduct = {
@@ -63,7 +64,7 @@ export function ProductCardDesigner({ product }: { product: CardProduct }) {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-      <form
+      <AdminForm
         action={updateProductCardAction.bind(null, product.id)}
         className="game-card grid content-start gap-5 p-5"
       >
@@ -98,7 +99,7 @@ export function ProductCardDesigner({ product }: { product: CardProduct }) {
         <button className="game-button-primary" type="submit">
           Kart Tasarımını Kaydet
         </button>
-      </form>
+      </AdminForm>
 
       <div className="min-w-0 xl:sticky xl:top-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-[.18em] text-primary">
