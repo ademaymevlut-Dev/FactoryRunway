@@ -24,7 +24,7 @@ export const rankingCopy = {
       },
     },
     panel: {
-      eyebrow: "Player Ranking",
+      eyebrow: "PLAYER RANKING",
       title: "Factory Runway liderleri",
       playerCount: (count: string) => `${count} oyuncu`,
       totalXp: "Total XP",
@@ -37,7 +37,7 @@ export const rankingCopy = {
       previous: "Önceki",
       next: "Sonraki",
       table: {
-        factories: "Fabrikalar",
+        gameDay: "Oyun Günü",
         player: "Oyuncu",
         rank: "Sıra",
         totalXp: "Total XP",
@@ -109,7 +109,7 @@ export const rankingCopy = {
       },
     },
     panel: {
-      eyebrow: "Player Ranking",
+      eyebrow: "PLAYER RANKING",
       title: "Factory Runway leaders",
       playerCount: (count: string) => `${count} players`,
       totalXp: "Total XP",
@@ -122,7 +122,7 @@ export const rankingCopy = {
       previous: "Previous",
       next: "Next",
       table: {
-        factories: "Factories",
+        gameDay: "Game Day",
         player: "Player",
         rank: "Rank",
         totalXp: "Total XP",
@@ -198,7 +198,7 @@ export const rankingCopy = {
       previous: string;
       next: string;
       table: {
-        factories: string;
+        gameDay: string;
         player: string;
         rank: string;
         totalXp: string;

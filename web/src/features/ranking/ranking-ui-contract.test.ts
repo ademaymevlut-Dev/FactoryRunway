@@ -32,6 +32,11 @@ test("Ranking paneli kompakt başlık ve liste düzenini kullanır", () => {
   assert.match(panel, /getInitials\(entry\.displayName, locale\)/);
   assert.match(copy, /title: "Factory Runway liderleri"/);
   assert.match(copy, /title: "Factory Runway leaders"/);
+  assert.match(copy, /eyebrow: "PLAYER RANKING"/);
+  assert.match(copy, /gameDay: "Oyun Günü"/);
+  assert.match(copy, /gameDay: "Game Day"/);
+  assert.match(panel, /showcaseFactory\.currentDay/);
+  assert.doesNotMatch(panel, /entry\.factories\.length/);
   assert.doesNotMatch(panel, /Factory Runway liderleri|Factory Runway leaders/);
   assert.doesNotMatch(panel, /CurrentPlayerRankCard|PodiumCard/);
   assert.doesNotMatch(
@@ -57,6 +62,7 @@ test("Ranking oyuncu Total XP değerini kullanır ve fabrika hatlarını liste s
   assert.match(service, /locale\?: SupportedLocale/);
   assert.match(service, /const locale = normalizeLocale\(input\.locale\)/);
   assert.match(service, /preferredTranslation\(translations, locale\)\?\.name/);
+  assert.match(service, /currentDay: true/);
   assert.match(actions, /getXpRankingView\(\{[\s\S]*?locale,/);
   assert.match(schema, /@@index\(\[totalXp, id\]\)/);
   assert.doesNotMatch(service, /productionLineTemplate/);

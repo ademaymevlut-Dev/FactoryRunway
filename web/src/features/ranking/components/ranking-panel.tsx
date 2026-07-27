@@ -261,7 +261,7 @@ function RankingListView({
         <div>
           <div className="flex items-center gap-2 text-primary">
             <Trophy size={18} />
-            <p className="text-xs font-semibold uppercase tracking-[0.18em]">
+            <p className="text-xs font-semibold tracking-[0.18em]">
               {copy.panel.eyebrow}
             </p>
           </div>
@@ -331,7 +331,7 @@ function RankingListView({
                   <TableHead>{copy.panel.table.player}</TableHead>
                   <TableHead>{copy.panel.table.showcaseFactory}</TableHead>
                   <TableHead className="text-center">
-                    {copy.panel.table.factories}
+                    {copy.panel.table.gameDay}
                   </TableHead>
                   <TableHead className="text-right">
                     {copy.panel.table.totalXp}
@@ -459,7 +459,11 @@ function RankingRow({
         )}
       </TableCell>
       <TableCell className="text-center">
-        <Badge variant="outline">{entry.factories.length}</Badge>
+        <Badge variant="outline">
+          {showcaseFactory
+            ? formatNumber(showcaseFactory.currentDay, numberLocale)
+            : "—"}
+        </Badge>
       </TableCell>
       <TableCell className="text-right font-mono font-semibold tabular-nums text-amber-200">
         {formatXp(entry.totalXp, numberLocale)}

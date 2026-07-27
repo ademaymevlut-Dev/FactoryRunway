@@ -3,6 +3,7 @@ import type { ProductionGrade } from "@/generated/prisma/enums";
 export type RankingFactorySummary = {
   id: string;
   name: string;
+  currentDay: number;
   currentLevel: number;
   currentXp: number;
   productionLineCount: number;

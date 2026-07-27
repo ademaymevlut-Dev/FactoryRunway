@@ -53,6 +53,7 @@ const rankingProfileSelect = {
           },
         },
       },
+      currentDay: true,
       currentLevel: true,
       currentXp: true,
       id: true,
@@ -229,6 +230,7 @@ function toRankingEntry(input: {
     displayName: input.profile.displayName,
     factories: input.profile.factories
       .map((factory) => ({
+        currentDay: factory.currentDay,
         currentLevel: factory.currentLevel,
         currentXp: factory.currentXp,
         id: factory.id,
