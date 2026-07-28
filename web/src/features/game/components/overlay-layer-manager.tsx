@@ -45,7 +45,9 @@ export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
             )
           : layout === "dock"
             ? "pointer-events-none items-center justify-start px-4 py-24 pl-[6.75rem] sm:pl-[7.5rem]"
-            : "pointer-events-none items-start justify-end px-4 pb-24 pt-28 sm:px-6",
+            : layout === "rightDrawer"
+              ? "pointer-events-auto items-stretch justify-end bg-background/35 backdrop-blur-[1px] sm:p-2"
+              : "pointer-events-none items-start justify-end px-4 pb-24 pt-28 sm:px-6",
       )}
     >
       <PanelChrome

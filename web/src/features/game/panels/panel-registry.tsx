@@ -18,6 +18,7 @@ import { UpgradeProductionLinePanel } from "@/features/investment/components/upg
 import type { ProductionLineInvestmentTemplate } from "@/features/investment/types";
 import { TasksPanel } from "@/features/tasks/components/tasks-panel";
 import { RankingPanel } from "@/features/ranking/components/ranking-panel";
+import { PlayerFeedbackPanel } from "@/features/player-feedback/components/player-feedback-panel";
 import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 import { cn } from "@/lib/utils";
 
@@ -30,7 +31,7 @@ type PanelContext = {
   onClose: () => void;
 };
 
-type PanelLayout = "center" | "dock" | "side";
+type PanelLayout = "center" | "dock" | "rightDrawer" | "side";
 
 type PanelDefinition = {
   backdrop?: boolean;
@@ -122,6 +123,14 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
     size: "adaptive",
     titleKey: "ranking",
     render: ({ snapshot }) => <RankingPanel locale={snapshot.locale} />,
+  },
+  playerFeedback: {
+    backdrop: true,
+    layout: "rightDrawer",
+    titleKey: "playerFeedback",
+    render: ({ snapshot }) => (
+      <PlayerFeedbackPanel locale={snapshot.locale} />
+    ),
   },
   warehouse: {
     layout: "center",
@@ -290,7 +299,9 @@ export function PanelChrome({
   return (
     <aside
       className={cn(
-        "pointer-events-auto relative flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-lg border border-white/10 text-card-foreground shadow-2xl backdrop-blur",
+        "pointer-events-auto relative flex flex-col overflow-hidden border border-white/10 text-card-foreground shadow-2xl backdrop-blur",
+        layout !== "rightDrawer" &&
+          "max-h-[calc(100dvh-2rem)] rounded-lg",
         layout === "center" &&
           size === "wide" &&
           "h-[min(780px,calc(100dvh-8rem))] w-[min(1380px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(1380px,calc(100vw-7rem))]",
@@ -307,6 +318,8 @@ export function PanelChrome({
           "max-h-[calc(100dvh-8rem)] w-[min(420px,calc(100vw-2rem))] bg-card/95 p-4",
         layout === "dock" &&
           "max-h-[min(620px,calc(100dvh-12rem))] w-[min(400px,calc(100vw-7rem))] bg-background p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-left-8 motion-safe:duration-300",
+        layout === "rightDrawer" &&
+          "h-dvh w-full rounded-none bg-background p-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-right-8 motion-safe:duration-300 sm:h-[calc(100dvh-1rem)] sm:w-[min(560px,calc(100vw-1rem))] sm:rounded-lg sm:p-4",
       )}
     >
       {title ? (
@@ -344,7 +357,9 @@ export function PanelChrome({
       <div
         className={cn(
           "min-h-0 flex-1 overscroll-contain",
-          layout === "center" ? "overflow-hidden" : "overflow-y-auto",
+          layout === "center" || layout === "rightDrawer"
+            ? "overflow-hidden"
+            : "overflow-y-auto",
         )}
       >
         {children}

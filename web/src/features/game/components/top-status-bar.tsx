@@ -178,16 +178,26 @@ export function TopStatusBar({
 
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex cursor-not-allowed">
-                <button
-                  aria-label={copy.messagesAria}
-                  className="flex h-7 items-center justify-center rounded-lg px-2 text-primary/55 sm:h-8 xl:h-9"
-                  disabled
-                  type="button"
-                >
-                  <Mail className="size-3.5 text-primary/55 xl:size-4" />
-                </button>
-              </span>
+              <button
+                aria-label={copy.messagesAria}
+                aria-pressed={activePanel?.key === "playerFeedback"}
+                className={cn(
+                  "flex h-7 items-center justify-center rounded-lg px-2 text-primary transition-colors hover:bg-card hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/45 sm:h-8 xl:h-9",
+                  activePanel?.key === "playerFeedback" &&
+                    "bg-primary/12 text-primary",
+                )}
+                onClick={() => {
+                  if (activePanel?.key === "playerFeedback") {
+                    closePanel();
+                    return;
+                  }
+
+                  openPanel("playerFeedback");
+                }}
+                type="button"
+              >
+                <Mail className="size-3.5 text-primary xl:size-4" />
+              </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
               {copy.messagesTooltip}

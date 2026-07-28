@@ -13,6 +13,7 @@ import {
   Home,
   Layers3,
   LogOut,
+  MessageSquareText,
   PackageSearch,
   PackagePlus,
   Settings2,
@@ -119,6 +120,11 @@ const navSections: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Sistem",
     items: [
+      {
+        href: "/admin/player-feedback",
+        label: "Oyuncu Fikirleri",
+        icon: MessageSquareText,
+      },
       { label: "Kullanıcılar", icon: Users, status: "next" },
       { label: "Genel Ayarlar", icon: Settings2, status: "next" },
     ],

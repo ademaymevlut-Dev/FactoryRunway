@@ -6,17 +6,19 @@ function readSource(relativePath: string) {
   return readFileSync(new URL(relativePath, import.meta.url), "utf8");
 }
 
-test("Ranking üst header üzerinden açılır ve Mesajlar şimdilik pasiftir", () => {
+test("Ranking ve oyuncu fikirleri üst header üzerinden panel olarak açılır", () => {
   const header = readSource("../game/components/top-status-bar.tsx");
   const leftDock = readSource("../game/components/left-dock-menu.tsx");
 
   assert.match(header, /openPanel\("ranking"\)/);
+  assert.match(header, /openPanel\("playerFeedback"\)/);
   assert.match(header, /<Trophy/);
   assert.match(header, /<Mail/);
   assert.match(header, /copy\.messagesTooltip/);
   assert.match(header, /GameLocaleSwitcher/);
-  assert.match(header, /disabled/);
+  assert.match(header, /activePanel\?\.key === "playerFeedback"/);
   assert.doesNotMatch(leftDock, /key: "ranking"/);
+  assert.doesNotMatch(leftDock, /key: "playerFeedback"/);
   assert.doesNotMatch(leftDock, /key: "management"/);
 });
 

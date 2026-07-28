@@ -151,7 +151,7 @@ test("ortak panel viewport içinde kendi body scroll alanını ve arka plan kili
   assert.match(registry, /"min-h-0 flex-1 overscroll-contain"/);
   assert.match(
     registry,
-    /layout === "center" \? "overflow-hidden" : "overflow-y-auto"/,
+    /layout === "center" \|\| layout === "rightDrawer"[\s\S]*?\? "overflow-hidden"[\s\S]*?: "overflow-y-auto"/,
   );
   assert.match(overlay, /document\.body\.style\.overflow = "hidden"/);
 });

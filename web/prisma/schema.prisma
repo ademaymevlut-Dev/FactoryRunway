@@ -470,25 +470,32 @@ enum RankingCategory {
   STABLE_OPERATOR
 }
 
+enum PlayerFeedbackStatus {
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
 model User {
-  id                    String                 @id @default(cuid())
-  email                 String                 @unique
-  name                  String?
-  passwordHash          String?                @map("password_hash")
-  role                  String                 @default("PLAYER")
-  emailVerified         DateTime?              @map("email_verified")
-  image                 String?
-  onboardingStatus      OnboardingStatus       @default(NOT_STARTED) @map("onboarding_status")
-  onboardingStep        OnboardingStep?        @map("onboarding_step")
-  onboardingVersion     Int                    @default(1) @map("onboarding_version")
-  onboardingCompletedAt DateTime?              @map("onboarding_completed_at")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  playerProfile         PlayerProfile?
-  adminProfile          AdminProfile?
-  onboardingDraft       PlayerOnboardingDraft?
-  sessions              AuthSession[]
-  authAccounts          AuthAccount[]
+  id                     String                 @id @default(cuid())
+  email                  String                 @unique
+  name                   String?
+  passwordHash           String?                @map("password_hash")
+  role                   String                 @default("PLAYER")
+  emailVerified          DateTime?              @map("email_verified")
+  image                  String?
+  onboardingStatus       OnboardingStatus       @default(NOT_STARTED) @map("onboarding_status")
+  onboardingStep         OnboardingStep?        @map("onboarding_step")
+  onboardingVersion      Int                    @default(1) @map("onboarding_version")
+  onboardingCompletedAt  DateTime?              @map("onboarding_completed_at")
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+  playerProfile          PlayerProfile?
+  adminProfile           AdminProfile?
+  onboardingDraft        PlayerOnboardingDraft?
+  sessions               AuthSession[]
+  authAccounts           AuthAccount[]
+  moderatedFeedbackPosts PlayerFeedbackPost[]   @relation("PlayerFeedbackModeratedBy")
 
   @@index([role])
   @@index([role, onboardingStatus])
@@ -512,9 +519,33 @@ model PlayerProfile {
   factories         Factory[]
   tokenWallet       PlayerTokenWallet?
   tokenTransactions PlayerTokenTransaction[]
+  feedbackPosts     PlayerFeedbackPost[]
 
   @@index([totalXp, id])
   @@map("player_profiles")
+}
+
+model PlayerFeedbackPost {
+  id                String               @id @default(cuid())
+  playerProfileId   String               @map("player_profile_id")
+  body              String
+  locale            String               @default("tr")
+  status            PlayerFeedbackStatus @default(PUBLISHED)
+  clientRequestId   String               @map("client_request_id")
+  deletedAt         DateTime?            @map("deleted_at")
+  moderatedAt       DateTime?            @map("moderated_at")
+  moderatedByUserId String?              @map("moderated_by_user_id")
+  moderationNote    String?              @map("moderation_note")
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+  playerProfile     PlayerProfile        @relation(fields: [playerProfileId], references: [id], onDelete: Cascade)
+  moderatedByUser   User?                @relation("PlayerFeedbackModeratedBy", fields: [moderatedByUserId], references: [id], onDelete: SetNull)
+
+  @@unique([playerProfileId, clientRequestId])
+  @@index([status, createdAt, id])
+  @@index([playerProfileId, createdAt])
+  @@index([moderatedByUserId])
+  @@map("player_feedback_posts")
 }
 
 model PlayerOnboardingDraft {
