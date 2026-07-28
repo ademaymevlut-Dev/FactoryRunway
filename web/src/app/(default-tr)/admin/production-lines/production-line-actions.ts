@@ -13,6 +13,7 @@ import {
 } from "@/generated/prisma/client";
 import { getPrisma } from "@/lib/db";
 import { recalculateDirectLineCost } from "@/lib/production-line-cost";
+import { syncProductionLineLeasingOffers } from "@/features/investment/services/production-line-leasing-pricing";
 
 import { unexpectedAdminActionState } from "../admin-action-errors";
 import { integer, json, optionalText, text } from "../admin-data";
@@ -309,6 +310,8 @@ export async function updateProductionLineCostsAction(
   await requireAdminUser();
 
   try {
+    const purchaseCostCents = currencyToCents(formData, "purchaseCost");
+
     await getPrisma().$transaction(async (tx) => {
       await tx.productionLineTemplate.update({
         where: { id: lineId },
@@ -317,8 +320,12 @@ export async function updateProductionLineCostsAction(
             formData,
             "monthlyElectricityBase",
           ),
-          purchaseCostCents: currencyToCents(formData, "purchaseCost"),
+          purchaseCostCents,
         },
+      });
+      await syncProductionLineLeasingOffers(tx, {
+        productionLineTemplateId: lineId,
+        purchaseCostCents,
       });
       await recalculateDirectLineCost(tx, lineId);
     });

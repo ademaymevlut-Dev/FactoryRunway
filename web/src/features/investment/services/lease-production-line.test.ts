@@ -30,15 +30,17 @@ test("leasing request ve ilk 22 günlük due anahtarları deterministiktir", () 
   );
 });
 
-test("leasing service client finans değerlerini değil aktif offer snapshotını kullanır", () => {
+test("leasing service client finans değerlerini değil aktif offer ile güncel template fiyatını kullanır", () => {
   const service = readSource("./lease-production-line.ts");
 
   assert.match(service, /productionLineLeasingOffer\.findUnique/);
   assert.match(service, /offer\.productionLineTemplateId !== template\.id/);
   assert.match(service, /offer\.status !== ContentStatus\.ACTIVE/);
   assert.match(service, /downPaymentCents: downPaymentCents/);
-  assert.match(service, /installmentCount: offer\.installmentCount/);
-  assert.match(service, /totalCostCents: BigInt\(offer\.totalCostCents\)/);
+  assert.match(service, /calculateProductionLineLeasingPricing/);
+  assert.match(service, /purchaseCostCents: template\.purchaseCostCents/);
+  assert.match(service, /installmentCount: pricing\.installmentCount/);
+  assert.match(service, /totalCostCents: BigInt\(pricing\.totalCostCents\)/);
   assert.doesNotMatch(service, /input\.lease\.(?:price|downPayment|installment|totalCost|termYears)/);
 });
 
@@ -71,9 +73,11 @@ test("schema offer master, contract snapshot ve duplicate due constraintini taş
 
 test("master seed yalnızca 2, 3 ve 5 yıllık 24, 36 ve 60 taksit üretir", () => {
   const seed = readSource("../../../../prisma/seed-production-line-leasing-offers.ts");
+  const pricing = readSource("./production-line-leasing-pricing.ts");
 
-  assert.match(seed, /installmentCount: 24[\s\S]*termYears: 2/);
-  assert.match(seed, /installmentCount: 36[\s\S]*termYears: 3/);
-  assert.match(seed, /installmentCount: 60[\s\S]*termYears: 5/);
-  assert.match(seed, /productionLineLeasingOffer\.upsert/);
+  assert.match(pricing, /installmentCount: 24[\s\S]*termYears: 2/);
+  assert.match(pricing, /installmentCount: 36[\s\S]*termYears: 3/);
+  assert.match(pricing, /installmentCount: 60[\s\S]*termYears: 5/);
+  assert.match(pricing, /productionLineLeasingOffer\.upsert/);
+  assert.match(seed, /syncProductionLineLeasingOffers/);
 });

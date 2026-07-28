@@ -36,6 +36,7 @@ import type {
   ProductionLineInvestmentView,
 } from "@/features/investment/types";
 import { calculateProductionLineInvestmentPreview } from "@/features/investment/services/production-line-investment";
+import { calculateProductionLineLeasingPricing } from "@/features/investment/services/production-line-leasing-pricing";
 import { buildTasksSnapshot } from "@/features/tasks/services/task-snapshot";
 import {
   calculateEffectiveLinePointCapacity,
@@ -860,14 +861,22 @@ function buildProductionLineInvestmentView(input: {
         template.imageUrl ??
         template.imagePathname,
       key: template.key,
-      leasingOffers: template.leasingOffers.map((offer) => ({
-        id: offer.id,
-        termYears: offer.termYears,
-        installmentCount: offer.installmentCount,
-        downPaymentCents: String(offer.downPaymentCents),
-        installmentAmountCents: String(offer.installmentAmountCents),
-        totalCostCents: String(offer.totalCostCents),
-      })),
+      leasingOffers: template.leasingOffers.map((offer) => {
+        const pricing = calculateProductionLineLeasingPricing({
+          installmentCount: offer.installmentCount,
+          purchaseCostCents: template.purchaseCostCents,
+          termYears: offer.termYears,
+        });
+
+        return {
+          id: offer.id,
+          termYears: pricing.termYears,
+          installmentCount: pricing.installmentCount,
+          downPaymentCents: String(pricing.downPaymentCents),
+          installmentAmountCents: String(pricing.installmentAmountCents),
+          totalCostCents: String(pricing.totalCostCents),
+        };
+      }),
       machineCount: template.machineCount,
       monthlyElectricityBaseCents: template.monthlyElectricityBaseCents,
       purchaseCostCents: String(template.purchaseCostCents),

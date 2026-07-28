@@ -31,6 +31,7 @@ import type {
 } from "../types";
 import { calculateNextLinePlacement } from "./purchase-production-line";
 import { calculateProductionLineInvestmentPreview } from "./production-line-investment";
+import { calculateProductionLineLeasingPricing } from "./production-line-leasing-pricing";
 
 const LEASING_PERIOD_DAYS = 22;
 const TRANSACTION_OPTIONS = {
@@ -191,16 +192,20 @@ export async function leaseProductionLine(input: {
         if (offer.productionLineTemplateId !== template.id) {
           return failure("OFFER_TEMPLATE_MISMATCH");
         }
+        const pricing = calculateProductionLineLeasingPricing({
+          installmentCount: offer.installmentCount,
+          purchaseCostCents: template.purchaseCostCents,
+          termYears: offer.termYears,
+        });
         if (
-          !isSupportedTerm(offer.termYears, offer.installmentCount) ||
-          offer.downPaymentCents < 0 ||
-          offer.installmentAmountCents <= 0 ||
-          offer.totalCostCents <= offer.downPaymentCents
+          pricing.downPaymentCents < 0 ||
+          pricing.installmentAmountCents <= 0 ||
+          pricing.totalCostCents <= pricing.downPaymentCents
         ) {
           throw new Error("Production line leasing offer is invalid.");
         }
 
-        const downPaymentCents = BigInt(offer.downPaymentCents);
+        const downPaymentCents = BigInt(pricing.downPaymentCents);
 
         if (factory.cashBalanceCents < downPaymentCents) {
           return failure("INSUFFICIENT_FUNDS");
@@ -394,7 +399,7 @@ export async function leaseProductionLine(input: {
               requestReferenceKey,
             },
             productionLineTemplateId: template.id,
-            purchasePriceCents: BigInt(offer.totalCostCents),
+            purchasePriceCents: BigInt(pricing.totalCostCents),
             sortOrder: placement.sortOrder,
             status: FactoryProductionLineStatus.IDLE,
           },
@@ -445,10 +450,10 @@ export async function leaseProductionLine(input: {
         await tx.factoryLeasingContract.create({
           data: {
             downPaymentCents,
-            durationMonths: offer.installmentCount,
+            durationMonths: pricing.installmentCount,
             factoryId: factory.id,
             id: leasingContractId,
-            installmentCount: offer.installmentCount,
+            installmentCount: pricing.installmentCount,
             interestRateBps: 0,
             leasingOfferId: offer.id,
             metadata: {
@@ -456,22 +461,22 @@ export async function leaseProductionLine(input: {
               requestId: input.lease.requestId,
               requestReferenceKey,
             },
-            monthlyPaymentCents: BigInt(offer.installmentAmountCents),
+            monthlyPaymentCents: BigInt(pricing.installmentAmountCents),
             nextDueDay,
             ownershipTransfer: true,
             principalCents:
-              BigInt(offer.totalCostCents) - downPaymentCents,
+              BigInt(pricing.totalCostCents) - downPaymentCents,
             productionLineId,
-            remainingInstallments: offer.installmentCount,
-            remainingMonths: offer.installmentCount,
+            remainingInstallments: pricing.installmentCount,
+            remainingMonths: pricing.installmentCount,
             startedDay: factory.currentDay,
-            termYears: offer.termYears,
-            totalCostCents: BigInt(offer.totalCostCents),
+            termYears: pricing.termYears,
+            totalCostCents: BigInt(pricing.totalCostCents),
           },
         });
         await tx.factoryFinanceDue.create({
           data: {
-            amountCents: BigInt(offer.installmentAmountCents),
+            amountCents: BigInt(pricing.installmentAmountCents),
             category: FinanceCategory.LEASING_PAYMENT,
             createdDay: factory.currentDay,
             description: "finance.leasingInstallment",
@@ -479,7 +484,7 @@ export async function leaseProductionLine(input: {
             dueDay: nextDueDay,
             factoryId: factory.id,
             metadata: {
-              installmentCount: offer.installmentCount,
+              installmentCount: pricing.installmentCount,
               installmentIndex: 1,
               translationKey: "finance.leasingInstallment",
             },
@@ -579,8 +584,8 @@ export async function leaseProductionLine(input: {
           directStaffCreated: preview.directStaffCount,
           downPaymentCents: downPaymentCents.toString(),
           factoryId: factory.id,
-          installmentAmountCents: String(offer.installmentAmountCents),
-          installmentCount: offer.installmentCount,
+          installmentAmountCents: String(pricing.installmentAmountCents),
+          installmentCount: pricing.installmentCount,
           leasingContractId,
           leasingOfferId: offer.id,
           lineNumber: placement.lineNumber,
@@ -592,7 +597,7 @@ export async function leaseProductionLine(input: {
           remainingCashBalanceCents: remainingCashBalanceCents.toString(),
           sortOrder: placement.sortOrder,
           supportStaffCreated: preview.supportStaffCount,
-          totalCostCents: String(offer.totalCostCents),
+          totalCostCents: String(pricing.totalCostCents),
           totalRecurringCostIncreaseCents:
             preview.totalRecurringCostIncreaseCents,
         };
@@ -622,13 +627,6 @@ function getTranslationLocaleFallbacks(locale: SupportedLocale) {
   return locale === "en" ? ["en", "tr"] : ["tr", "en"];
 }
 
-function isSupportedTerm(termYears: number, installmentCount: number) {
-  return (
-    (termYears === 2 && installmentCount === 24) ||
-    (termYears === 3 && installmentCount === 36) ||
-    (termYears === 5 && installmentCount === 60)
-  );
-}
 
 function failure(
   code: Extract<LeaseProductionLineResult, { ok: false }>["code"],
