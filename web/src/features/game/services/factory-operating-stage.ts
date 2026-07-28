@@ -33,6 +33,7 @@ export function pickEligibleOperatingStage<T extends OperatingStageThreshold>(
 
 export async function recalculateFactoryOperatingStage(input: {
   factoryId: string;
+  source?: string;
   tx: OperatingStageClient;
 }) {
   const factory = await input.tx.factory.findUniqueOrThrow({
@@ -121,7 +122,7 @@ export async function recalculateFactoryOperatingStage(input: {
     activeProductionLineCount,
     requirementsMet,
     stageKey: nextStage.key,
-    source: "production-line-purchase",
+    source: input.source ?? "production-line-purchase",
   };
 
   if (!factory.operatingStageState) {

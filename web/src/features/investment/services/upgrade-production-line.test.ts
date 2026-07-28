@@ -91,3 +91,16 @@ test("upgrade panel ham point yerine yüzde iş gücü artışını gösterir", 
   assert.match(panel, /formatSignedPercentBps/);
   assert.doesNotMatch(panel, /point\/gün/);
 });
+
+test("line detail panel upgrade ve durum tablarını aynı panelde taşır", () => {
+  const panel = readSource("../components/upgrade-production-line-panel.tsx");
+  const copy = readSource("../investment-copy.ts");
+
+  assert.match(panel, /<Tabs defaultValue="upgrade"/);
+  assert.match(panel, /<TabsTrigger[^>]+value="upgrade"/);
+  assert.match(panel, /<TabsTrigger[^>]+value="status"/);
+  assert.match(panel, /setProductionLineStatusAction/);
+  assert.match(panel, /name="mode"/);
+  assert.match(copy, /status: "Durum"/);
+  assert.match(copy, /status: "Status"/);
+});

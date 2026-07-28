@@ -10,10 +10,15 @@ import {
   type ReactNode,
 } from "react";
 import {
+  AlertTriangle,
   ArrowRight,
+  CheckCircle2,
+  CircleOff,
   Factory,
   Gauge,
   Maximize2,
+  Power,
+  PowerOff,
   Ruler,
   Sparkles,
   Users,
@@ -32,11 +37,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
 import type { FactoryMapItem } from "@/features/game/types";
+import { setProductionLineStatusAction } from "@/features/investment/actions/set-production-line-status-action";
 import { upgradeProductionLineAction } from "@/features/investment/actions/upgrade-production-line-action";
 import type {
   ProductionLineInvestmentTemplate,
+  SetProductionLineStatusResult,
   UpgradeProductionLineResult,
 } from "@/features/investment/types";
 import type { CurrencyCode, ProductionGrade } from "@/generated/prisma/enums";
@@ -49,6 +57,7 @@ import { cn } from "@/lib/utils";
 
 import {
   investmentCopy,
+  type InvestmentLineStatusCopy,
   type InvestmentUpgradeCopy,
 } from "../investment-copy";
 
@@ -70,10 +79,129 @@ export function UpgradeProductionLinePanel({
   locale: SupportedLocale;
   nextTemplate: ProductionLineInvestmentTemplate | null;
 }) {
-  const router = useRouter();
   const copy = investmentCopy[locale];
   const upgradeCopy = copy.upgrade;
+  const statusCopy = copy.lineStatus;
   const numberLocale = resolveNumberLocale(locale);
+
+  return (
+    <Tabs defaultValue="upgrade" className="flex min-h-0 flex-col gap-3">
+      <LineSummaryCard
+        copy={upgradeCopy}
+        gradeLabels={copy.gradeLabels}
+        line={line}
+        numberLocale={numberLocale}
+      />
+
+      <TabsList className="grid h-auto w-full grid-cols-2 rounded-lg bg-card/70 p-1">
+        <TabsTrigger className="rounded-md text-xs" value="upgrade">
+          <Gauge size={14} />
+          {statusCopy.tabs.upgrade}
+        </TabsTrigger>
+        <TabsTrigger className="rounded-md text-xs" value="status">
+          <Power size={14} />
+          {statusCopy.tabs.status}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent className="mt-0 min-h-0" value="upgrade">
+        <ProductionLineUpgradeTab
+          currencyCode={currencyCode}
+          factoryId={factoryId}
+          gradeLabels={copy.gradeLabels}
+          line={line}
+          nextTemplate={nextTemplate}
+          numberLocale={numberLocale}
+          statusCopy={statusCopy}
+          upgradeCopy={upgradeCopy}
+        />
+      </TabsContent>
+
+      <TabsContent className="mt-0 min-h-0" value="status">
+        <ProductionLineStatusTab
+          factoryId={factoryId}
+          line={line}
+          numberLocale={numberLocale}
+          statusCopy={statusCopy}
+        />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function LineSummaryCard({
+  copy,
+  gradeLabels,
+  line,
+  numberLocale,
+}: {
+  copy: InvestmentUpgradeCopy;
+  gradeLabels: Record<ProductionGrade, string>;
+  line: ProductionLineMapItem;
+  numberLocale: NumberLocale;
+}) {
+  return (
+    <section className="rounded-lg border border-white/10 bg-background/35 p-3">
+      <div className="grid gap-3 sm:grid-cols-[128px_minmax(0,1fr)]">
+        <LineImagePreview copy={copy} line={line} />
+        <div className="min-w-0">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+                {line.departmentName}
+              </p>
+              <h3 className="mt-1 truncate text-base font-semibold text-white">
+                {line.title}
+              </h3>
+            </div>
+            <Badge className="shrink-0" variant="outline">{line.code}</Badge>
+          </div>
+          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+            <CompactDatum
+              label={copy.labels.standard}
+              value={gradeLabels[line.grade]}
+            />
+            <CompactDatum
+              label={copy.labels.capacity}
+              value={copy.labels.points(
+                formatNumber(line.dailyPointCapacity, numberLocale),
+              )}
+            />
+            <CompactDatum
+              label={copy.labels.staff}
+              value={`${line.assignedStaff}/${line.idealStaff}`}
+            />
+            <CompactDatum
+              label={copy.labels.area}
+              value={`${formatNumber(line.areaM2, numberLocale)} m²`}
+            />
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductionLineUpgradeTab({
+  currencyCode,
+  factoryId,
+  gradeLabels,
+  line,
+  nextTemplate,
+  numberLocale,
+  statusCopy,
+  upgradeCopy,
+}: {
+  currencyCode: CurrencyCode;
+  factoryId: string;
+  gradeLabels: Record<ProductionGrade, string>;
+  line: ProductionLineMapItem;
+  nextTemplate: ProductionLineInvestmentTemplate | null;
+  numberLocale: NumberLocale;
+  statusCopy: InvestmentLineStatusCopy;
+  upgradeCopy: InvestmentUpgradeCopy;
+}) {
+  const router = useRouter();
   const { isShiftPlaybackActive } = useGameUiStore();
   const [requestId, setRequestId] = useState(() => crypto.randomUUID());
   const pricing = useMemo(
@@ -108,7 +236,8 @@ export function UpgradeProductionLinePanel({
   const [result, upgradeAction, pending] = useActionState(runUpgrade, null);
   const lockedByLeasing = line.hasActiveLeasingContract;
   const reachedMaxGrade = line.grade === "SMART";
-  const locked = lockedByLeasing || reachedMaxGrade || !nextTemplate;
+  const lockedByLineStatus = line.status === "DISABLED";
+  const locked = lockedByLeasing || reachedMaxGrade || lockedByLineStatus || !nextTemplate;
   const capacityIncreaseBps = nextTemplate
     ? calculateCapacityIncreaseBps({
         currentDailyPointCapacity: line.dailyPointCapacity,
@@ -125,51 +254,12 @@ export function UpgradeProductionLinePanel({
   return (
     <div className="flex min-h-0 flex-col gap-4">
       <section className="rounded-lg border border-white/10 bg-background/35 p-3">
-        <div className="grid gap-3 sm:grid-cols-[128px_minmax(0,1fr)]">
-          <LineImagePreview copy={upgradeCopy} line={line} />
-          <div className="min-w-0">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
-                  {line.departmentName}
-                </p>
-                <h3 className="mt-1 truncate text-base font-semibold text-white">
-                  {line.title}
-                </h3>
-              </div>
-              <Badge className="shrink-0" variant="outline">{line.code}</Badge>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-              <CompactDatum
-                label={upgradeCopy.labels.standard}
-                value={copy.gradeLabels[line.grade]}
-              />
-              <CompactDatum
-                label={upgradeCopy.labels.capacity}
-                value={upgradeCopy.labels.points(
-                  formatNumber(line.dailyPointCapacity, numberLocale),
-                )}
-              />
-              <CompactDatum
-                label={upgradeCopy.labels.staff}
-                value={`${line.assignedStaff}/${line.idealStaff}`}
-              />
-              <CompactDatum
-                label={upgradeCopy.labels.area}
-                value={`${formatNumber(line.areaM2, numberLocale)} m²`}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-lg border border-white/10 bg-background/35 p-3">
         <div className="flex items-center justify-between gap-3">
-          <GradePill grade={line.grade} gradeLabels={copy.gradeLabels} />
+          <GradePill grade={line.grade} gradeLabels={gradeLabels} />
           <ArrowRight className="size-4 text-muted-foreground" />
           <GradePill
             grade={nextTemplate?.grade ?? line.grade}
-            gradeLabels={copy.gradeLabels}
+            gradeLabels={gradeLabels}
             muted={!nextTemplate}
           />
         </div>
@@ -276,6 +366,12 @@ export function UpgradeProductionLinePanel({
             {upgradeCopy.alerts.leasingBody}
           </AlertDescription>
         </Alert>
+      ) : lockedByLineStatus ? (
+        <Alert>
+          <CircleOff className="size-4" />
+          <AlertTitle>{statusCopy.upgradeLocked.title}</AlertTitle>
+          <AlertDescription>{statusCopy.upgradeLocked.body}</AlertDescription>
+        </Alert>
       ) : reachedMaxGrade ? (
         <Alert>
           <AlertTitle>{upgradeCopy.alerts.maxTitle}</AlertTitle>
@@ -299,7 +395,7 @@ export function UpgradeProductionLinePanel({
           <AlertDescription>
             {upgradeCopy.alerts.successBody(
               result.xpAwarded,
-              copy.gradeLabels[result.nextGrade],
+              gradeLabels[result.nextGrade],
             )}
           </AlertDescription>
         </Alert>
@@ -346,6 +442,191 @@ export function UpgradeProductionLinePanel({
                   ),
                 )
               : upgradeCopy.buttonClosed}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function ProductionLineStatusTab({
+  factoryId,
+  line,
+  numberLocale,
+  statusCopy,
+}: {
+  factoryId: string;
+  line: ProductionLineMapItem;
+  numberLocale: NumberLocale;
+  statusCopy: InvestmentLineStatusCopy;
+}) {
+  const router = useRouter();
+  const { isShiftPlaybackActive } = useGameUiStore();
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const mode = line.status === "DISABLED" ? "activate" : "disable";
+  const nextStaffDelta = mode === "activate" ? line.idealStaff : -line.assignedStaff;
+  const nextCapacityDelta =
+    mode === "activate" ? line.dailyPointCapacity : -line.dailyPointCapacity;
+  const lockedByStatus = line.status === "SOLD" || line.status === "RUNNING";
+  const runStatusChange = useCallback(
+    async (
+      previousState: SetProductionLineStatusResult | null,
+      formData: FormData,
+    ) => {
+      const result = await setProductionLineStatusAction(
+        previousState,
+        formData,
+      );
+
+      if (result.ok) {
+        setRequestId(crypto.randomUUID());
+        router.refresh();
+      }
+
+      return result;
+    },
+    [router],
+  );
+  const [result, statusAction, pending] = useActionState(runStatusChange, null);
+  const errorMessage =
+    result?.ok === false ? statusCopy.errors[result.code] : null;
+  const successBody = result?.ok
+    ? result.nextStatus === "DISABLED"
+      ? statusCopy.success.disabled(result.releasedDirectStaffCount)
+      : statusCopy.success.activated(result.restoredDirectStaffCount)
+    : null;
+
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      <section className="rounded-lg border border-white/10 bg-background/35 p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-primary">
+              {statusCopy.currentTitle}
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-white">
+              {statusCopy.statusLabels[line.status]}
+            </h3>
+          </div>
+          <Badge
+            className={cn(
+              "shrink-0",
+              line.status === "DISABLED" && "border-white/15 bg-white/5 text-muted-foreground",
+              line.status === "BROKEN" && "border-destructive/30 bg-destructive/10 text-destructive",
+              line.status === "RUNNING" && "border-emerald-400/30 bg-emerald-400/10 text-emerald-200",
+            )}
+            variant="outline"
+          >
+            {statusCopy.statusLabels[line.status]}
+          </Badge>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          {statusCopy.statusDescriptions[line.status]}
+        </p>
+      </section>
+
+      <dl className="grid grid-cols-3 gap-2">
+        <StatusDatum
+          icon={<Users size={14} />}
+          label={statusCopy.metrics.staffImpact}
+          value={formatSignedNumber(nextStaffDelta, numberLocale)}
+        />
+        <StatusDatum
+          icon={<Gauge size={14} />}
+          label={statusCopy.metrics.capacityImpact}
+          value={statusCopy.points(
+            formatSignedNumber(nextCapacityDelta, numberLocale),
+          )}
+        />
+        <StatusDatum
+          icon={<CheckCircle2 size={14} />}
+          label={statusCopy.metrics.activeStaff}
+          value={`${line.assignedStaff}/${line.idealStaff}`}
+        />
+      </dl>
+
+      {line.hasActiveLeasingContract ? (
+        <Alert>
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{statusCopy.alerts.leasingTitle}</AlertTitle>
+          <AlertDescription>
+            {statusCopy.alerts.leasingBody}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {isShiftPlaybackActive ? (
+        <Alert>
+          <AlertTitle>{statusCopy.alerts.playbackTitle}</AlertTitle>
+          <AlertDescription>{statusCopy.alerts.playbackBody}</AlertDescription>
+        </Alert>
+      ) : lockedByStatus ? (
+        <Alert variant="destructive">
+          <AlertTitle>{statusCopy.alerts.lockedTitle}</AlertTitle>
+          <AlertDescription>
+            {statusCopy.alerts.lockedBody(statusCopy.statusLabels[line.status])}
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <Alert variant={mode === "disable" ? "destructive" : "default"}>
+          {mode === "disable" ? (
+            <PowerOff className="size-4" />
+          ) : (
+            <Power className="size-4" />
+          )}
+          <AlertTitle>
+            {mode === "disable"
+              ? statusCopy.alerts.disableTitle
+              : statusCopy.alerts.activateTitle}
+          </AlertTitle>
+          <AlertDescription>
+            {mode === "disable"
+              ? statusCopy.alerts.disableBody(line.assignedStaff)
+              : statusCopy.alerts.activateBody(line.idealStaff)}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {successBody ? (
+        <Alert className="border-emerald-500/30 bg-emerald-500/10">
+          <Sparkles className="size-4" />
+          <AlertTitle>{statusCopy.success.title}</AlertTitle>
+          <AlertDescription>{successBody}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {errorMessage ? (
+        <Alert variant="destructive">
+          <AlertTitle>{statusCopy.alerts.errorTitle}</AlertTitle>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <form action={statusAction} className="sticky bottom-0 mt-auto border-t border-white/10 bg-card/95 pt-3 backdrop-blur">
+        <input name="factoryId" type="hidden" value={factoryId} />
+        <input
+          name="factoryProductionLineId"
+          type="hidden"
+          value={line.lineId}
+        />
+        <input name="mode" type="hidden" value={mode} />
+        <input name="requestId" type="hidden" value={requestId} />
+        <Button
+          className="w-full"
+          disabled={
+            pending ||
+            isShiftPlaybackActive ||
+            lockedByStatus ||
+            result?.ok === true
+          }
+          type="submit"
+          variant={mode === "disable" ? "destructive" : "default"}
+        >
+          {mode === "disable" ? <PowerOff size={15} /> : <Power size={15} />}
+          {pending
+            ? statusCopy.buttons.pending
+            : mode === "disable"
+              ? statusCopy.buttons.disable
+              : statusCopy.buttons.activate}
         </Button>
       </form>
     </div>
@@ -450,6 +731,28 @@ function GradePill({
 }
 
 function Metric({
+  icon,
+  label,
+  value,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-background/35 p-2">
+      <dt className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {icon}
+        {label}
+      </dt>
+      <dd className="mt-1 truncate font-mono text-xs font-semibold text-white">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function StatusDatum({
   icon,
   label,
   value,

@@ -1,7 +1,11 @@
-import type { ProductionGrade } from "@/generated/prisma/enums";
+import type {
+  FactoryProductionLineStatus,
+  ProductionGrade,
+} from "@/generated/prisma/enums";
 import type {
   LeaseProductionLineResult,
   PurchaseProductionLineResult,
+  SetProductionLineStatusResult,
   UpgradeProductionLineResult,
 } from "./types";
 import type { SupportedLocale } from "@/lib/i18n/locales";
@@ -16,6 +20,10 @@ type LeaseErrorCode = Extract<
 >["code"];
 type UpgradeErrorCode = Extract<
   UpgradeProductionLineResult,
+  { ok: false }
+>["code"];
+type LineStatusErrorCode = Extract<
+  SetProductionLineStatusResult,
   { ok: false }
 >["code"];
 
@@ -171,6 +179,91 @@ export const investmentCopy = {
         TEMPLATE_NOT_FOUND: "Upgrade seçeneği bulunamadı.",
         UNAUTHORIZED: "Bu işlem için oturum açmalısınız.",
         UNKNOWN_ERROR: "Upgrade tamamlanamadı. Lütfen tekrar deneyin.",
+      },
+    },
+    lineStatus: {
+      tabs: {
+        upgrade: "Upgrade",
+        status: "Durum",
+      },
+      currentTitle: "Hat durumu",
+      points: (value: string) => `${value} puan`,
+      statusLabels: {
+        BLOCKED: "Bloke",
+        BROKEN: "Arızalı",
+        DISABLED: "Devre dışı",
+        IDLE: "Aktif",
+        MAINTENANCE: "Bakımda",
+        RUNNING: "Çalışıyor",
+        SOLD: "Satıldı",
+      },
+      statusDescriptions: {
+        BLOCKED:
+          "Hat şu anda üretim akışında engel yaşıyor; devre dışı bırakılırsa bağlı direkt personel çıkarılır.",
+        BROKEN:
+          "Hat arızalı durumda. Devre dışı bırakmak kapasiteyi kapatır ve bağlı direkt personeli çıkarır.",
+        DISABLED:
+          "Hat üretim kapasitesine dahil değil. Aktif edildiğinde ideal direkt personel kadrosu tekrar kurulur.",
+        IDLE:
+          "Hat aktif ve uygun üretim planlarında kapasiteye dahil edilir.",
+        MAINTENANCE:
+          "Hat bakım durumunda. Devre dışı bırakılırsa bakım dışı aktif kapasiteye dönmez.",
+        RUNNING:
+          "Hat vardiya akışında çalışıyor. Vardiya tamamlanmadan durum değiştirilemez.",
+        SOLD: "Satılmış hat tekrar aktif edilemez veya devre dışı bırakılamaz.",
+      },
+      metrics: {
+        activeStaff: "Aktif personel",
+        capacityImpact: "Kapasite etkisi",
+        staffImpact: "Personel etkisi",
+      },
+      alerts: {
+        activateTitle: "Hattı tekrar aktif et",
+        activateBody: (count: number) =>
+          `Bu işlem hattı IDLE durumuna alır ve ${count} direkt personeli yeniden atar.`,
+        disableTitle: "Hattı devre dışı bırak",
+        disableBody: (count: number) =>
+          `Bu işlem hattı üretim kapasitesinden çıkarır ve bu hatta bağlı ${count} direkt personeli işten çıkarır.`,
+        errorTitle: "Durum güncellenemedi",
+        leasingTitle: "Leasing sözleşmesi devam ediyor",
+        leasingBody:
+          "Hat devre dışı olsa bile aktif leasing taksitleri finans planında kalır.",
+        lockedTitle: "Bu durumda işlem kilitli",
+        lockedBody: (status: string) =>
+          `${status} durumundaki hat için bu aksiyon uygulanamaz.`,
+        playbackTitle: "Vardiya sırasında kilitli",
+        playbackBody: "Vardiya oynatılırken hat durumu değiştirilemez.",
+      },
+      buttons: {
+        activate: "Hattı Aktif Et",
+        disable: "Devre Dışı Bırak",
+        pending: "Durum güncelleniyor...",
+      },
+      success: {
+        title: "Hat durumu güncellendi",
+        activated: (count: number) =>
+          `Hat tekrar aktif edildi. ${count} direkt personel ataması yenilendi.`,
+        disabled: (count: number) =>
+          `Hat devre dışı bırakıldı. ${count} direkt personel işten çıkarıldı.`,
+      },
+      upgradeLocked: {
+        title: "Hat devre dışı",
+        body: "Upgrade yapmadan önce Durum tabından hattı tekrar aktif etmelisiniz.",
+      },
+      errors: {
+        FACTORY_NOT_ACTIVE: "Fabrika şu anda hat yönetimine açık değil.",
+        FACTORY_NOT_FOUND: "Fabrika kaydı bulunamadı.",
+        INVALID_REQUEST: "Hat durumu isteği geçersiz.",
+        LINE_NOT_FOUND: "Üretim hattı bulunamadı.",
+        LINE_STATUS_LOCKED: "Bu hat mevcut durumunda değiştirilemez.",
+        PLAYBACK_ACTIVE: "Vardiya oynatılırken hat durumu değiştirilemez.",
+        PRODUCTION_PLAN_ACTIVE:
+          "Bugünün üretim planında bu hat varken durum değiştirilemez.",
+        SECTOR_MISMATCH: "Seçilen hat fabrikanın sektörüne ait değil.",
+        STAFF_CONFIG_INCOMPLETE:
+          "Bu hattın direkt personel yapılandırması eksik.",
+        UNAUTHORIZED: "Bu işlem için oturum açmalısınız.",
+        UNKNOWN_ERROR: "Hat durumu güncellenemedi. Lütfen tekrar deneyin.",
       },
     },
   },
@@ -334,6 +427,92 @@ export const investmentCopy = {
         UNKNOWN_ERROR: "Upgrade could not be completed. Please try again.",
       },
     },
+    lineStatus: {
+      tabs: {
+        upgrade: "Upgrade",
+        status: "Status",
+      },
+      currentTitle: "Line status",
+      points: (value: string) => `${value} points`,
+      statusLabels: {
+        BLOCKED: "Blocked",
+        BROKEN: "Broken",
+        DISABLED: "Disabled",
+        IDLE: "Active",
+        MAINTENANCE: "Maintenance",
+        RUNNING: "Running",
+        SOLD: "Sold",
+      },
+      statusDescriptions: {
+        BLOCKED:
+          "The line is blocked in the production flow. Disabling it releases the assigned direct staff.",
+        BROKEN:
+          "The line is broken. Disabling it removes its capacity and releases the assigned direct staff.",
+        DISABLED:
+          "The line is not counted as production capacity. Activating it restores the ideal direct staff crew.",
+        IDLE:
+          "The line is active and counted in eligible production plans.",
+        MAINTENANCE:
+          "The line is under maintenance. Disabling it keeps it out of active production capacity.",
+        RUNNING:
+          "The line is running in the shift flow. Status cannot be changed until the shift is complete.",
+        SOLD: "A sold line cannot be activated or disabled.",
+      },
+      metrics: {
+        activeStaff: "Active staff",
+        capacityImpact: "Capacity impact",
+        staffImpact: "Staff impact",
+      },
+      alerts: {
+        activateTitle: "Activate line",
+        activateBody: (count: number) =>
+          `This moves the line to IDLE and restores ${count} direct staff assignments.`,
+        disableTitle: "Disable line",
+        disableBody: (count: number) =>
+          `This removes the line from production capacity and dismisses ${count} assigned direct staff.`,
+        errorTitle: "Status could not be updated",
+        leasingTitle: "Leasing contract continues",
+        leasingBody:
+          "Active leasing installments remain in the finance plan even if the line is disabled.",
+        lockedTitle: "Action locked for this status",
+        lockedBody: (status: string) =>
+          `This action cannot be applied while the line is ${status}.`,
+        playbackTitle: "Locked during shift playback",
+        playbackBody: "Line status cannot be changed during shift playback.",
+      },
+      buttons: {
+        activate: "Activate Line",
+        disable: "Disable Line",
+        pending: "Updating status...",
+      },
+      success: {
+        title: "Line status updated",
+        activated: (count: number) =>
+          `The line is active again. ${count} direct staff assignments were restored.`,
+        disabled: (count: number) =>
+          `The line was disabled. ${count} direct staff were dismissed.`,
+      },
+      upgradeLocked: {
+        title: "Line is disabled",
+        body: "Activate the line from the Status tab before upgrading it.",
+      },
+      errors: {
+        FACTORY_NOT_ACTIVE: "The factory is not open for line management right now.",
+        FACTORY_NOT_FOUND: "Factory record was not found.",
+        INVALID_REQUEST: "The line status request is invalid.",
+        LINE_NOT_FOUND: "Production line was not found.",
+        LINE_STATUS_LOCKED: "This line cannot be changed in its current status.",
+        PLAYBACK_ACTIVE: "Line status cannot be changed during shift playback.",
+        PRODUCTION_PLAN_ACTIVE:
+          "Status cannot be changed while this line is in today's production plan.",
+        SECTOR_MISMATCH:
+          "The selected line does not belong to the factory sector.",
+        STAFF_CONFIG_INCOMPLETE:
+          "The direct staff configuration for this line is incomplete.",
+        UNAUTHORIZED: "You must be signed in for this action.",
+        UNKNOWN_ERROR: "Line status could not be updated. Please try again.",
+      },
+    },
   },
 } as const satisfies Record<
   SupportedLocale,
@@ -428,6 +607,49 @@ export const investmentCopy = {
       buttonClosed: string;
       errors: Record<UpgradeErrorCode, string>;
     };
+    lineStatus: {
+      tabs: {
+        upgrade: string;
+        status: string;
+      };
+      currentTitle: string;
+      points: (value: string) => string;
+      statusLabels: Record<FactoryProductionLineStatus, string>;
+      statusDescriptions: Record<FactoryProductionLineStatus, string>;
+      metrics: {
+        activeStaff: string;
+        capacityImpact: string;
+        staffImpact: string;
+      };
+      alerts: {
+        activateTitle: string;
+        activateBody: (count: number) => string;
+        disableTitle: string;
+        disableBody: (count: number) => string;
+        errorTitle: string;
+        leasingTitle: string;
+        leasingBody: string;
+        lockedTitle: string;
+        lockedBody: (status: string) => string;
+        playbackTitle: string;
+        playbackBody: string;
+      };
+      buttons: {
+        activate: string;
+        disable: string;
+        pending: string;
+      };
+      success: {
+        title: string;
+        activated: (count: number) => string;
+        disabled: (count: number) => string;
+      };
+      upgradeLocked: {
+        title: string;
+        body: string;
+      };
+      errors: Record<LineStatusErrorCode, string>;
+    };
   }
 >;
 
@@ -435,3 +657,5 @@ export type InvestmentPurchaseCopy =
   (typeof investmentCopy)[SupportedLocale]["purchase"];
 export type InvestmentUpgradeCopy =
   (typeof investmentCopy)[SupportedLocale]["upgrade"];
+export type InvestmentLineStatusCopy =
+  (typeof investmentCopy)[SupportedLocale]["lineStatus"];

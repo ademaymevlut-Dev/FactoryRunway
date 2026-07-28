@@ -1,5 +1,6 @@
 import type {
   CurrencyCode,
+  FactoryProductionLineStatus,
   LineAcquisitionType,
   ProductionGrade,
 } from "@/generated/prisma/enums";
@@ -214,6 +215,44 @@ export type UpgradeProductionLineResult =
         | "PRODUCTION_PLAN_ACTIVE"
         | "INSUFFICIENT_FUNDS"
         | "DUPLICATE_REQUEST"
+        | "INVALID_REQUEST"
+        | "UNKNOWN_ERROR";
+    };
+
+export type ProductionLineStatusChangeMode = "activate" | "disable";
+
+export type SetProductionLineStatusInput = {
+  factoryId: string;
+  factoryProductionLineId: string;
+  mode: ProductionLineStatusChangeMode;
+  requestId: string;
+};
+
+export type SetProductionLineStatusResult =
+  | {
+      ok: true;
+      factoryId: string;
+      productionLineId: string;
+      previousStatus: FactoryProductionLineStatus;
+      nextStatus: Extract<FactoryProductionLineStatus, "DISABLED" | "IDLE">;
+      releasedDirectStaffCount: number;
+      restoredDirectStaffCount: number;
+      activeProductionLineCount: number;
+      operatingStageChanged: boolean;
+      operatingStageKey: string;
+    }
+  | {
+      ok: false;
+      code:
+        | "UNAUTHORIZED"
+        | "FACTORY_NOT_FOUND"
+        | "FACTORY_NOT_ACTIVE"
+        | "PLAYBACK_ACTIVE"
+        | "LINE_NOT_FOUND"
+        | "LINE_STATUS_LOCKED"
+        | "PRODUCTION_PLAN_ACTIVE"
+        | "SECTOR_MISMATCH"
+        | "STAFF_CONFIG_INCOMPLETE"
         | "INVALID_REQUEST"
         | "UNKNOWN_ERROR";
     };
