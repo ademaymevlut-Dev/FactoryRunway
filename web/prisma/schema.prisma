@@ -488,6 +488,7 @@ model User {
   adminProfile          AdminProfile?
   onboardingDraft       PlayerOnboardingDraft?
   sessions              AuthSession[]
+  authAccounts          AuthAccount[]
 
   @@index([role])
   @@index([role, onboardingStatus])
@@ -556,6 +557,22 @@ model AuthSession {
   @@index([userId])
   @@index([expiresAt])
   @@map("auth_sessions")
+}
+
+model AuthAccount {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  provider          String
+  providerAccountId String   @map("provider_account_id")
+  providerEmail     String?  @map("provider_email")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@index([provider, providerEmail])
+  @@map("auth_accounts")
 }
 
 model Sector {

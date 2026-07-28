@@ -5,11 +5,17 @@ export const landingContentTr = {
     skipToContent: "Ana içeriğe geç",
   },
   auth: {
+    accountCardDescription:
+      "Google hesabınla tek tıkla giriş yap veya mevcut Factory Runway hesabınla devam et.",
+    accountCardEyebrow: "PLAYER ACCESS",
+    accountCardTitle: "Fabrikanın kontrol paneli hazır.",
     description:
       "Oyuncu hesabını oluştur, başlangıç fabrikanı kur ve ilk sipariş tekliflerini değerlendirmeye başla.",
     emailLabel: "E-posta",
     emailPlaceholder: "player@factoryrunway.com",
+    emailDivider: "veya e-posta ile devam et",
     eyebrow: "FABRİKANI KURMAYA BAŞLA",
+    googleButton: "Google ile devam et",
     loginButton: "Giriş Yap",
     loginTab: "Giriş Yap",
     messages: {

@@ -4,10 +4,12 @@ import type { KeyboardEvent, ReactNode } from "react";
 import { useActionState, useId, useState } from "react";
 import { useFormStatus } from "react-dom";
 import {
+  Factory,
   LoaderCircle,
   LogIn,
   Mail,
   ShieldCheck,
+  Sparkles,
   UserRound,
 } from "lucide-react";
 
@@ -71,11 +73,35 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="landing-auth-stack">
+      <div className="landing-auth-card-head">
+        <span className="landing-auth-brand-mark">
+          <Factory aria-hidden="true" size={18} />
+        </span>
+        <div>
+          <p className="landing-auth-kicker">{copy.accountCardEyebrow}</p>
+          <h3>{copy.accountCardTitle}</h3>
+          <p>{copy.accountCardDescription}</p>
+        </div>
+      </div>
+
+      <a
+        className="landing-google-button"
+        href={`/api/auth/google?locale=${locale}`}
+      >
+        <GoogleIcon />
+        <span>{copy.googleButton}</span>
+        <Sparkles aria-hidden="true" className="landing-google-spark" size={16} />
+      </a>
+
+      <div className="landing-auth-divider">
+        <span>{copy.emailDivider}</span>
+      </div>
+
       <div
         aria-label={copy.tabsAriaLabel}
         aria-orientation="horizontal"
-        className="game-tabs"
+        className="landing-auth-tabs"
         role="tablist"
       >
         {accountTabs.map((tab, tabIndex) => (
@@ -83,7 +109,9 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
             aria-controls={`account-panel-${tab.key}`}
             aria-selected={activeTab === tab.key}
             className={
-              activeTab === tab.key ? "game-tab is-active" : "game-tab"
+              activeTab === tab.key
+                ? "landing-auth-tab is-active"
+                : "landing-auth-tab"
             }
             id={`account-tab-${tab.key}`}
             key={tab.key}
@@ -102,7 +130,7 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
         <form
           action={loginFormAction}
           aria-labelledby="account-tab-login"
-          className="space-y-4"
+          className="landing-auth-form"
           id="account-panel-login"
           role="tabpanel"
         >
@@ -135,7 +163,7 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
         <form
           action={playerFormAction}
           aria-labelledby="account-tab-player"
-          className="space-y-4"
+          className="landing-auth-form"
           id="account-panel-player"
           role="tabpanel"
         >
@@ -198,16 +226,14 @@ function FormField({
   const errorId = `${fieldId}-error`;
 
   return (
-    <label className="block space-y-2" htmlFor={fieldId}>
-      <span className="text-sm font-medium text-secondary-foreground">
-        {label}
-      </span>
-      <span className="game-input-wrap">
+    <label className="landing-auth-field" htmlFor={fieldId}>
+      <span className="landing-auth-label">{label}</span>
+      <span className="landing-auth-input-wrap">
         {icon}
         <input
           aria-describedby={errorCode ? errorId : undefined}
           aria-invalid={errorCode ? true : undefined}
-          className="game-input"
+          className="landing-auth-input"
           id={fieldId}
           name={name}
           placeholder={placeholder}
@@ -217,7 +243,7 @@ function FormField({
       </span>
       {errorCode ? (
         <span
-          className="block text-xs font-semibold text-red-400"
+          className="landing-auth-error"
           id={errorId}
         >
           {copy.messages[errorCode]}
@@ -241,7 +267,7 @@ function FormMessage({
   return (
     <p
       aria-live="polite"
-      className="rounded-lg border border-destructive bg-destructive/20 px-3 py-2 text-sm text-destructive-foreground"
+      className="landing-auth-message"
       role="status"
     >
       {copy.messages[state.messageCode]}
@@ -255,7 +281,7 @@ function SubmitButton({ icon, label }: { icon: ReactNode; label: string }) {
   return (
     <button
       aria-disabled={pending}
-      className="game-button-primary w-full"
+      className="landing-auth-submit"
       disabled={pending}
       type="submit"
     >
@@ -266,5 +292,32 @@ function SubmitButton({ icon, label }: { icon: ReactNode; label: string }) {
       )}
       {label}
     </button>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      className="landing-google-icon"
+      viewBox="0 0 24 24"
+    >
+      <path
+        d="M21.8 12.23c0-.78-.07-1.52-.2-2.23H12v4.26h5.5a4.7 4.7 0 0 1-2.04 3.08v2.56h3.3c1.93-1.78 3.04-4.4 3.04-7.67Z"
+        fill="#4285F4"
+      />
+      <path
+        d="M12 22c2.75 0 5.06-.9 6.75-2.45l-3.3-2.56c-.92.61-2.1.97-3.45.97-2.65 0-4.9-1.79-5.7-4.2H2.9v2.64A10 10 0 0 0 12 22Z"
+        fill="#34A853"
+      />
+      <path
+        d="M6.3 13.76A6 6 0 0 1 6 12c0-.61.1-1.2.3-1.76V7.6H2.9A10 10 0 0 0 2 12c0 1.6.38 3.1.9 4.4l3.4-2.64Z"
+        fill="#FBBC05"
+      />
+      <path
+        d="M12 6.04c1.5 0 2.84.52 3.9 1.53l2.93-2.93A9.83 9.83 0 0 0 12 2a10 10 0 0 0-9.1 5.6l3.4 2.64c.8-2.41 3.05-4.2 5.7-4.2Z"
+        fill="#EA4335"
+      />
+    </svg>
   );
 }

@@ -14,7 +14,7 @@ export function LandingAuthSection({ content }: LandingAuthSectionProps) {
       className="scroll-mt-52 py-16 sm:scroll-mt-40 sm:py-24 lg:scroll-mt-24"
       id="account"
     >
-      <div className="grid items-center gap-10 lg:grid-cols-[1fr_28rem]">
+      <div className="grid items-center gap-10 lg:grid-cols-[1fr_30rem]">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-primary-readable">
             {content.auth.eyebrow}
@@ -38,7 +38,7 @@ export function LandingAuthSection({ content }: LandingAuthSectionProps) {
           </div>
         </div>
 
-        <div className="game-card p-5 sm:p-6">
+        <div className="landing-auth-panel">
           <LandingAuthForm copy={content.auth} locale={content.locale} />
         </div>
       </div>

@@ -13,10 +13,15 @@ export type LandingContent = {
     skipToContent: string;
   };
   auth: {
+    accountCardDescription: string;
+    accountCardEyebrow: string;
+    accountCardTitle: string;
     description: string;
     emailLabel: string;
     emailPlaceholder: string;
+    emailDivider: string;
     eyebrow: string;
+    googleButton: string;
     loginButton: string;
     loginTab: string;
     messages: Record<AuthMessageCode, string>;

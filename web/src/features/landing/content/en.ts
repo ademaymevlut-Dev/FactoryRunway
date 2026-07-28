@@ -5,11 +5,17 @@ export const landingContentEn = {
     skipToContent: "Skip to main content",
   },
   auth: {
+    accountCardDescription:
+      "Sign in with your Google account in one click, or continue with your existing Factory Runway credentials.",
+    accountCardEyebrow: "PLAYER ACCESS",
+    accountCardTitle: "Your factory control room is ready.",
     description:
       "Create your player account, set up your starting factory, and begin evaluating your first order offers.",
     emailLabel: "Email",
     emailPlaceholder: "player@factoryrunway.com",
+    emailDivider: "or continue with email",
     eyebrow: "START BUILDING YOUR FACTORY",
+    googleButton: "Continue with Google",
     loginButton: "Sign In",
     loginTab: "Sign In",
     messages: {
