@@ -65,6 +65,7 @@ type ProductionLineMapItem = Extract<
   FactoryMapItem,
   { kind: "productionLine" }
 >;
+type LineDetailTab = "upgrade" | "status";
 
 export function UpgradeProductionLinePanel({
   currencyCode,
@@ -83,9 +84,16 @@ export function UpgradeProductionLinePanel({
   const upgradeCopy = copy.upgrade;
   const statusCopy = copy.lineStatus;
   const numberLocale = resolveNumberLocale(locale);
+  const [activeTab, setActiveTab] = useState<LineDetailTab>("upgrade");
 
   return (
-    <Tabs defaultValue="upgrade" className="flex min-h-0 flex-col gap-3">
+    <Tabs
+      className="flex min-h-0 flex-col gap-3"
+      onValueChange={(value) => {
+        setActiveTab(value === "status" ? "status" : "upgrade");
+      }}
+      value={activeTab}
+    >
       <LineSummaryCard
         copy={upgradeCopy}
         gradeLabels={copy.gradeLabels}
@@ -93,12 +101,27 @@ export function UpgradeProductionLinePanel({
         numberLocale={numberLocale}
       />
 
-      <TabsList className="grid h-auto w-full grid-cols-2 rounded-lg bg-card/70 p-1">
-        <TabsTrigger className="rounded-md text-xs" value="upgrade">
+      <TabsList
+        aria-label={statusCopy.tabsAria}
+        className="grid h-auto w-full grid-cols-2 gap-1 rounded-lg border border-white/10 bg-black/25 p-1 shadow-inner"
+      >
+        <TabsTrigger
+          className={cn(
+            lineDetailTabTriggerClass,
+            activeTab === "upgrade" && lineDetailTabActiveClass,
+          )}
+          value="upgrade"
+        >
           <Gauge size={14} />
           {statusCopy.tabs.upgrade}
         </TabsTrigger>
-        <TabsTrigger className="rounded-md text-xs" value="status">
+        <TabsTrigger
+          className={cn(
+            lineDetailTabTriggerClass,
+            activeTab === "status" && lineDetailTabActiveClass,
+          )}
+          value="status"
+        >
           <Power size={14} />
           {statusCopy.tabs.status}
         </TabsTrigger>
@@ -128,6 +151,17 @@ export function UpgradeProductionLinePanel({
     </Tabs>
   );
 }
+
+const lineDetailTabTriggerClass = cn(
+  "relative h-10 min-w-0 rounded-md border px-3 text-xs font-semibold transition-all duration-200",
+  "border-white/10 bg-background/60 text-muted-foreground hover:border-primary/40 hover:bg-secondary/85 hover:text-foreground",
+  "data-active:border-primary/70 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-[0_0_22px_hsl(var(--primary)/0.28)]",
+  "data-[state=active]:border-primary/70 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-[0_0_22px_hsl(var(--primary)/0.28)]",
+  "[&_svg]:opacity-70 data-active:[&_svg]:opacity-100 data-[state=active]:[&_svg]:opacity-100",
+);
+
+const lineDetailTabActiveClass =
+  "border-primary/70 bg-primary text-primary-foreground shadow-[0_0_22px_hsl(var(--primary)/0.28)] [&_svg]:opacity-100";
 
 function LineSummaryCard({
   copy,

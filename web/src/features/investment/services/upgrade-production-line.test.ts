@@ -96,9 +96,11 @@ test("line detail panel upgrade ve durum tablarını aynı panelde taşır", () 
   const panel = readSource("../components/upgrade-production-line-panel.tsx");
   const copy = readSource("../investment-copy.ts");
 
-  assert.match(panel, /<Tabs defaultValue="upgrade"/);
+  assert.match(panel, /value=\{activeTab\}/);
   assert.match(panel, /<TabsTrigger[^>]+value="upgrade"/);
   assert.match(panel, /<TabsTrigger[^>]+value="status"/);
+  assert.match(panel, /lineDetailTabActiveClass/);
+  assert.match(panel, /data-\[state=active\]:bg-primary/);
   assert.match(panel, /setProductionLineStatusAction/);
   assert.match(panel, /name="mode"/);
   assert.match(copy, /status: "Durum"/);

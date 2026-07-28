@@ -182,6 +182,7 @@ export const investmentCopy = {
       },
     },
     lineStatus: {
+      tabsAria: "Üretim hattı işlem sekmeleri",
       tabs: {
         upgrade: "Upgrade",
         status: "Durum",
@@ -428,6 +429,7 @@ export const investmentCopy = {
       },
     },
     lineStatus: {
+      tabsAria: "Production line action tabs",
       tabs: {
         upgrade: "Upgrade",
         status: "Status",
@@ -608,6 +610,7 @@ export const investmentCopy = {
       errors: Record<UpgradeErrorCode, string>;
     };
     lineStatus: {
+      tabsAria: string;
       tabs: {
         upgrade: string;
         status: string;
