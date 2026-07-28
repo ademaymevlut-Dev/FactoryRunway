@@ -525,7 +525,7 @@ function InvestmentReport({ report }: { report: FinanceInvestmentReport }) {
         />
       </div>
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_380px]">
-        <PanelBlock title="Aktif leasing">
+        <PanelBlock title="Leasing yükümlülükleri">
           {report.activeContracts.length > 0 ? (
             <div className="space-y-2">
               {report.activeContracts.map((contract) => (
@@ -543,7 +543,11 @@ function InvestmentReport({ report }: { report: FinanceInvestmentReport }) {
                       </p>
                     </div>
                     <Badge variant="outline">
-                      {contract.nextDueDay ? `${contract.nextDueDay}. gün` : "Kapalı"}
+                      {contract.status === "PENDING_ACTIVATION"
+                        ? "Kurulum bekleniyor"
+                        : contract.nextDueDay
+                          ? `${contract.nextDueDay}. gün`
+                          : "Takvim bekleniyor"}
                     </Badge>
                   </div>
                   <div className="mt-3 grid grid-cols-2 gap-2">
@@ -564,7 +568,7 @@ function InvestmentReport({ report }: { report: FinanceInvestmentReport }) {
               ))}
             </div>
           ) : (
-            <EmptyLine text="Aktif leasing sözleşmesi yok." />
+            <EmptyLine text="Aktif veya aktivasyon bekleyen leasing sözleşmesi yok." />
           )}
         </PanelBlock>
         <PanelBlock title="Yatırım hareketleri">

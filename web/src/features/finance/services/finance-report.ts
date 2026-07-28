@@ -245,7 +245,12 @@ async function buildInvestmentReport(input: ReportBuilderInput): Promise<Finance
     input.prisma.factoryLeasingContract.findMany({
       where: {
         factoryId: input.factoryId,
-        status: LeasingContractStatus.ACTIVE,
+        status: {
+          in: [
+            LeasingContractStatus.PENDING_ACTIVATION,
+            LeasingContractStatus.ACTIVE,
+          ],
+        },
       },
       orderBy: [{ nextDueDay: "asc" }, { createdAt: "asc" }],
       select: {

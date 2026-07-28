@@ -65,6 +65,7 @@ type ShiftPlaybackLocaleCopy = {
       departmentNoWip: (departmentName: string) => string;
       departmentProductionCompleted: (departmentName: string) => string;
       financeExpensePaid: (categoryName: string) => string;
+      installationActivated: string;
       leasingContractCompleted: string;
       leasingDownPaymentPaid: string;
       leasingPaymentOverdue: string;
@@ -101,6 +102,10 @@ type ShiftPlaybackLocaleCopy = {
       customerRelationshipGained: (orderCode: string) => string;
       customerRelationshipLost: (orderCode: string) => string;
       financeExpensePaid: (categoryName: string, amount: string) => string;
+      installationActivated: (
+        departmentName: string,
+        lineNumber: string,
+      ) => string;
       levelUp: (xp: string, balanceAfterXp: string) => string;
       orderCompletedXp: (orderNo: string, balanceAfterXp: string) => string;
       orderQuantity: (orderCode: string, quantity: string) => string;
@@ -208,6 +213,7 @@ export const shiftPlaybackCopy = {
         departmentProductionCompleted: (departmentName) =>
           `${departmentName} üretimi tamamladı`,
         financeExpensePaid: (categoryName) => `${categoryName} ödendi`,
+        installationActivated: "Üretim hattı aktif edildi",
         leasingContractCompleted: "Leasing sözleşmesi tamamlandı",
         leasingDownPaymentPaid: "Leasing peşinatı ödendi",
         leasingPaymentOverdue: "Leasing taksiti gecikti",
@@ -247,6 +253,8 @@ export const shiftPlaybackCopy = {
           `${orderCode} gecikmesi müşterinin tekrar sipariş ihtimalini düşürdü.`,
         financeExpensePaid: (categoryName, amount) =>
           `${categoryName} için ${amount} ödeme yapıldı.`,
+        installationActivated: (departmentName, lineNumber) =>
+          `${departmentName} bölümündeki ${lineNumber}. hat kurulumdan çıktı ve üretim kapasitesine katıldı.`,
         levelUp: (xp, balanceAfterXp) =>
           `+${xp} XP ile yeni seviye açıldı. Güncel XP: ${balanceAfterXp}.`,
         luxuryBonus: (orderNo, balanceAfterXp) =>
@@ -366,6 +374,7 @@ export const shiftPlaybackCopy = {
         departmentProductionCompleted: (departmentName) =>
           `${departmentName} completed production`,
         financeExpensePaid: (categoryName) => `${categoryName} paid`,
+        installationActivated: "Production line activated",
         leasingContractCompleted: "Leasing contract completed",
         leasingDownPaymentPaid: "Leasing down payment paid",
         leasingPaymentOverdue: "Leasing installment overdue",
@@ -405,6 +414,8 @@ export const shiftPlaybackCopy = {
           `${orderCode} delay reduced the chance of repeat orders.`,
         financeExpensePaid: (categoryName, amount) =>
           `${amount} was paid for ${categoryName}.`,
+        installationActivated: (departmentName, lineNumber) =>
+          `Line ${lineNumber} in ${departmentName} completed installation and joined production capacity.`,
         levelUp: (xp, balanceAfterXp) =>
           `+${xp} XP unlocked a new level. Current XP: ${balanceAfterXp}.`,
         luxuryBonus: (orderNo, balanceAfterXp) =>

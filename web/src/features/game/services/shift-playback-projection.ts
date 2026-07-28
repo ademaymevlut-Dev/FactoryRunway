@@ -6,6 +6,7 @@ import {
   FinanceDueStatus,
   FinanceSourceType,
   LeasingContractStatus,
+  ProductionLineInstallationStatus,
   ProductImageVariant,
   ProductImageView,
   XpReason,
@@ -299,6 +300,7 @@ export async function getShiftTimelineEvents(input: {
     shippedOrders,
     outsourceJobs,
     completedLeasingContracts,
+    activatedInstallations,
     chaosEvents,
     xpTransactions,
   ] =
@@ -396,6 +398,34 @@ export async function getShiftTimelineEvents(input: {
           installmentCount: true,
           productionLineId: true,
           totalCostCents: true,
+        },
+      }),
+      input.prisma.factoryProductionLineInstallation.findMany({
+        where: {
+          activatedDay: input.gameDay,
+          factoryId: input.factoryId,
+          status: ProductionLineInstallationStatus.ACTIVATED,
+        },
+        orderBy: [{ activatedDay: "asc" }, { createdAt: "asc" }],
+        select: {
+          id: true,
+          factoryProductionLine: {
+            select: {
+              lineNumber: true,
+              productionLineTemplate: {
+                select: { grade: true },
+              },
+              department: {
+                select: {
+                  key: true,
+                  translations: {
+                    where: { locale: translationLocaleFilter },
+                    select: { locale: true, name: true },
+                  },
+                },
+              },
+            },
+          },
         },
       }),
       input.prisma.factoryChaosEvent.findMany({
@@ -674,6 +704,28 @@ export async function getShiftTimelineEvents(input: {
       severity: "SUCCESS",
       sourceId: contract.id,
       sourceType: "LEASING_CONTRACT",
+    });
+  }
+
+  for (const installation of activatedInstallations) {
+    const line = installation.factoryProductionLine;
+    add({
+      category: "SYSTEM",
+      eventKey: "installation.activated",
+      id: `installation:${installation.id}:activated`,
+      minute: 5,
+      payload: {
+        departmentName: pickTranslation(
+          line.department.translations,
+          line.department.key,
+          locale,
+        ),
+        grade: line.productionLineTemplate.grade,
+        lineNumber: line.lineNumber,
+      },
+      severity: "SUCCESS",
+      sourceId: installation.id,
+      sourceType: "PRODUCTION_LINE_INSTALLATION",
     });
   }
 

@@ -15,10 +15,12 @@
     "seed:chaos-events": "tsx prisma/seed-chaos-event-configs.ts",
     "seed:market-rules": "tsx prisma/seed-market-offer-rules.ts",
     "seed:leasing-offers": "node --import tsx --env-file=.env.local prisma/seed-production-line-leasing-offers.ts",
+    "seed:investment-policies": "node --import tsx --env-file=.env.local prisma/seed-production-line-investment-policies.ts",
     "seed:player-levels": "tsx prisma/seed-player-level-configs.ts",
     "seed:department-group-semantics": "tsx prisma/seed-department-group-semantics.ts",
     "seed:starting-staff": "tsx prisma/seed-staff-roles.ts && tsx prisma/seed-starting-staff.ts",
     "seed:tasks": "tsx prisma/seed-task-definitions.ts",
+    "backfill:line-acquisition-sequences": "node --import tsx --env-file=.env.local scripts/backfill-production-line-acquisition-sequences.ts",
     "db:push": "prisma db push"
   },
   "dependencies": {

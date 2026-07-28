@@ -3,7 +3,9 @@ import type {
   ProductionGrade,
 } from "@/generated/prisma/enums";
 import type {
+  AccelerateProductionLineInstallationResult,
   LeaseProductionLineResult,
+  LeasingCreditReasonCopy,
   PurchaseProductionLineResult,
   SetProductionLineStatusResult,
   UpgradeProductionLineResult,
@@ -26,6 +28,10 @@ type LineStatusErrorCode = Extract<
   SetProductionLineStatusResult,
   { ok: false }
 >["code"];
+type InstallationAccelerationErrorCode = Extract<
+  AccelerateProductionLineInstallationResult,
+  { ok: false }
+>["code"];
 
 export const investmentCopy = {
   tr: {
@@ -37,10 +43,7 @@ export const investmentCopy = {
     },
     panel: {
       noOptions: "Bu bölüm için aktif üretim hattı seçeneği bulunmuyor.",
-      departmentSubtitle: (departmentName: string) =>
-        `${departmentName} · Teknik ve finansal seçenekler`,
       locked: "Vardiya sırasında kilitli",
-      planningOpen: "Planlama açık",
       departmentNavAria: "Yatırım departmanı",
       templateNavAria: "Üretim hattı standardı",
       machineCount: (count: number) => `${count} makine`,
@@ -62,6 +65,51 @@ export const investmentCopy = {
       paymentLeasing: "Leasing",
       dueToday: "Bugün ödenecek",
       cashNote: "Tek seferde kasadan düşer",
+      installation: {
+        title: "Kurulum Planı",
+        sequence: (value: number) => `Tedarik sırası #${value}`,
+        duration: "Kurulum süresi",
+        days: (value: number) => `${value} gün`,
+        readyDay: "Planlanan aktivasyon",
+        readyDayValue: (value: number) => `${value}. gün`,
+        slots: "Eş zamanlı kurulum",
+        slotsValue: (value: number) => `${value} slot`,
+        immediate:
+          "Hat satın alma tamamlanınca aynı oyun gününde aktif edilir.",
+        deferred:
+          "Hat haritada hemen görünür; aktivasyona kadar üretim ve personel kapasitesine katılmaz.",
+      },
+      credit: {
+        approved: "Banka ön onayı verildi",
+        declined: "Banka koşulları karşılanmıyor",
+        contracts: "Aktif + bekleyen sözleşme",
+        exposure: "Toplam leasing riski",
+        cyclePayment: "22 günlük ödeme yükü",
+        cashReserve: "Peşinat sonrası nakit",
+        requiredReserve: "Gerekli nakit rezervi",
+        reasonsTitle: "Onaylanmama nedenleri",
+        reasons: {
+          ACTIVE_CONTRACT_LIMIT_EXCEEDED:
+            "Aktif ve aktivasyon bekleyen leasing sözleşmesi limiti aşılıyor.",
+          CYCLE_PAYMENT_LIMIT_EXCEEDED:
+            "22 günlük toplam leasing ödeme limiti aşılıyor.",
+          DEFAULTED_CONTRACT_EXISTS:
+            "Temerrüde düşmüş bir leasing sözleşmesi bulunuyor.",
+          DUPLICATE_REQUEST: "Bu leasing talebi daha önce işlendi.",
+          EXPOSURE_LIMIT_EXCEEDED:
+            "Toplam leasing borç riski banka limitini aşıyor.",
+          FACTORY_INACTIVE: "Fabrika yatırım işlemlerine açık değil.",
+          INSUFFICIENT_CASH_FOR_DOWN_PAYMENT:
+            "Peşinat için yeterli nakit bulunmuyor.",
+          INSUFFICIENT_CASH_RESERVE:
+            "Peşinat sonrası banka için gerekli nakit rezervi korunamıyor.",
+          OVERDUE_PAYMENT_EXISTS:
+            "Vadesi geçmiş leasing ödemesi bulunuyor.",
+          PARTIAL_PAYMENT_EXISTS:
+            "Kısmi ödenmiş leasing taksiti bulunuyor.",
+          SHIFT_IN_PROGRESS: "Vardiya devam ederken kredi kararı verilemez.",
+        },
+      },
       noLeaseOffer: "Bu hat için aktif leasing teklifi bulunmuyor.",
       recurringSummary: (value: string) =>
         `İşletme Gideri Etkisi · ${value} / dönem`,
@@ -108,6 +156,8 @@ export const investmentCopy = {
         FACTORY_NOT_ACTIVE: "Fabrika şu anda yatırıma açık değil.",
         FACTORY_NOT_FOUND: "Fabrika kaydı bulunamadı.",
         INSUFFICIENT_FUNDS: "Peşinat için yeterli nakit bulunmuyor.",
+        CREDIT_DECLINED:
+          "Leasing başvurusu banka politikası nedeniyle onaylanmadı.",
         INVALID_DEPARTMENT_KIND:
           "Bu departman üretim hattı yatırımını desteklemiyor.",
         INVALID_REQUEST: "Leasing isteği geçersiz.",
@@ -194,6 +244,7 @@ export const investmentCopy = {
         BROKEN: "Arızalı",
         DISABLED: "Devre dışı",
         IDLE: "Aktif",
+        INSTALLING: "Kuruluyor",
         MAINTENANCE: "Bakımda",
         RUNNING: "Çalışıyor",
         SOLD: "Satıldı",
@@ -207,6 +258,8 @@ export const investmentCopy = {
           "Hat üretim kapasitesine dahil değil. Aktif edildiğinde ideal direkt personel kadrosu tekrar kurulur.",
         IDLE:
           "Hat aktif ve uygun üretim planlarında kapasiteye dahil edilir.",
+        INSTALLING:
+          "Hat kuruluyor. Aktivasyon gününe kadar üretim, personel ve işletme kapasitesine dahil edilmez.",
         MAINTENANCE:
           "Hat bakım durumunda. Devre dışı bırakılırsa bakım dışı aktif kapasiteye dönmez.",
         RUNNING:
@@ -217,6 +270,49 @@ export const investmentCopy = {
         activeStaff: "Aktif personel",
         capacityImpact: "Kapasite etkisi",
         staffImpact: "Personel etkisi",
+      },
+      installation: {
+        title: "Kurulum durumu",
+        requestedDay: "Tedarik günü",
+        originalReadyDay: "İlk planlanan gün",
+        readyDay: "Güncel aktivasyon",
+        remainingDays: "Kalan süre",
+        acceleratedDays: "Hızlandırılan",
+        tokenRate: "RT maliyeti",
+        tokenRateValue: (value: number) => `${value} RT / gün`,
+        daysValue: (value: number) => `${value} gün`,
+        gameDayValue: (value: number) => `${value}. gün`,
+        leasePending:
+          "Leasing sözleşmesi aktivasyonu bekliyor; ilk taksit henüz başlamadı.",
+        accelerationTitle: "RT ile hızlandır",
+        accelerationBody:
+          "Kurulum sırası korunur. Seçtiğiniz gün kadar süre, izin verilen alt sınıra kadar azaltılır.",
+        accelerationDays: "Hızlandırılacak gün",
+        accelerationCost: (tokens: number) => `${tokens} RT harcanacak`,
+        accelerationAction: "Kurulumu Hızlandır",
+        accelerationPending: "Hızlandırılıyor…",
+        successTitle: "Kurulum planı güncellendi",
+        successBody: (days: number, readyDay: number) =>
+          `${days} gün hızlandırıldı. Yeni aktivasyon: ${readyDay}. gün.`,
+        errorTitle: "Kurulum hızlandırılamadı",
+        errors: {
+          DUPLICATE_REQUEST: "Bu hızlandırma isteği daha önce işlendi.",
+          FACTORY_NOT_ACTIVE: "Fabrika şu anda yatırıma açık değil.",
+          FACTORY_NOT_FOUND: "Fabrika kaydı bulunamadı.",
+          INSTALLATION_NOT_FOUND: "Kurulum kaydı bulunamadı.",
+          INSTALLATION_NOT_PENDING:
+            "Bu kurulum artık hızlandırmaya açık değil.",
+          INSUFFICIENT_TOKENS: "Bu hızlandırma için yeterli RT bulunmuyor.",
+          INVALID_ACCELERATION_DAYS:
+            "Hızlandırılacak gün sayısı geçerli değil.",
+          INVALID_REQUEST: "Hızlandırma isteği geçersiz.",
+          MINIMUM_REMAINING_DAYS:
+            "Bu kurulum kademesinin izin verdiği minimum bekleme süresine ulaşıldı.",
+          PLAYBACK_ACTIVE: "Vardiya oynatılırken kurulum hızlandırılamaz.",
+          UNAUTHORIZED: "Bu işlem için oturum açmalısınız.",
+          UNKNOWN_ERROR:
+            "Kurulum hızlandırılamadı. Lütfen tekrar deneyin.",
+        },
       },
       alerts: {
         activateTitle: "Hattı tekrar aktif et",
@@ -277,10 +373,7 @@ export const investmentCopy = {
     },
     panel: {
       noOptions: "No active production line options are available here.",
-      departmentSubtitle: (departmentName: string) =>
-        `${departmentName} · Technical and financial options`,
       locked: "Locked during shift playback",
-      planningOpen: "Planning open",
       departmentNavAria: "Investment department",
       templateNavAria: "Production line standard",
       machineCount: (count: number) => `${count} machines`,
@@ -302,6 +395,52 @@ export const investmentCopy = {
       paymentLeasing: "Leasing",
       dueToday: "Due today",
       cashNote: "Deducted from cash in one payment",
+      installation: {
+        title: "Installation Plan",
+        sequence: (value: number) => `Acquisition sequence #${value}`,
+        duration: "Installation time",
+        days: (value: number) => `${value} days`,
+        readyDay: "Planned activation",
+        readyDayValue: (value: number) => `Day ${value}`,
+        slots: "Concurrent installs",
+        slotsValue: (value: number) => `${value} slots`,
+        immediate:
+          "The line is activated on the same game day after acquisition.",
+        deferred:
+          "The line appears on the map immediately but does not contribute production or staff capacity until activation.",
+      },
+      credit: {
+        approved: "Bank pre-approval granted",
+        declined: "Bank requirements are not met",
+        contracts: "Active + pending contracts",
+        exposure: "Total leasing exposure",
+        cyclePayment: "22-day payment burden",
+        cashReserve: "Cash after down payment",
+        requiredReserve: "Required cash reserve",
+        reasonsTitle: "Decline reasons",
+        reasons: {
+          ACTIVE_CONTRACT_LIMIT_EXCEEDED:
+            "The active and pending leasing contract limit would be exceeded.",
+          CYCLE_PAYMENT_LIMIT_EXCEEDED:
+            "The total 22-day leasing payment limit would be exceeded.",
+          DEFAULTED_CONTRACT_EXISTS:
+            "A defaulted leasing contract exists.",
+          DUPLICATE_REQUEST: "This leasing request was already processed.",
+          EXPOSURE_LIMIT_EXCEEDED:
+            "Total leasing exposure would exceed the bank limit.",
+          FACTORY_INACTIVE: "The factory is not open for investment.",
+          INSUFFICIENT_CASH_FOR_DOWN_PAYMENT:
+            "There is not enough cash for the down payment.",
+          INSUFFICIENT_CASH_RESERVE:
+            "The required bank cash reserve would not remain after the down payment.",
+          OVERDUE_PAYMENT_EXISTS:
+            "An overdue leasing payment exists.",
+          PARTIAL_PAYMENT_EXISTS:
+            "A partially paid leasing installment exists.",
+          SHIFT_IN_PROGRESS:
+            "The bank cannot issue a decision while a shift is in progress.",
+        },
+      },
       noLeaseOffer: "No active leasing offer is available for this line.",
       recurringSummary: (value: string) =>
         `Operating Cost Impact · ${value} / period`,
@@ -349,6 +488,8 @@ export const investmentCopy = {
         FACTORY_NOT_ACTIVE: "The factory is not open for investment right now.",
         FACTORY_NOT_FOUND: "Factory record was not found.",
         INSUFFICIENT_FUNDS: "There is not enough cash for the down payment.",
+        CREDIT_DECLINED:
+          "The leasing application was declined by bank policy.",
         INVALID_DEPARTMENT_KIND:
           "This department does not support production line investment.",
         INVALID_REQUEST: "The leasing request is invalid.",
@@ -441,6 +582,7 @@ export const investmentCopy = {
         BROKEN: "Broken",
         DISABLED: "Disabled",
         IDLE: "Active",
+        INSTALLING: "Installing",
         MAINTENANCE: "Maintenance",
         RUNNING: "Running",
         SOLD: "Sold",
@@ -454,6 +596,8 @@ export const investmentCopy = {
           "The line is not counted as production capacity. Activating it restores the ideal direct staff crew.",
         IDLE:
           "The line is active and counted in eligible production plans.",
+        INSTALLING:
+          "The line is being installed. It does not contribute production, staffing, or operating capacity until activation.",
         MAINTENANCE:
           "The line is under maintenance. Disabling it keeps it out of active production capacity.",
         RUNNING:
@@ -464,6 +608,53 @@ export const investmentCopy = {
         activeStaff: "Active staff",
         capacityImpact: "Capacity impact",
         staffImpact: "Staff impact",
+      },
+      installation: {
+        title: "Installation status",
+        requestedDay: "Acquisition day",
+        originalReadyDay: "Original target",
+        readyDay: "Current activation",
+        remainingDays: "Time remaining",
+        acceleratedDays: "Accelerated",
+        tokenRate: "RT cost",
+        tokenRateValue: (value: number) => `${value} RT / day`,
+        daysValue: (value: number) => `${value} days`,
+        gameDayValue: (value: number) => `Day ${value}`,
+        leasePending:
+          "The leasing contract is waiting for activation; its first installment has not started.",
+        accelerationTitle: "Accelerate with RT",
+        accelerationBody:
+          "Installation order is preserved. The selected days are removed down to the allowed minimum.",
+        accelerationDays: "Days to accelerate",
+        accelerationCost: (tokens: number) => `${tokens} RT will be spent`,
+        accelerationAction: "Accelerate Installation",
+        accelerationPending: "Accelerating…",
+        successTitle: "Installation plan updated",
+        successBody: (days: number, readyDay: number) =>
+          `Accelerated by ${days} days. New activation: day ${readyDay}.`,
+        errorTitle: "Installation could not be accelerated",
+        errors: {
+          DUPLICATE_REQUEST:
+            "This acceleration request was already processed.",
+          FACTORY_NOT_ACTIVE:
+            "The factory is not open for investment right now.",
+          FACTORY_NOT_FOUND: "Factory record was not found.",
+          INSTALLATION_NOT_FOUND: "Installation record was not found.",
+          INSTALLATION_NOT_PENDING:
+            "This installation is no longer eligible for acceleration.",
+          INSUFFICIENT_TOKENS:
+            "There is not enough RT for this acceleration.",
+          INVALID_ACCELERATION_DAYS:
+            "The number of acceleration days is invalid.",
+          INVALID_REQUEST: "The acceleration request is invalid.",
+          MINIMUM_REMAINING_DAYS:
+            "This installation tier has reached its minimum waiting period.",
+          PLAYBACK_ACTIVE:
+            "Installation cannot be accelerated during shift playback.",
+          UNAUTHORIZED: "You must be signed in for this action.",
+          UNKNOWN_ERROR:
+            "Installation could not be accelerated. Please try again.",
+        },
       },
       alerts: {
         activateTitle: "Activate line",
@@ -522,9 +713,7 @@ export const investmentCopy = {
     gradeLabels: Record<ProductionGrade, string>;
     panel: {
       noOptions: string;
-      departmentSubtitle: (departmentName: string) => string;
       locked: string;
-      planningOpen: string;
       departmentNavAria: string;
       templateNavAria: string;
       machineCount: (count: number) => string;
@@ -546,6 +735,29 @@ export const investmentCopy = {
       paymentLeasing: string;
       dueToday: string;
       cashNote: string;
+      installation: {
+        title: string;
+        sequence: (value: number) => string;
+        duration: string;
+        days: (value: number) => string;
+        readyDay: string;
+        readyDayValue: (value: number) => string;
+        slots: string;
+        slotsValue: (value: number) => string;
+        immediate: string;
+        deferred: string;
+      };
+      credit: {
+        approved: string;
+        declined: string;
+        contracts: string;
+        exposure: string;
+        cyclePayment: string;
+        cashReserve: string;
+        requiredReserve: string;
+        reasonsTitle: string;
+        reasons: LeasingCreditReasonCopy;
+      };
       noLeaseOffer: string;
       recurringSummary: (value: string) => string;
       newOperatingStage: string;
@@ -623,6 +835,29 @@ export const investmentCopy = {
         activeStaff: string;
         capacityImpact: string;
         staffImpact: string;
+      };
+      installation: {
+        title: string;
+        requestedDay: string;
+        originalReadyDay: string;
+        readyDay: string;
+        remainingDays: string;
+        acceleratedDays: string;
+        tokenRate: string;
+        tokenRateValue: (value: number) => string;
+        daysValue: (value: number) => string;
+        gameDayValue: (value: number) => string;
+        leasePending: string;
+        accelerationTitle: string;
+        accelerationBody: string;
+        accelerationDays: string;
+        accelerationCost: (tokens: number) => string;
+        accelerationAction: string;
+        accelerationPending: string;
+        successTitle: string;
+        successBody: (days: number, readyDay: number) => string;
+        errorTitle: string;
+        errors: Record<InstallationAccelerationErrorCode, string>;
       };
       alerts: {
         activateTitle: string;

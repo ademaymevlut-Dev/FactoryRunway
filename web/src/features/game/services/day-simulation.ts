@@ -19,6 +19,7 @@ import {
 } from "@/generated/prisma/client";
 import { calculateOutsourceCompletion } from "@/features/production-queue/services/outsource-math";
 import { processDueLeasingPayments } from "@/features/investment/services/leasing-payment";
+import { activateReadyProductionLineInstallations } from "@/features/investment/services/production-line-installation-activation";
 import { runFinancePeriodClosing } from "@/features/finance/services/finance-period-closing";
 import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "@/features/tasks/department-group-semantics";
 import { processShippingAndReceivables } from "@/features/warehouse/services/shipping-service";
@@ -177,6 +178,31 @@ export async function simulateFactoryDay(input: {
   prisma: DaySimulationClient;
 }): Promise<FactoryDaySimulationResult> {
   const { factoryId, prisma } = input;
+  const factoryClock = await prisma.factory.findUniqueOrThrow({
+    where: { id: factoryId },
+    select: {
+      currentDay: true,
+      id: true,
+    },
+  });
+  const activePlayback = await getActiveShiftPlaybackReference({
+    factoryId: factoryClock.id,
+    prisma,
+  });
+
+  if (activePlayback) {
+    return {
+      outcome: "ACTIVE_PLAYBACK",
+      ...activePlayback,
+    };
+  }
+
+  await activateReadyProductionLineInstallations({
+    currentDay: factoryClock.currentDay,
+    factoryId: factoryClock.id,
+    tx: prisma,
+  });
+
   const factory = await prisma.factory.findUniqueOrThrow({
     where: { id: factoryId },
     select: {
@@ -218,17 +244,6 @@ export async function simulateFactoryDay(input: {
       },
     },
   });
-  const activePlayback = await getActiveShiftPlaybackReference({
-    factoryId: factory.id,
-    prisma,
-  });
-
-  if (activePlayback) {
-    return {
-      outcome: "ACTIVE_PLAYBACK",
-      ...activePlayback,
-    };
-  }
 
   const simulatedGameDay = factory.currentDay;
   const nextGameDay = simulatedGameDay + 1;

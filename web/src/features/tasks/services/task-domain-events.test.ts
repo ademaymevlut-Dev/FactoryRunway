@@ -43,17 +43,20 @@ test("satın alma, leasing ve upgrade görev event metadata'sını üretir", () 
   const leasing = readSource(
     "../../investment/services/lease-production-line.ts",
   );
+  const activation = readSource(
+    "../../investment/services/production-line-installation-activation.ts",
+  );
   const upgrade = readSource(
     "../../investment/services/upgrade-production-line.ts",
   );
 
-  for (const source of [purchase, leasing]) {
-    assert.match(source, /objectiveType: "ACQUIRE_PRODUCTION_LINE"/);
-    assert.match(source, /activeDepartmentGroupLineCount/);
-    assert.match(source, /departmentGroupKey/);
-    assert.match(source, /activeSemanticGroupLineCount/);
-    assert.match(source, /departmentGroupSemanticKey/);
-  }
+  assert.match(purchase, /status: FactoryProductionLineStatus\.INSTALLING/);
+  assert.match(leasing, /status: FactoryProductionLineStatus\.INSTALLING/);
+  assert.match(activation, /objectiveType: "ACQUIRE_PRODUCTION_LINE"/);
+  assert.match(activation, /activeDepartmentGroupLineCount/);
+  assert.match(activation, /departmentGroupKey/);
+  assert.match(activation, /activeSemanticGroupLineCount/);
+  assert.match(activation, /departmentGroupSemanticKey/);
 
   assert.match(upgrade, /objectiveType: "UPGRADE_PRODUCTION_LINE"/);
   assert.match(upgrade, /targetGrade: nextTemplate\.grade/);

@@ -7,9 +7,10 @@ import {
   type Prisma,
 } from "@/generated/prisma/client";
 
-import { buildLeasingDueReferenceKey } from "./lease-production-line";
-
-const LEASING_PERIOD_DAYS = 22;
+import {
+  buildLeasingDueReferenceKey,
+  LEASING_PERIOD_DAYS,
+} from "./leasing-contract-schedule";
 
 export function calculateLeasingPayment(input: {
   balanceCents: bigint;

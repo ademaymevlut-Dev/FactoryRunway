@@ -10,35 +10,35 @@ import {
   FinanceSourceType,
   LineAcquisitionType,
   Prisma,
+  ProductionLineInstallationStatus,
   ShiftSimulationStatus,
-  StaffAssignmentStatus,
   StaffType,
-  XpReason,
   type PrismaClient,
 } from "@/generated/prisma/client";
-import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { getActiveShiftPlayback } from "@/features/game/services/shift-playback-view";
-import { recalculateFactoryOperatingStage } from "@/features/game/services/factory-operating-stage";
-import { advanceFactoryTaskProgress } from "@/features/tasks/services/task-definition-service";
 import {
   normalizeLocale,
   type SupportedLocale,
 } from "@/lib/i18n/locales";
-import { calculateProductionLineInvestmentPreview } from "./production-line-investment";
+
 import type {
   PurchaseProductionLineInput,
   PurchaseProductionLineResult,
 } from "../types";
+import { activateProductionLineInstallation } from "./production-line-installation-activation";
+import {
+  buildProductionLineInstallationReferenceKey,
+  reserveProductionLineAcquisitionSequence,
+  resolveProductionLineInstallationSchedule,
+} from "./production-line-installation-policy";
 
 const PURCHASE_TRANSACTION_OPTIONS = {
   isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
   maxWait: 5_000,
-  timeout: 15_000,
+  timeout: 20_000,
 } as const;
 
 const MAX_PURCHASE_ATTEMPTS = 3;
-const LINE_PURCHASE_XP_REWARD = 250;
-const OPERATING_STAGE_UP_XP_BONUS = 500;
 
 export function buildLinePurchaseReferenceKey(input: {
   factoryId: string;
@@ -63,8 +63,7 @@ export async function purchaseProductionLine(input: {
   purchase: PurchaseProductionLineInput;
   userId: string;
 }): Promise<PurchaseProductionLineResult> {
-  const locale = normalizeLocale(input.locale);
-  const translationLocaleFilter = { in: getTranslationLocaleFallbacks(locale) };
+  normalizeLocale(input.locale);
   const referenceKey = buildLinePurchaseReferenceKey(input.purchase);
 
   for (let attempt = 1; attempt <= MAX_PURCHASE_ATTEMPTS; attempt += 1) {
@@ -83,9 +82,6 @@ export async function purchaseProductionLine(input: {
             id: true,
             sectorId: true,
             status: true,
-            operatingStageState: {
-              select: { currentStageId: true },
-            },
           },
         });
 
@@ -94,26 +90,24 @@ export async function purchaseProductionLine(input: {
           return failure("FACTORY_NOT_ACTIVE");
         }
 
-        const [activePlayback, runningShift] = await Promise.all([
-          getActiveShiftPlayback({ factoryId: factory.id, prisma: tx }),
-          tx.shiftSimulation.findFirst({
-            where: {
-              factoryId: factory.id,
-              status: ShiftSimulationStatus.RUNNING,
-            },
-            select: { id: true },
-          }),
-        ]);
+        const [activePlayback, runningShift, duplicateTransaction] =
+          await Promise.all([
+            getActiveShiftPlayback({ factoryId: factory.id, prisma: tx }),
+            tx.shiftSimulation.findFirst({
+              where: {
+                factoryId: factory.id,
+                status: ShiftSimulationStatus.RUNNING,
+              },
+              select: { id: true },
+            }),
+            tx.factoryFinanceTransaction.findUnique({
+              where: { referenceKey },
+              select: { id: true },
+            }),
+          ]);
 
         if (activePlayback || runningShift) return failure("PLAYBACK_ACTIVE");
-
-        const existingTransaction =
-          await tx.factoryFinanceTransaction.findUnique({
-            where: { referenceKey },
-            select: { id: true },
-          });
-
-        if (existingTransaction) return failure("DUPLICATE_REQUEST");
+        if (duplicateTransaction) return failure("DUPLICATE_REQUEST");
 
         const template = await tx.productionLineTemplate.findUnique({
           where: { id: input.purchase.productionLineTemplateId },
@@ -121,40 +115,18 @@ export async function purchaseProductionLine(input: {
             departmentId: true,
             id: true,
             purchaseCostCents: true,
-            areaM2: true,
-            idealStaff: true,
-            monthlyElectricityBaseCents: true,
             sectorId: true,
             status: true,
             department: {
               select: {
-                key: true,
                 departmentGroupId: true,
-                departmentGroup: {
-                  select: {
-                    key: true,
-                    semanticKey: true,
-                  },
-                },
                 kind: true,
-                monthlyOverheadPerLineCents: true,
               },
             },
             staffRequirements: {
-              orderBy: { sortOrder: "asc" },
               select: {
-                requiredQuantity: true,
                 staffRole: {
-                  select: {
-                    id: true,
-                    key: true,
-                    monthlySalaryCents: true,
-                    staffType: true,
-                    translations: {
-                      where: { locale: translationLocaleFilter },
-                      select: { name: true },
-                    },
-                  },
+                  select: { staffType: true },
                 },
               },
             },
@@ -175,10 +147,13 @@ export async function purchaseProductionLine(input: {
           template.staffRequirements.length === 0 ||
           template.staffRequirements.some(
             (requirement) =>
-              requirement.staffRole.staffType !== StaffType.DIRECT_PRODUCTION,
+              requirement.staffRole.staffType !==
+              StaffType.DIRECT_PRODUCTION,
           )
         ) {
-          throw new Error("Production line direct staff config is incomplete.");
+          throw new Error(
+            "Production line direct staff config is incomplete.",
+          );
         }
 
         const paidAmountCents = BigInt(template.purchaseCostCents);
@@ -187,169 +162,26 @@ export async function purchaseProductionLine(input: {
           return failure("INSUFFICIENT_FUNDS");
         }
 
-        const departmentIds = template.department.departmentGroupId
-          ? (
-              await tx.department.findMany({
-                where: {
-                  departmentGroupId: template.department.departmentGroupId,
-                },
-                select: { id: true },
-              })
-            ).map((department) => department.id)
-          : [template.departmentId];
-        const departmentGroupSemanticKey =
-          template.department.departmentGroup?.semanticKey ?? null;
-        const semanticGroupDepartmentIds = departmentGroupSemanticKey
-          ? (
-              await tx.department.findMany({
-                where: {
-                  sectorId: factory.sectorId,
-                  departmentGroup: {
-                    semanticKey: departmentGroupSemanticKey,
-                  },
-                },
-                select: { id: true },
-              })
-            ).map((department) => department.id)
-          : [];
-        const [
-          lineNumberAggregate,
-          sortOrderAggregate,
-          activeProductionLineCount,
-          activeDepartmentGroupLineCount,
-          activeSemanticGroupLineCount,
-          costConfig,
-          stages,
-          supportAssignments,
-        ] = await Promise.all([
-          tx.factoryProductionLine.aggregate({
-            where: {
-              departmentId: template.departmentId,
-              factoryId: factory.id,
-            },
-            _max: { lineNumber: true },
+        const [placement, acquisitionSequence] = await Promise.all([
+          resolveNextLinePlacement({
+            departmentGroupId: template.department.departmentGroupId,
+            departmentId: template.departmentId,
+            factoryId: factory.id,
+            tx,
           }),
-          tx.factoryProductionLine.aggregate({
-            where: {
-              departmentId: { in: departmentIds },
-              factoryId: factory.id,
-            },
-            _max: { sortOrder: true },
-          }),
-          tx.factoryProductionLine.count({
-            where: {
-              factoryId: factory.id,
-              status: {
-                notIn: [
-                  FactoryProductionLineStatus.SOLD,
-                  FactoryProductionLineStatus.DISABLED,
-                ],
-              },
-            },
-          }),
-          tx.factoryProductionLine.count({
-            where: {
-              departmentId: { in: departmentIds },
-              factoryId: factory.id,
-              status: {
-                notIn: [
-                  FactoryProductionLineStatus.SOLD,
-                  FactoryProductionLineStatus.DISABLED,
-                ],
-              },
-            },
-          }),
-          semanticGroupDepartmentIds.length > 0
-            ? tx.factoryProductionLine.count({
-                where: {
-                  departmentId: { in: semanticGroupDepartmentIds },
-                  factoryId: factory.id,
-                  status: {
-                    notIn: [
-                      FactoryProductionLineStatus.SOLD,
-                      FactoryProductionLineStatus.DISABLED,
-                    ],
-                  },
-                },
-              })
-            : Promise.resolve(0),
-          tx.sectorOperatingCostConfig.findUniqueOrThrow({
-            where: { sectorId: factory.sectorId },
-            select: {
-              dailyMealPerDirectStaffCents: true,
-              directStaffOverheadPerStaffCents: true,
-              monthlyWorkDays: true,
-              rentPerM2Cents: true,
-            },
-          }),
-          tx.sectorFactoryOperatingStage.findMany({
-            where: {
-              sectorId: factory.sectorId,
-              status: ContentStatus.ACTIVE,
-            },
-            orderBy: { sortOrder: "asc" },
-            select: {
-              id: true,
-              key: true,
-              sortOrder: true,
-              minProductionLines: true,
-              maxProductionLines: true,
-              dailySupportMealPerStaffCents: true,
-              supportOverheadPerStaffCents: true,
-              translations: {
-                where: { locale: translationLocaleFilter },
-                select: { name: true },
-              },
-              staffRequirements: {
-                orderBy: { sortOrder: "asc" },
-                select: {
-                  requiredQuantity: true,
-                  staffRole: {
-                    select: {
-                      id: true,
-                      key: true,
-                      monthlySalaryCents: true,
-                      translations: {
-                        where: { locale: translationLocaleFilter },
-                        select: { name: true },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          }),
-          tx.factoryStaffAssignment.findMany({
-            where: {
-              factoryId: factory.id,
-              factoryProductionLineId: null,
-              status: StaffAssignmentStatus.ACTIVE,
-            },
-            select: { quantity: true, staffRoleId: true },
+          reserveProductionLineAcquisitionSequence({
+            factoryId: factory.id,
+            tx,
           }),
         ]);
-        const supportStaffByRoleId = new Map(
-          supportAssignments.map((assignment) => [
-            assignment.staffRoleId,
-            assignment.quantity,
-          ]),
-        );
-        const preview = calculateProductionLineInvestmentPreview({
-          activeProductionLineCount,
-          costConfig,
-          currentStageId:
-            factory.operatingStageState?.currentStageId ?? null,
-          locale,
-          stages,
-          supportStaffByRoleId,
-          template,
-        });
-        const placement = calculateNextLinePlacement({
-          maximumDepartmentGroupSortOrder:
-            sortOrderAggregate._max.sortOrder ?? null,
-          maximumDepartmentLineNumber:
-            lineNumberAggregate._max.lineNumber ?? null,
-        });
+        const schedule =
+          await resolveProductionLineInstallationSchedule({
+            acquisitionSequence,
+            factoryId: factory.id,
+            prisma: tx,
+            requestedDay: factory.currentDay,
+            sectorId: factory.sectorId,
+          });
         const remainingCashBalanceCents =
           factory.cashBalanceCents - paidAmountCents;
         const cashUpdate = await tx.factory.updateMany({
@@ -358,15 +190,24 @@ export async function purchaseProductionLine(input: {
             id: factory.id,
             status: FactoryStatus.ACTIVE,
           },
-          data: { cashBalanceCents: { decrement: paidAmountCents } },
+          data: {
+            cashBalanceCents: { decrement: paidAmountCents },
+          },
         });
 
         if (cashUpdate.count !== 1) return failure("INSUFFICIENT_FUNDS");
 
         const productionLineId = randomUUID();
+        const installationId = randomUUID();
+        const installationReferenceKey =
+          buildProductionLineInstallationReferenceKey({
+            acquisitionReferenceKey: referenceKey,
+            factoryId: factory.id,
+          });
 
         await tx.factoryProductionLine.create({
           data: {
+            acquisitionSequence,
             acquisitionType: LineAcquisitionType.PURCHASED,
             conditionBps: 10_000,
             departmentId: template.departmentId,
@@ -375,58 +216,39 @@ export async function purchaseProductionLine(input: {
             installedDay: factory.currentDay,
             lineNumber: placement.lineNumber,
             metadata: {
+              installationId,
               purchaseReferenceKey: referenceKey,
               requestId: input.purchase.requestId,
             },
             productionLineTemplateId: template.id,
             purchasePriceCents: paidAmountCents,
             sortOrder: placement.sortOrder,
-            status: FactoryProductionLineStatus.IDLE,
+            status: FactoryProductionLineStatus.INSTALLING,
           },
         });
-        await tx.factoryStaffAssignment.createMany({
-          data: template.staffRequirements.map((requirement) => ({
+        await tx.factoryProductionLineInstallation.create({
+          data: {
+            acceleratedDays: 0,
+            concurrentSlot: schedule.concurrentSlot,
+            delayDays: schedule.delayDays,
             factoryId: factory.id,
             factoryProductionLineId: productionLineId,
+            id: installationId,
             metadata: {
-              productionLineTemplateId: template.id,
-              source: "production-line-purchase",
+              acquisitionSequence,
+              acquisitionType: LineAcquisitionType.PURCHASED,
+              policyReadyDay: schedule.originalReadyDay,
+              requestId: input.purchase.requestId,
             },
-            quantity: requirement.requiredQuantity,
-            scopeKey: productionLineId,
-            staffRoleId: requirement.staffRole.id,
-            status: StaffAssignmentStatus.ACTIVE,
-          })),
+            originalReadyDay: schedule.readyDay,
+            readyDay: schedule.readyDay,
+            referenceKey: installationReferenceKey,
+            requestedDay: factory.currentDay,
+            ruleId: schedule.rule.id,
+            status: ProductionLineInstallationStatus.PENDING,
+            tokensSpent: 0,
+          },
         });
-        for (const addition of preview.supportStaff) {
-          const currentQuantity =
-            supportStaffByRoleId.get(addition.staffRoleId) ?? 0;
-
-          await tx.factoryStaffAssignment.upsert({
-            where: {
-              factoryId_staffRoleId_scopeKey: {
-                factoryId: factory.id,
-                scopeKey: "FACTORY",
-                staffRoleId: addition.staffRoleId,
-              },
-            },
-            create: {
-              factoryId: factory.id,
-              factoryProductionLineId: null,
-              metadata: { source: "operating-stage-provisioning" },
-              quantity: addition.quantity,
-              scopeKey: "FACTORY",
-              staffRoleId: addition.staffRoleId,
-              status: StaffAssignmentStatus.ACTIVE,
-            },
-            update: {
-              factoryProductionLineId: null,
-              metadata: { source: "operating-stage-provisioning" },
-              quantity: currentQuantity + addition.quantity,
-              status: StaffAssignmentStatus.ACTIVE,
-            },
-          });
-        }
         await tx.factoryFinanceTransaction.create({
           data: {
             amountCents: paidAmountCents,
@@ -438,12 +260,13 @@ export async function purchaseProductionLine(input: {
             factoryId: factory.id,
             gameDay: factory.currentDay,
             metadata: {
+              acquisitionSequence,
               currencyCode: factory.currencyCode,
-              directStaffCreated: preview.directStaffCount,
+              installationId,
               productionLineId,
               productionLineTemplateId: template.id,
+              readyDay: schedule.readyDay,
               requestId: input.purchase.requestId,
-              supportStaffCreated: preview.supportStaffCount,
               translationKey: "finance.linePurchase",
             },
             periodIndex: factory.currentFinancePeriod,
@@ -452,94 +275,58 @@ export async function purchaseProductionLine(input: {
             sourceType: FinanceSourceType.FACTORY_PRODUCTION_LINE,
           },
         });
-        const stage = await recalculateFactoryOperatingStage({
-          factoryId: factory.id,
-          tx,
-        });
-        await advanceFactoryTaskProgress({
-          currentDay: factory.currentDay,
-          factoryId: factory.id,
-          event: {
-            objectiveType: "ACQUIRE_PRODUCTION_LINE",
-            metadata: {
-              activeDepartmentGroupLineCount:
-                activeDepartmentGroupLineCount + 1,
-              acquisitionType: LineAcquisitionType.PURCHASED,
-              departmentKey: template.department.key,
-              ...(template.department.departmentGroup?.key
-                ? {
-                    departmentGroupKey:
-                      template.department.departmentGroup.key,
-                  }
-                : {}),
-              ...(departmentGroupSemanticKey
-                ? {
-                    activeSemanticGroupLineCount:
-                      activeSemanticGroupLineCount + 1,
-                    departmentGroupSemanticKey,
-                  }
-                : {}),
-              productionLineId,
-            },
-          },
-          tx,
-        });
-        await grantFactoryXp({
-          amountXp:
-            LINE_PURCHASE_XP_REWARD +
-            (stage.stageChanged ? OPERATING_STAGE_UP_XP_BONUS : 0),
-          factoryId: factory.id,
-          gameDay: factory.currentDay,
-          metadata: {
-            baseXp: LINE_PURCHASE_XP_REWARD,
-            operatingStageChanged: stage.stageChanged,
-            operatingStageKey: stage.currentStageKey,
-            productionLineId,
-            productionLineTemplateId: template.id,
-            requestId: input.purchase.requestId,
-            source: "production-line-purchase",
-            stageUpBonusXp: stage.stageChanged ? OPERATING_STAGE_UP_XP_BONUS : 0,
-          },
-          reason: stage.stageChanged
-            ? XpReason.SCALE_UP
-            : XpReason.FACTORY_EXPANSION,
-          sourceId: productionLineId,
-          sourceType: "factory_production_line",
-          tx,
-        });
+
+        const activation =
+          schedule.readyDay <= factory.currentDay
+            ? await activateProductionLineInstallation({
+                currentDay: factory.currentDay,
+                installationId,
+                tx,
+              })
+            : null;
 
         return {
+          acquisitionSequence,
           acquisitionType: LineAcquisitionType.PURCHASED,
+          delayDays: schedule.delayDays,
           departmentId: template.departmentId,
+          directStaffCreated: activation?.directStaffCreated ?? 0,
           factoryId: factory.id,
+          installationId,
+          installationStatus: activation
+            ? ProductionLineInstallationStatus.ACTIVATED
+            : ProductionLineInstallationStatus.PENDING,
           lineNumber: placement.lineNumber,
           ok: true,
-          operatingStageChanged: stage.stageChanged,
-          operatingStageKey: stage.currentStageKey,
+          operatingStageChanged:
+            activation?.operatingStageChanged ?? false,
+          operatingStageKey: activation?.operatingStageKey ?? null,
           paidAmountCents: paidAmountCents.toString(),
           productionLineId,
-          directStaffCreated: preview.directStaffCount,
-          supportStaffCreated: preview.supportStaffCount,
-          directPayrollIncreaseCents: preview.directPayrollIncreaseCents,
-          supportPayrollIncreaseCents: preview.supportPayrollIncreaseCents,
-          totalRecurringCostIncreaseCents:
-            preview.totalRecurringCostIncreaseCents,
-          remainingCashBalanceCents: remainingCashBalanceCents.toString(),
+          readyDay: schedule.readyDay,
+          remainingCashBalanceCents:
+            remainingCashBalanceCents.toString(),
+          requestedDay: factory.currentDay,
           sortOrder: placement.sortOrder,
+          supportStaffCreated: activation?.supportStaffCreated ?? 0,
         };
       }, PURCHASE_TRANSACTION_OPTIONS);
     } catch (error) {
       if (isUniqueConstraintError(error)) {
-        const duplicate = await input.prisma.factoryFinanceTransaction.findUnique({
-          where: { referenceKey },
-          select: { id: true },
-        });
+        const duplicate =
+          await input.prisma.factoryFinanceTransaction.findUnique({
+            where: { referenceKey },
+            select: { id: true },
+          });
 
         if (duplicate) return failure("DUPLICATE_REQUEST");
         if (attempt < MAX_PURCHASE_ATTEMPTS) continue;
       }
 
-      if (isSerializableConflict(error) && attempt < MAX_PURCHASE_ATTEMPTS) {
+      if (
+        isSerializableConflict(error) &&
+        attempt < MAX_PURCHASE_ATTEMPTS
+      ) {
         continue;
       }
 
@@ -547,15 +334,55 @@ export async function purchaseProductionLine(input: {
     }
   }
 
-  throw new Error("Production line purchase retry loop exited unexpectedly.");
+  throw new Error(
+    "Production line purchase retry loop exited unexpectedly.",
+  );
 }
 
-function getTranslationLocaleFallbacks(locale: SupportedLocale) {
-  return locale === "en" ? ["en", "tr"] : ["tr", "en"];
+export async function resolveNextLinePlacement(input: {
+  departmentGroupId: string | null;
+  departmentId: string;
+  factoryId: string;
+  tx: Prisma.TransactionClient;
+}) {
+  const departmentIds = input.departmentGroupId
+    ? (
+        await input.tx.department.findMany({
+          where: { departmentGroupId: input.departmentGroupId },
+          select: { id: true },
+        })
+      ).map((department) => department.id)
+    : [input.departmentId];
+  const [lineNumberAggregate, sortOrderAggregate] = await Promise.all([
+    input.tx.factoryProductionLine.aggregate({
+      where: {
+        departmentId: input.departmentId,
+        factoryId: input.factoryId,
+      },
+      _max: { lineNumber: true },
+    }),
+    input.tx.factoryProductionLine.aggregate({
+      where: {
+        departmentId: { in: departmentIds },
+        factoryId: input.factoryId,
+      },
+      _max: { sortOrder: true },
+    }),
+  ]);
+
+  return calculateNextLinePlacement({
+    maximumDepartmentGroupSortOrder:
+      sortOrderAggregate._max.sortOrder ?? null,
+    maximumDepartmentLineNumber:
+      lineNumberAggregate._max.lineNumber ?? null,
+  });
 }
 
 function failure(
-  code: Extract<PurchaseProductionLineResult, { ok: false }>["code"],
+  code: Extract<
+    PurchaseProductionLineResult,
+    { ok: false }
+  >["code"],
 ): PurchaseProductionLineResult {
   return { code, ok: false };
 }

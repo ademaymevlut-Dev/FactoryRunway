@@ -469,6 +469,7 @@ async function releaseLineStaffAssignments(input: {
 function canDisableLine(status: FactoryProductionLineStatus) {
   return (
     status !== FactoryProductionLineStatus.SOLD &&
+    status !== FactoryProductionLineStatus.INSTALLING &&
     status !== FactoryProductionLineStatus.RUNNING
   );
 }

@@ -32,6 +32,44 @@ test("yatırım paneli seçilen DepartmentGroup içindeki departmanları filtrel
   assert.match(copy, /Production line standard/);
 });
 
+test("yatırım paneli kompakt iç scroll ve sabit CTA düzeni kullanır", () => {
+  const panel = readSource(
+    "./components/production-line-investment-panel.tsx",
+  );
+  const card = readSource(
+    "./components/production-line-template-purchase-card.tsx",
+  );
+  const copy = readSource("./investment-copy.ts");
+  const registry = readSource("../game/panels/panel-registry.tsx");
+
+  assert.match(registry, /investment:\s*\{[\s\S]*?size: "investment"/);
+  assert.match(registry, /size\?: "adaptive" \| "compact" \| "investment" \| "wide"/);
+  assert.match(panel, /flex h-full min-h-0 flex-col gap-2 overflow-hidden/);
+  assert.doesNotMatch(panel, /departmentSubtitle/);
+  assert.doesNotMatch(panel, /planningOpen/);
+  assert.doesNotMatch(copy, /Teknik ve finansal seçenekler/);
+  assert.doesNotMatch(copy, /Technical and financial options/);
+  assert.match(card, /grid-rows-\[auto_minmax\(0,1fr\)\]/);
+  assert.match(card, /min-h-0 min-w-0 flex-1/);
+  assert.match(card, /overflow-y-auto overscroll-contain/);
+  assert.match(card, /shrink-0 border-t border-white\/10 bg-card\/95/);
+});
+
+test("yatırım kartı büyük üretim hattı görseli için DETAIL asset'i tercih eder", () => {
+  const snapshot = readSource("../game/services/game-snapshot.ts");
+  const card = readSource(
+    "./components/production-line-template-purchase-card.tsx",
+  );
+  const types = readSource("./types.ts");
+
+  assert.match(snapshot, /ProductionLineAssetVariant\.DETAIL/);
+  assert.match(snapshot, /getInvestmentTemplateDetailImageUrl\(template\)/);
+  assert.match(types, /detailImageUrl: string \| null/);
+  assert.match(card, /template\.detailImageUrl \?\? template\.imageUrl/);
+  assert.match(card, /scale-\[1\.22\]/);
+  assert.doesNotMatch(card, /src=\{template\.imageUrl\}/);
+});
+
 test("üretim kuyruğu seçili dock departmanından yatırım ve miktarlı fason akışını açar", () => {
   const panel = readSource(
     "../production-queue/components/department-queue-panel.tsx",
@@ -66,6 +104,43 @@ test("satın alma formu yalnızca güvenli kimlik alanlarını gönderir", () =>
   assert.match(card, /template\.preview\.totalRecurringCostIncreaseCents/);
   assert.match(card, /selected\.installmentAmountCents/);
   assert.doesNotMatch(card, /interestRate|faiz/i);
+});
+
+test("yatırım kartı kurulum planını ve leasing banka kararını işlem öncesi gösterir", () => {
+  const card = readSource(
+    "./components/production-line-template-purchase-card.tsx",
+  );
+  const snapshot = readSource("../game/services/game-snapshot.ts");
+
+  assert.match(card, /template\.installation/);
+  assert.match(card, /installation\.acquisitionSequence/);
+  assert.match(card, /installation\.readyDay/);
+  assert.match(card, /selected\.creditDecision/);
+  assert.match(card, /decision\.projectedExposureCents/);
+  assert.match(card, /decision\.projectedCyclePaymentCents/);
+  assert.match(card, /decision\.cashReserveAfterDownPaymentCents/);
+  assert.match(
+    card,
+    /selectedOffer\.creditDecision\.approved === false/,
+  );
+  assert.match(snapshot, /getProductionLineInstallationPreview/);
+  assert.match(snapshot, /evaluateLeasingCreditCandidate/);
+});
+
+test("kurulumdaki hat haritada geri sayım ve detay panelinde RT action taşır", () => {
+  const map = readSource("../game/components/factory-map.tsx");
+  const panel = readSource(
+    "./components/upgrade-production-line-panel.tsx",
+  );
+
+  assert.match(map, /item\.status === "INSTALLING"/);
+  assert.match(map, /installation\.remainingDays/);
+  assert.match(map, /grayscale opacity-45/);
+  assert.match(panel, /ProductionLineInstallationTab/);
+  assert.match(panel, /accelerateProductionLineInstallationAction/);
+  assert.match(panel, /name="days"/);
+  assert.match(panel, /installation\.minimumRemainingDays/);
+  assert.match(panel, /installation\.tokenSkipCostPerDay/);
 });
 
 test("ortak panel viewport içinde kendi body scroll alanını ve arka plan kilidini kurar", () => {

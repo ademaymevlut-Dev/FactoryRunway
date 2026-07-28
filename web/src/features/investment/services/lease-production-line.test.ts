@@ -44,20 +44,34 @@ test("leasing service client finans değerlerini değil aktif offer ile güncel 
   assert.doesNotMatch(service, /input\.lease\.(?:price|downPayment|installment|totalCost|termYears)/);
 });
 
-test("leasing kurulumu tek serializable transaction içinde hat, personel, contract, due ve finans kaydı oluşturur", () => {
+test("leasing edinimi kurulumu ve banka kararını tek serializable transaction içinde başlatır", () => {
   const service = readSource("./lease-production-line.ts");
+  const activation = readSource(
+    "./production-line-installation-activation.ts",
+  );
 
   assert.match(service, /TransactionIsolationLevel\.Serializable/);
   assert.match(service, /tx\.factoryProductionLine\.create/);
   assert.match(service, /acquisitionType: LineAcquisitionType\.LEASED/);
-  assert.match(service, /tx\.factoryStaffAssignment\.createMany/);
-  assert.match(service, /tx\.factoryStaffAssignment\.upsert/);
+  assert.match(service, /status: FactoryProductionLineStatus\.INSTALLING/);
+  assert.match(service, /tx\.factoryProductionLineInstallation\.create/);
+  assert.match(service, /evaluateLeasingCreditPolicy/);
+  assert.match(
+    service,
+    /status: LeasingContractStatus\.PENDING_ACTIVATION/,
+  );
   assert.match(service, /tx\.factoryLeasingContract\.create/);
-  assert.match(service, /tx\.factoryFinanceDue\.create/);
   assert.match(service, /tx\.factoryFinanceTransaction\.create/);
-  assert.match(service, /recalculateFactoryOperatingStage/);
-  assert.match(service, /grantFactoryXp/);
-  assert.match(service, /reason: stage\.stageChanged/);
+  assert.doesNotMatch(service, /tx\.factoryFinanceDue\.create/);
+
+  assert.match(activation, /tx\.factoryStaffAssignment\.upsert/);
+  assert.match(activation, /tx\.factoryFinanceDue\.upsert/);
+  assert.match(activation, /recalculateFactoryOperatingStage/);
+  assert.match(activation, /grantFactoryXp/);
+  assert.match(
+    activation,
+    /calculateFirstLeasingDueDay\(input\.currentDay\)/,
+  );
 });
 
 test("schema offer master, contract snapshot ve duplicate due constraintini taşır", () => {

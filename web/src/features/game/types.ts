@@ -181,6 +181,7 @@ export type FactoryMapItem =
       title: string;
       subtitle: string;
       acquisitionType: LineAcquisitionType;
+      acquisitionSequence: number | null;
       status: FactoryProductionLineStatus;
       grade: ProductionGrade;
       productionLineTemplateId: string;
@@ -195,6 +196,22 @@ export type FactoryMapItem =
       monthlyElectricityBaseCents: number;
       purchaseCostCents: string;
       hasActiveLeasingContract: boolean;
+      installation: {
+        acceleratedDays: number;
+        id: string;
+        minimumRemainingDays: number;
+        originalReadyDay: number;
+        readyDay: number;
+        remainingDays: number;
+        requestedDay: number;
+        status:
+          | "PENDING"
+          | "READY"
+          | "ACTIVATED"
+          | "CANCELLED";
+        tokenSkipCostPerDay: number;
+        tokensSpent: number;
+      } | null;
       imageUrl: string | null;
       detailImageUrl: string | null;
       workload: FactoryLineWorkload;

@@ -27,7 +27,13 @@ type CameraOffset = {
   y: number;
 };
 
-type VisualSlotStatus = "active" | "busy" | "idle" | "risk" | "locked";
+type VisualSlotStatus =
+  | "active"
+  | "busy"
+  | "idle"
+  | "installing"
+  | "risk"
+  | "locked";
 
 type FloorProp = {
   id: string;
@@ -411,11 +417,19 @@ function ProductionLineCard({
 }) {
   const visualStatus = getVisualSlotStatus(item.status);
   const statusLabel = copy.slotStatus[visualStatus];
+  const installation =
+    item.status === "INSTALLING" ? item.installation : null;
+  const isInstalling = installation !== null;
 
   return (
     <button
       aria-label={copy.lineDetailAria(item.title)}
-      className={`factory-slot-card ${visualStatus} workload-${item.workload.state} ${isSelected ? "is-selected" : ""}`}
+      className={cn(
+        `factory-slot-card ${visualStatus} workload-${item.workload.state}`,
+        isInstalling &&
+          "border-slate-400/35 !bg-slate-900/80 saturate-[0.35]",
+        isSelected && "is-selected",
+      )}
       onClick={() => onAction(item)}
       onMouseEnter={() => onHoverDepartment(item.departmentId)}
       onMouseLeave={() => onHoverDepartment(null)}
@@ -426,7 +440,10 @@ function ProductionLineCard({
           <Image
             alt=""
             aria-hidden="true"
-            className="factory-machine-image"
+            className={cn(
+              "factory-machine-image",
+              isInstalling && "grayscale opacity-45",
+            )}
             draggable={false}
             fill
             sizes={`${SLOT_WIDTH}px`}
@@ -437,26 +454,49 @@ function ProductionLineCard({
         )}
       </div>
 
-      <div className={`factory-slot-status ${visualStatus}`}>
+      <div
+        className={cn(
+          `factory-slot-status ${visualStatus}`,
+          isInstalling &&
+            "!border-slate-300/35 !bg-slate-700/90 !text-slate-100",
+        )}
+      >
         <b />
         {statusLabel}
       </div>
 
-      <div className={`factory-slot-workload workload-${item.workload.state}`}>
-        <strong>{item.workload.daysLabel}</strong>
-        <span>{item.workload.label}</span>
-      </div>
+      {isInstalling ? (
+        <div className="pointer-events-none absolute inset-x-2 top-[62px] z-20 rounded-md border border-slate-300/25 bg-slate-950/90 px-2 py-1.5 text-center shadow-lg backdrop-blur-sm">
+          <strong className="block text-[9px] font-bold uppercase tracking-[0.16em] text-slate-100">
+            {copy.installation.title}
+          </strong>
+          <span className="mt-0.5 block text-[10px] font-semibold text-cyan-200">
+            {installation.remainingDays > 0
+              ? copy.installation.remainingDays(
+                  installation.remainingDays,
+                )
+              : copy.installation.awaitingActivation}
+          </span>
+        </div>
+      ) : (
+        <>
+          <div className={`factory-slot-workload workload-${item.workload.state}`}>
+            <strong>{item.workload.daysLabel}</strong>
+            <span>{item.workload.label}</span>
+          </div>
 
-      <div
-        aria-hidden="true"
-        className={`factory-slot-workload-tooltip workload-${item.workload.state}`}
-      >
-        <p>
-          <span>{copy.workloadTitle} :</span>
-          <strong>{formatWorkloadTooltipDays(item.workload, copy)}</strong>
-        </p>
-        <b>{formatWorkloadTooltipLabel(item.workload, locale)}</b>
-      </div>
+          <div
+            aria-hidden="true"
+            className={`factory-slot-workload-tooltip workload-${item.workload.state}`}
+          >
+            <p>
+              <span>{copy.workloadTitle} :</span>
+              <strong>{formatWorkloadTooltipDays(item.workload, copy)}</strong>
+            </p>
+            <b>{formatWorkloadTooltipLabel(item.workload, locale)}</b>
+          </div>
+        </>
+      )}
 
       <div className="factory-slot-code">
         <strong>{item.code}</strong>
@@ -630,6 +670,8 @@ function getVisualSlotStatus(
       return "risk";
     case "DISABLED":
       return "locked";
+    case "INSTALLING":
+      return "installing";
     case "MAINTENANCE":
       return "busy";
     case "RUNNING":

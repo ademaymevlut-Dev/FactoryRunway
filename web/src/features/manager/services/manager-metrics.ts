@@ -282,6 +282,7 @@ function buildStaffShortages(mapSections: ManagerMapSectionsInput) {
   for (const line of getProductionLines(mapSections)) {
     if (
       line.status === FactoryProductionLineStatus.DISABLED ||
+      line.status === FactoryProductionLineStatus.INSTALLING ||
       line.idealStaff <= 0 ||
       line.assignedStaff >= line.idealStaff
     ) {

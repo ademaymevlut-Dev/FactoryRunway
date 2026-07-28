@@ -35,7 +35,7 @@ type PanelLayout = "center" | "dock" | "side";
 type PanelDefinition = {
   backdrop?: boolean;
   layout?: PanelLayout;
-  size?: "adaptive" | "compact" | "wide";
+  size?: "adaptive" | "compact" | "investment" | "wide";
   titleKey: GamePanelKey;
   render: (context: PanelContext) => ReactNode;
 };
@@ -200,7 +200,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   },
   investment: {
     layout: "center",
-    size: "adaptive",
+    size: "investment",
     titleKey: "investment",
     render: ({ payload, snapshot }) => (
       <ProductionLineInvestmentPanel
@@ -284,7 +284,7 @@ export function PanelChrome({
   layout?: PanelLayout;
   locale: SupportedLocale;
   onClose: () => void;
-  size?: "adaptive" | "compact" | "wide";
+  size?: "adaptive" | "compact" | "investment" | "wide";
   title: string;
 }) {
   return (
@@ -300,6 +300,9 @@ export function PanelChrome({
         layout === "center" &&
           size === "compact" &&
           "h-[min(760px,calc(100dvh-8rem))] w-[min(880px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(880px,calc(100vw-5rem))]",
+        layout === "center" &&
+          size === "investment" &&
+          "h-[min(680px,calc(100dvh-13rem))] w-[min(920px,calc(100vw-2rem))] bg-background p-3 sm:w-[min(920px,calc(100vw-5rem))]",
         layout === "side" &&
           "max-h-[calc(100dvh-8rem)] w-[min(420px,calc(100vw-2rem))] bg-card/95 p-4",
         layout === "dock" &&
@@ -307,7 +310,12 @@ export function PanelChrome({
       )}
     >
       {title ? (
-        <div className="mb-3 flex shrink-0 items-center justify-between gap-4">
+        <div
+          className={cn(
+            "flex shrink-0 items-center justify-between gap-4",
+            size === "investment" ? "mb-2" : "mb-3",
+          )}
+        >
           <h2 className="text-sm font-semibold tracking-widest text-muted-foreground">
             {localeUpper(title, locale)}
           </h2>

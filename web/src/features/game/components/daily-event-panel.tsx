@@ -365,6 +365,8 @@ function renderEventTitle({
       return copy.titles.leasingPaymentOverdue;
     case "leasing.contract_completed":
       return copy.titles.leasingContractCompleted;
+    case "installation.activated":
+      return copy.titles.installationActivated;
     case "payroll.paid":
       return copy.titles.payrollPaid;
     case "operating_expense.paid":
@@ -489,6 +491,11 @@ function renderEventDescription({
           currencyCode,
           numberLocale,
         ),
+      );
+    case "installation.activated":
+      return copy.descriptions.installationActivated(
+        String(payload.departmentName ?? copy.fallbacks.factoryWide),
+        formatNumber(Number(payload.lineNumber ?? 0), numberLocale),
       );
     default:
       break;

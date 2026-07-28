@@ -258,6 +258,7 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
       ],
     },
     factoryLeasingContract: { findMany: async () => [] },
+    factoryProductionLineInstallation: { findMany: async () => [] },
     factoryXpTransaction: {
       findMany: async () => [
         {

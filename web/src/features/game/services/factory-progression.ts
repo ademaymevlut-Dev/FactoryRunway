@@ -131,6 +131,7 @@ export async function grantFactoryXp(input: {
   gameDay?: number;
   metadata?: Prisma.InputJsonObject;
   reason: XpReason;
+  referenceKey?: string | null;
   sourceId?: string | null;
   sourceType?: string | null;
   tx: ProgressionClient;
@@ -139,6 +140,43 @@ export async function grantFactoryXp(input: {
 
   if (amountXp <= 0) {
     throw new Error("XP amount must be positive.");
+  }
+
+  if (input.referenceKey) {
+    const existingTransaction =
+      await input.tx.factoryXpTransaction.findUnique({
+        where: { referenceKey: input.referenceKey },
+        select: {
+          amountXp: true,
+          balanceAfterXp: true,
+          metadata: true,
+        },
+      });
+
+    if (existingTransaction) {
+      return {
+        alreadyGranted: true,
+        amountXp: existingTransaction.amountXp,
+        currentLevel: readNumberFromMetadata(
+          existingTransaction.metadata,
+          "currentLevel",
+        ),
+        currentXp: existingTransaction.balanceAfterXp,
+        leveledUp:
+          readBooleanFromMetadata(
+            existingTransaction.metadata,
+            "leveledUp",
+          ) ?? false,
+        previousLevel: readNumberFromMetadata(
+          existingTransaction.metadata,
+          "previousLevel",
+        ),
+        previousXp: readNumberFromMetadata(
+          existingTransaction.metadata,
+          "previousXp",
+        ),
+      };
+    }
   }
 
   const factory = await input.tx.factory.findUniqueOrThrow({
@@ -192,12 +230,14 @@ export async function grantFactoryXp(input: {
         previousXp: factory.currentXp,
       },
       reason: input.reason,
+      referenceKey: input.referenceKey ?? null,
       sourceId: input.sourceId ?? null,
       sourceType: input.sourceType ?? null,
     },
   });
 
   return {
+    alreadyGranted: false,
     amountXp,
     currentLevel: updatedFactory.currentLevel,
     currentXp: updatedFactory.currentXp,
@@ -205,6 +245,32 @@ export async function grantFactoryXp(input: {
     previousLevel: factory.currentLevel,
     previousXp: factory.currentXp,
   };
+}
+
+function readNumberFromMetadata(
+  metadata: Prisma.JsonValue | null,
+  key: string,
+) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return 0;
+  }
+
+  const value = metadata[key];
+
+  return typeof value === "number" ? value : 0;
+}
+
+function readBooleanFromMetadata(
+  metadata: Prisma.JsonValue | null,
+  key: string,
+) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const value = metadata[key];
+
+  return typeof value === "boolean" ? value : null;
 }
 
 function clampBps(value: number) {

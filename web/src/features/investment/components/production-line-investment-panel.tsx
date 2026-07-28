@@ -85,23 +85,26 @@ export function ProductionLineInvestmentPanel({
   }
 
   return (
-    <div className="flex min-h-0 flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {copy.panel.departmentSubtitle(selectedDepartment.name)}
-        </p>
-        <span className="text-xs text-muted-foreground">
-          {isShiftPlaybackActive ? copy.panel.locked : copy.panel.planningOpen}
-        </span>
-      </div>
+    <div className="flex h-full min-h-0 flex-col gap-2 overflow-hidden">
+      {isShiftPlaybackActive ? (
+        <div className="flex shrink-0 justify-end">
+          <span className="rounded-md border border-amber-400/25 bg-amber-400/10 px-2 py-1 text-[10px] font-medium text-amber-100">
+            {copy.panel.locked}
+          </span>
+        </div>
+      ) : null}
 
       {availableDepartments.length > 1 ? (
-        <nav aria-label={copy.panel.departmentNavAria} className="flex flex-wrap gap-2">
+        <nav
+          aria-label={copy.panel.departmentNavAria}
+          className="flex shrink-0 flex-wrap gap-1.5"
+        >
           {availableDepartments.map((department) => (
             <Button
+              className="h-7 rounded-md px-2 text-xs"
               key={department.id}
               onClick={() => setSelectedDepartmentId(department.id)}
-              size="sm"
+              size="xs"
               type="button"
               variant={
                 department.id === selectedDepartment.id
@@ -117,12 +120,12 @@ export function ProductionLineInvestmentPanel({
 
       <nav
         aria-label={copy.panel.templateNavAria}
-        className="flex shrink-0 gap-2 overflow-x-auto pb-1"
+        className="flex shrink-0 gap-1.5 overflow-x-auto pb-0.5"
       >
         {selectedDepartment.templates.map((template) => (
           <button
             aria-pressed={template.id === selectedTemplate?.id}
-            className={`flex min-w-[142px] items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors ${
+            className={`flex min-w-[126px] items-center gap-1.5 rounded-md border px-2 py-1.5 text-left transition-colors ${
               template.id === selectedTemplate?.id
                 ? "border-primary/60 bg-primary/12 text-white"
                 : "border-white/10 bg-card/55 text-muted-foreground hover:border-white/20"
@@ -133,10 +136,10 @@ export function ProductionLineInvestmentPanel({
           >
             <GradeGlyph grade={template.grade} />
             <span>
-              <strong className="block text-xs text-current">
+              <strong className="block text-[11px] leading-4 text-current">
                 {copy.gradeLabels[template.grade]}
               </strong>
-              <span className="text-[10px]">
+              <span className="text-[9px] leading-3">
                 {copy.panel.machineCount(template.machineCount)}
               </span>
             </span>

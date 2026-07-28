@@ -364,6 +364,8 @@ export async function completeFactoryOnboardingAction(input: {
         currentDay: simulationConfig?.startingDay ?? 1,
         currentLevel: simulationConfig?.startingLevel ?? 1,
         currentXp: 0,
+        nextProductionLineAcquisitionSequence:
+          starterTemplateKeys.length + 1,
         status: FactoryStatus.ACTIVE,
         metadata: {
           onboardingVersion: 1,
@@ -383,6 +385,7 @@ export async function completeFactoryOnboardingAction(input: {
           lineNumber: 1,
           customName: null,
           acquisitionType: LineAcquisitionType.STARTER,
+          acquisitionSequence: index + 1,
           purchasePriceCents: BigInt(0),
           conditionBps: 10000,
           status: FactoryProductionLineStatus.IDLE,

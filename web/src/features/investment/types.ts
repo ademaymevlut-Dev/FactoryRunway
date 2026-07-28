@@ -2,8 +2,13 @@ import type {
   CurrencyCode,
   FactoryProductionLineStatus,
   LineAcquisitionType,
+  ProductionLineInstallationStatus,
   ProductionGrade,
 } from "@/generated/prisma/enums";
+import type {
+  LeasingCreditDecision,
+  LeasingDecisionReason,
+} from "@/features/investment/services/leasing-credit-policy";
 
 export type ProductionLineInvestmentTemplate = {
   id: string;
@@ -17,6 +22,8 @@ export type ProductionLineInvestmentTemplate = {
   monthlyElectricityBaseCents: number;
   purchaseCostCents: string;
   imageUrl: string | null;
+  detailImageUrl: string | null;
+  installation: ProductionLineInstallationPreview;
   leasingOffers: ProductionLineLeasingOfferView[];
   preview: ProductionLineInvestmentPreview;
 };
@@ -28,6 +35,18 @@ export type ProductionLineLeasingOfferView = {
   downPaymentCents: string;
   installmentAmountCents: string;
   totalCostCents: string;
+  creditDecision: LeasingCreditDecision;
+};
+
+export type ProductionLineInstallationPreview = {
+  acquisitionSequence: number;
+  concurrentSlot: number | null;
+  delayDays: number;
+  maxConcurrentInstalls: number;
+  minimumRemainingDays: number;
+  readyDay: number;
+  requestedDay: number;
+  tokenSkipCostPerDay: number;
 };
 
 export type InvestmentStaffAddition = {
@@ -91,15 +110,18 @@ export type PurchaseProductionLineResult =
       lineNumber: number;
       sortOrder: number;
       acquisitionType: Extract<LineAcquisitionType, "PURCHASED">;
+      acquisitionSequence: number;
       paidAmountCents: string;
       remainingCashBalanceCents: string;
       operatingStageChanged: boolean;
-      operatingStageKey: string;
+      operatingStageKey: string | null;
       directStaffCreated: number;
       supportStaffCreated: number;
-      directPayrollIncreaseCents: string;
-      supportPayrollIncreaseCents: string;
-      totalRecurringCostIncreaseCents: string;
+      delayDays: number;
+      installationId: string;
+      installationStatus: ProductionLineInstallationStatus;
+      readyDay: number;
+      requestedDay: number;
     }
   | {
       ok: false;
@@ -136,17 +158,23 @@ export type LeaseProductionLineResult =
       lineNumber: number;
       sortOrder: number;
       acquisitionType: Extract<LineAcquisitionType, "LEASED">;
+      acquisitionSequence: number;
+      creditDecision: LeasingCreditDecision;
       downPaymentCents: string;
       installmentAmountCents: string;
       installmentCount: number;
       totalCostCents: string;
-      nextDueDay: number;
+      nextDueDay: number | null;
       remainingCashBalanceCents: string;
       operatingStageChanged: boolean;
-      operatingStageKey: string;
+      operatingStageKey: string | null;
       directStaffCreated: number;
       supportStaffCreated: number;
-      totalRecurringCostIncreaseCents: string;
+      delayDays: number;
+      installationId: string;
+      installationStatus: ProductionLineInstallationStatus;
+      readyDay: number;
+      requestedDay: number;
     }
   | {
       ok: false;
@@ -166,7 +194,54 @@ export type LeaseProductionLineResult =
         | "DUPLICATE_REQUEST"
         | "INVALID_REQUEST"
         | "UNKNOWN_ERROR";
+    }
+  | {
+      ok: false;
+      code: "CREDIT_DECLINED";
+      creditDecision: LeasingCreditDecision;
     };
+
+export type AccelerateProductionLineInstallationInput = {
+  factoryId: string;
+  factoryProductionLineId: string;
+  days: number;
+  requestId: string;
+};
+
+export type AccelerateProductionLineInstallationResult =
+  | {
+      ok: true;
+      acceleratedDays: number;
+      factoryId: string;
+      installationId: string;
+      newReadyDay: number;
+      previousReadyDay: number;
+      productionLineId: string;
+      remainingDays: number;
+      tokenBalance: number;
+      tokensSpent: number;
+    }
+  | {
+      ok: false;
+      code:
+        | "UNAUTHORIZED"
+        | "FACTORY_NOT_FOUND"
+        | "FACTORY_NOT_ACTIVE"
+        | "PLAYBACK_ACTIVE"
+        | "INSTALLATION_NOT_FOUND"
+        | "INSTALLATION_NOT_PENDING"
+        | "INVALID_ACCELERATION_DAYS"
+        | "MINIMUM_REMAINING_DAYS"
+        | "INSUFFICIENT_TOKENS"
+        | "DUPLICATE_REQUEST"
+        | "INVALID_REQUEST"
+        | "UNKNOWN_ERROR";
+    };
+
+export type LeasingCreditReasonCopy = Record<
+  LeasingDecisionReason,
+  string
+>;
 
 export type UpgradeProductionLineInput = {
   factoryId: string;

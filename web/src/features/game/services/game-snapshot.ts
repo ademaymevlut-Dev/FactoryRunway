@@ -37,6 +37,13 @@ import type {
 } from "@/features/investment/types";
 import { calculateProductionLineInvestmentPreview } from "@/features/investment/services/production-line-investment";
 import { calculateProductionLineLeasingPricing } from "@/features/investment/services/production-line-leasing-pricing";
+import {
+  evaluateLeasingCreditCandidate,
+  getLeasingCreditPolicyContext,
+  type LeasingCreditPolicyContext,
+} from "@/features/investment/services/leasing-credit-policy";
+import { getProductionLineInstallationPreview } from "@/features/investment/services/production-line-installation-policy";
+import { OPERATIONAL_PRODUCTION_LINE_STATUSES } from "@/features/investment/services/production-line-statuses";
 import { buildTasksSnapshot } from "@/features/tasks/services/task-snapshot";
 import {
   calculateEffectiveLinePointCapacity,
@@ -118,6 +125,7 @@ type RouteProgressWorkloadRecord = {
 };
 
 type ProductionLineRecord = {
+  acquisitionSequence: number | null;
   id: string;
   departmentId: string;
   lineNumber: number;
@@ -165,6 +173,19 @@ type ProductionLineRecord = {
   leasingContracts: Array<{
     id: string;
   }>;
+  installation: {
+    acceleratedDays: number;
+    id: string;
+    originalReadyDay: number;
+    readyDay: number;
+    requestedDay: number;
+    status: "PENDING" | "READY" | "ACTIVATED" | "CANCELLED";
+    tokensSpent: number;
+    rule: {
+      minimumRemainingDays: number;
+      tokenSkipCostPerDay: number;
+    } | null;
+  } | null;
 };
 
 function getTranslationLocaleFallbacks(locale: SupportedLocale) {
@@ -231,6 +252,7 @@ export async function getGameSnapshot(input: {
             orderBy: [{ sortOrder: "asc" }, { lineNumber: "asc" }],
             select: {
               id: true,
+              acquisitionSequence: true,
               departmentId: true,
               lineNumber: true,
               customName: true,
@@ -285,8 +307,32 @@ export async function getGameSnapshot(input: {
                 where: { status: StaffAssignmentStatus.ACTIVE },
                 select: { quantity: true },
               },
+              installation: {
+                select: {
+                  acceleratedDays: true,
+                  id: true,
+                  originalReadyDay: true,
+                  readyDay: true,
+                  requestedDay: true,
+                  status: true,
+                  tokensSpent: true,
+                  rule: {
+                    select: {
+                      minimumRemainingDays: true,
+                      tokenSkipCostPerDay: true,
+                    },
+                  },
+                },
+              },
               leasingContracts: {
-                where: { status: LeasingContractStatus.ACTIVE },
+                where: {
+                  status: {
+                    in: [
+                      LeasingContractStatus.PENDING_ACTIVATION,
+                      LeasingContractStatus.ACTIVE,
+                    ],
+                  },
+                },
                 take: 1,
                 select: { id: true },
               },
@@ -324,6 +370,8 @@ export async function getGameSnapshot(input: {
     levelUpTransactions,
     taskProgressRows,
     tokenWallet,
+    installationPreview,
+    leasingCreditContext,
   ] = await Promise.all([
     prisma.departmentGroup.findMany({
       where: {
@@ -537,9 +585,23 @@ export async function getGameSnapshot(input: {
           },
         },
         visualAssets: {
-          where: { variant: ProductionLineAssetVariant.CARD },
-          take: 1,
-          select: { url: true },
+          where: {
+            variant: {
+              in: [
+                ProductionLineAssetVariant.CARD,
+                ProductionLineAssetVariant.DETAIL,
+                ProductionLineAssetVariant.MAP,
+                ProductionLineAssetVariant.THUMBNAIL,
+              ],
+            },
+          },
+          select: {
+            height: true,
+            pathname: true,
+            url: true,
+            variant: true,
+            width: true,
+          },
         },
         leasingOffers: {
           where: { status: ContentStatus.ACTIVE },
@@ -684,9 +746,20 @@ export async function getGameSnapshot(input: {
       where: { playerProfileId: playerProfile.id },
       select: { balance: true },
     }),
+    getProductionLineInstallationPreview({
+      factoryId: factory.id,
+      prisma,
+      requestedDay: factory.currentDay,
+      sectorId: factory.sectorId,
+    }),
+    getLeasingCreditPolicyContext({
+      factoryId: factory.id,
+      prisma,
+    }),
   ]);
 
   const sections = buildFactoryMapSections({
+    currentDay: factory.currentDay,
     departmentGroups,
     locale,
     productionLines: factory.productionLines,
@@ -725,12 +798,29 @@ export async function getGameSnapshot(input: {
   });
   const investment = buildProductionLineInvestmentView({
     activeProductionLineCount: factory.productionLines.filter(
-      (line) => line.status !== FactoryProductionLineStatus.DISABLED,
+      (line) =>
+        OPERATIONAL_PRODUCTION_LINE_STATUSES.includes(
+          line.status as (typeof OPERATIONAL_PRODUCTION_LINE_STATUSES)[number],
+        ),
     ).length,
     costConfig: investmentCostConfig,
     currentStageId: factory.operatingStageState?.currentStage.id ?? null,
     currencyCode: factory.currencyCode,
     locale,
+    installationPreview: {
+      acquisitionSequence: installationPreview.acquisitionSequence,
+      concurrentSlot: installationPreview.concurrentSlot,
+      delayDays: installationPreview.delayDays,
+      maxConcurrentInstalls:
+        installationPreview.rule.maxConcurrentInstalls,
+      minimumRemainingDays:
+        installationPreview.rule.minimumRemainingDays,
+      readyDay: installationPreview.readyDay,
+      requestedDay: factory.currentDay,
+      tokenSkipCostPerDay:
+        installationPreview.rule.tokenSkipCostPerDay,
+    },
+    leasingCreditContext,
     stages: investmentStages,
     supportStaffByRoleId: new Map(
       factorySupportStaff.map((assignment) => [
@@ -799,6 +889,8 @@ function buildProductionLineInvestmentView(input: {
   costConfig: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["costConfig"];
   currentStageId: string | null;
   currencyCode: GameSnapshot["factory"]["currencyCode"];
+  installationPreview: ProductionLineInvestmentView["departments"][number]["templates"][number]["installation"];
+  leasingCreditContext: LeasingCreditPolicyContext;
   locale: SupportedLocale;
   stages: Parameters<typeof calculateProductionLineInvestmentPreview>[0]["stages"];
   supportStaffByRoleId: ReadonlyMap<string, number>;
@@ -815,7 +907,13 @@ function buildProductionLineInvestmentView(input: {
     purchaseCostCents: number;
     imageUrl: string | null;
     imagePathname: string | null;
-    visualAssets: Array<{ url: string }>;
+    visualAssets: Array<{
+      height: number;
+      pathname: string | null;
+      url: string;
+      variant: ProductionLineAssetVariant;
+      width: number;
+    }>;
     leasingOffers: Array<{
       id: string;
       termYears: number;
@@ -856,11 +954,10 @@ function buildProductionLineInvestmentView(input: {
       grade: template.grade,
       id: template.id,
       idealStaff: template.idealStaff,
-      imageUrl:
-        template.visualAssets[0]?.url ??
-        template.imageUrl ??
-        template.imagePathname,
+      imageUrl: getInvestmentTemplateImageUrl(template),
+      detailImageUrl: getInvestmentTemplateDetailImageUrl(template),
       key: template.key,
+      installation: input.installationPreview,
       leasingOffers: template.leasingOffers.map((offer) => {
         const pricing = calculateProductionLineLeasingPricing({
           installmentCount: offer.installmentCount,
@@ -875,6 +972,16 @@ function buildProductionLineInvestmentView(input: {
           downPaymentCents: String(pricing.downPaymentCents),
           installmentAmountCents: String(pricing.installmentAmountCents),
           totalCostCents: String(pricing.totalCostCents),
+          creditDecision: evaluateLeasingCreditCandidate({
+            candidateCyclePaymentCents: BigInt(
+              pricing.installmentAmountCents,
+            ),
+            candidateExposureCents:
+              BigInt(pricing.installmentAmountCents) *
+              BigInt(pricing.installmentCount),
+            context: input.leasingCreditContext,
+            downPaymentCents: BigInt(pricing.downPaymentCents),
+          }),
         };
       }),
       machineCount: template.machineCount,
@@ -897,6 +1004,64 @@ function buildProductionLineInvestmentView(input: {
     currencyCode: input.currencyCode,
     departments: Array.from(departments.values()),
   };
+}
+
+type InvestmentTemplateImageSource = {
+  department: { key: string };
+  grade: ProductionGrade;
+  imagePathname: string | null;
+  imageUrl: string | null;
+  visualAssets: Array<{
+    height: number;
+    pathname: string | null;
+    url: string;
+    variant: ProductionLineAssetVariant;
+    width: number;
+  }>;
+};
+
+function getInvestmentTemplateImageUrl(template: InvestmentTemplateImageSource) {
+  const visual =
+    template.visualAssets.find(
+      (asset) => asset.variant === ProductionLineAssetVariant.CARD,
+    ) ??
+    template.visualAssets.find(
+      (asset) => asset.variant === ProductionLineAssetVariant.MAP,
+    ) ??
+    template.visualAssets.find(
+      (asset) => asset.variant === ProductionLineAssetVariant.THUMBNAIL,
+    );
+
+  return (
+    visual?.url ??
+    visual?.pathname ??
+    template.imageUrl ??
+    template.imagePathname ??
+    getFallbackLineImage(template.department.key, template.grade)
+  );
+}
+
+function getInvestmentTemplateDetailImageUrl(
+  template: InvestmentTemplateImageSource,
+) {
+  const detailVisual = template.visualAssets.find(
+    (asset) => asset.variant === ProductionLineAssetVariant.DETAIL,
+  );
+  const largestVisual = template.visualAssets
+    .slice()
+    .sort(
+      (first, second) =>
+        second.width * second.height - first.width * first.height,
+    )[0];
+  const visual = detailVisual ?? largestVisual;
+
+  return (
+    visual?.url ??
+    visual?.pathname ??
+    template.imageUrl ??
+    template.imagePathname ??
+    getFallbackLineImage(template.department.key, template.grade)
+  );
 }
 
 function buildDockItems({
@@ -1135,11 +1300,13 @@ function getDefaultDockBadgeKey(groupKey: string, department: DockDepartmentReco
 }
 
 function buildFactoryMapSections({
+  currentDay,
   departmentGroups,
   locale,
   productionLines,
   workloadByDepartmentId,
 }: {
+  currentDay: number;
   departmentGroups: DepartmentGroupRecord[];
   locale: SupportedLocale;
   productionLines: ProductionLineRecord[];
@@ -1191,6 +1358,7 @@ function buildFactoryMapSections({
     );
     const groupTitle = pickTranslation(group.translations, group.key, locale);
     const items = buildSectionItems({
+      currentDay,
       departmentIds: departments.map((department) => department.id),
       groupId: group.id,
       groupTitle,
@@ -1240,6 +1408,7 @@ function buildFactoryMapSections({
       ],
     };
     const items = buildSectionItems({
+      currentDay,
       departmentIds: [firstLine.department.id],
       groupId: syntheticGroup.id,
       groupTitle: departmentName,
@@ -1299,6 +1468,7 @@ function getOwnedLineDepartments(
 }
 
 function buildSectionItems({
+  currentDay,
   departmentIds,
   groupId,
   groupTitle,
@@ -1306,6 +1476,7 @@ function buildSectionItems({
   lines,
   workloadByDepartmentId,
 }: {
+  currentDay: number;
   departmentIds: string[];
   groupId: string;
   groupTitle: string;
@@ -1316,7 +1487,14 @@ function buildSectionItems({
   const items: FactoryMapItem[] = lines
     .slice()
     .sort((first, second) => first.sortOrder - second.sortOrder || first.lineNumber - second.lineNumber)
-    .map((line) => toProductionLineItem(line, workloadByDepartmentId, locale));
+    .map((line) =>
+      toProductionLineItem(
+        line,
+        workloadByDepartmentId,
+        locale,
+        currentDay,
+      ),
+    );
 
   if (items.length > 0) {
     const copy = gameCopy[locale].snapshot.investmentAction;
@@ -1358,6 +1536,7 @@ function toProductionLineItem(
   line: ProductionLineRecord,
   workloadByDepartmentId: ReadonlyMap<string, FactoryMapItemWorkload>,
   locale: SupportedLocale,
+  currentDay: number,
 ): FactoryMapItem {
   const departmentName = pickTranslation(
     line.department.translations,
@@ -1382,6 +1561,7 @@ function toProductionLineItem(
       gameCopy[locale].snapshot.lineTitle(departmentName, line.lineNumber),
     subtitle: formatGrade(template.grade),
     acquisitionType: line.acquisitionType,
+    acquisitionSequence: line.acquisitionSequence,
     status: line.status,
     grade: template.grade,
     productionLineTemplateId: template.id,
@@ -1396,6 +1576,25 @@ function toProductionLineItem(
     monthlyElectricityBaseCents: template.monthlyElectricityBaseCents,
     purchaseCostCents: String(template.purchaseCostCents),
     hasActiveLeasingContract: line.leasingContracts.length > 0,
+    installation: line.installation
+      ? {
+          acceleratedDays: line.installation.acceleratedDays,
+          id: line.installation.id,
+          minimumRemainingDays:
+            line.installation.rule?.minimumRemainingDays ?? 0,
+          originalReadyDay: line.installation.originalReadyDay,
+          readyDay: line.installation.readyDay,
+          remainingDays: Math.max(
+            0,
+            line.installation.readyDay - currentDay,
+          ),
+          requestedDay: line.installation.requestedDay,
+          status: line.installation.status,
+          tokenSkipCostPerDay:
+            line.installation.rule?.tokenSkipCostPerDay ?? 0,
+          tokensSpent: line.installation.tokensSpent,
+        }
+      : null,
     imageUrl: getLineImageUrl(line),
     detailImageUrl: getLineDetailImageUrl(line),
     workload:

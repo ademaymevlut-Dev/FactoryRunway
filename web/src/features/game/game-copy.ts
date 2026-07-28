@@ -28,10 +28,16 @@ export const gameCopy = {
       noCapacity: "kapasite yok.",
       days: (days: number) => `${days} gün.`,
       investmentLabelFallback: "Yeni Hat",
+      installation: {
+        title: "Kurulum Aşaması",
+        remainingDays: (days: number) => `Kalan ${days} Gün`,
+        awaitingActivation: "Aktivasyon Bekleniyor",
+      },
       slotStatus: {
         active: "Aktif",
         busy: "Dolu",
         idle: "Boş",
+        installing: "Kurulumda",
         locked: "Devre dışı",
         risk: "Riskli",
       },
@@ -226,10 +232,16 @@ export const gameCopy = {
       noCapacity: "no capacity.",
       days: (days: number) => `${days} days.`,
       investmentLabelFallback: "New Line",
+      installation: {
+        title: "Installation",
+        remainingDays: (days: number) => `${days} Days Left`,
+        awaitingActivation: "Awaiting Activation",
+      },
       slotStatus: {
         active: "Active",
         busy: "Busy",
         idle: "Idle",
+        installing: "Installing",
         locked: "Disabled",
         risk: "At Risk",
       },
@@ -424,7 +436,15 @@ export const gameCopy = {
       noCapacity: string;
       days: (days: number) => string;
       investmentLabelFallback: string;
-      slotStatus: Record<"active" | "busy" | "idle" | "locked" | "risk", string>;
+      installation: {
+        title: string;
+        remainingDays: (days: number) => string;
+        awaitingActivation: string;
+      };
+      slotStatus: Record<
+        "active" | "busy" | "idle" | "installing" | "locked" | "risk",
+        string
+      >;
       productionGrades: Record<
         ProductionGrade,
         { label: string; readyLabel: string; titleLabel: string }

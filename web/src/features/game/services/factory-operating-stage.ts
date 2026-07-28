@@ -1,9 +1,9 @@
 import {
   ContentStatus,
-  FactoryProductionLineStatus,
   StaffAssignmentStatus,
   type Prisma,
 } from "@/generated/prisma/client";
+import { OPERATIONAL_PRODUCTION_LINE_STATUSES } from "@/features/investment/services/production-line-statuses";
 
 type OperatingStageClient = Prisma.TransactionClient;
 
@@ -53,12 +53,7 @@ export async function recalculateFactoryOperatingStage(input: {
   const activeProductionLineCount = await input.tx.factoryProductionLine.count({
     where: {
       factoryId: input.factoryId,
-      status: {
-        notIn: [
-          FactoryProductionLineStatus.SOLD,
-          FactoryProductionLineStatus.DISABLED,
-        ],
-      },
+      status: { in: [...OPERATIONAL_PRODUCTION_LINE_STATUSES] },
     },
   });
   const stages = await input.tx.sectorFactoryOperatingStage.findMany({

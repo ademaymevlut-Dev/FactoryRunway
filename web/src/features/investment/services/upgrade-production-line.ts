@@ -153,7 +153,14 @@ export async function upgradeProductionLine(input: {
             productionLineTemplateId: true,
             status: true,
             leasingContracts: {
-              where: { status: LeasingContractStatus.ACTIVE },
+              where: {
+                status: {
+                  in: [
+                    LeasingContractStatus.PENDING_ACTIVATION,
+                    LeasingContractStatus.ACTIVE,
+                  ],
+                },
+              },
               take: 1,
               select: { id: true },
             },
@@ -196,6 +203,7 @@ export async function upgradeProductionLine(input: {
         if (!line) return failure("LINE_NOT_FOUND");
         if (
           line.status === FactoryProductionLineStatus.SOLD ||
+          line.status === FactoryProductionLineStatus.INSTALLING ||
           line.status === FactoryProductionLineStatus.DISABLED ||
           line.status === FactoryProductionLineStatus.RUNNING
         ) {

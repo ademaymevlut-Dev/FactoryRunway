@@ -12,8 +12,10 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
+  CalendarClock,
   CheckCircle2,
   CircleOff,
+  Coins,
   Factory,
   Gauge,
   Maximize2,
@@ -40,9 +42,11 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGameUiStore } from "@/features/game/store/game-ui-store";
 import type { FactoryMapItem } from "@/features/game/types";
+import { accelerateProductionLineInstallationAction } from "@/features/investment/actions/accelerate-production-line-installation-action";
 import { setProductionLineStatusAction } from "@/features/investment/actions/set-production-line-status-action";
 import { upgradeProductionLineAction } from "@/features/investment/actions/upgrade-production-line-action";
 import type {
+  AccelerateProductionLineInstallationResult,
   ProductionLineInvestmentTemplate,
   SetProductionLineStatusResult,
   UpgradeProductionLineResult,
@@ -84,7 +88,9 @@ export function UpgradeProductionLinePanel({
   const upgradeCopy = copy.upgrade;
   const statusCopy = copy.lineStatus;
   const numberLocale = resolveNumberLocale(locale);
-  const [activeTab, setActiveTab] = useState<LineDetailTab>("upgrade");
+  const [activeTab, setActiveTab] = useState<LineDetailTab>(
+    line.status === "INSTALLING" ? "status" : "upgrade",
+  );
 
   return (
     <Tabs
@@ -141,12 +147,22 @@ export function UpgradeProductionLinePanel({
       </TabsContent>
 
       <TabsContent className="mt-0 min-h-0" value="status">
-        <ProductionLineStatusTab
-          factoryId={factoryId}
-          line={line}
-          numberLocale={numberLocale}
-          statusCopy={statusCopy}
-        />
+        {line.status === "INSTALLING" && line.installation ? (
+          <ProductionLineInstallationTab
+            factoryId={factoryId}
+            installation={line.installation}
+            isLeased={line.acquisitionType === "LEASED"}
+            lineId={line.lineId}
+            statusCopy={statusCopy}
+          />
+        ) : (
+          <ProductionLineStatusTab
+            factoryId={factoryId}
+            line={line}
+            numberLocale={numberLocale}
+            statusCopy={statusCopy}
+          />
+        )}
       </TabsContent>
     </Tabs>
   );
@@ -270,8 +286,14 @@ function ProductionLineUpgradeTab({
   const [result, upgradeAction, pending] = useActionState(runUpgrade, null);
   const lockedByLeasing = line.hasActiveLeasingContract;
   const reachedMaxGrade = line.grade === "SMART";
-  const lockedByLineStatus = line.status === "DISABLED";
-  const locked = lockedByLeasing || reachedMaxGrade || lockedByLineStatus || !nextTemplate;
+  const lockedByDisabled = line.status === "DISABLED";
+  const lockedByInstallation = line.status === "INSTALLING";
+  const locked =
+    lockedByLeasing ||
+    reachedMaxGrade ||
+    lockedByDisabled ||
+    lockedByInstallation ||
+    !nextTemplate;
   const capacityIncreaseBps = nextTemplate
     ? calculateCapacityIncreaseBps({
         currentDailyPointCapacity: line.dailyPointCapacity,
@@ -400,7 +422,15 @@ function ProductionLineUpgradeTab({
             {upgradeCopy.alerts.leasingBody}
           </AlertDescription>
         </Alert>
-      ) : lockedByLineStatus ? (
+      ) : lockedByInstallation ? (
+        <Alert>
+          <CalendarClock className="size-4" />
+          <AlertTitle>{statusCopy.installation.title}</AlertTitle>
+          <AlertDescription>
+            {statusCopy.statusDescriptions.INSTALLING}
+          </AlertDescription>
+        </Alert>
+      ) : lockedByDisabled ? (
         <Alert>
           <CircleOff className="size-4" />
           <AlertTitle>{statusCopy.upgradeLocked.title}</AlertTitle>
@@ -500,7 +530,10 @@ function ProductionLineStatusTab({
   const nextStaffDelta = mode === "activate" ? line.idealStaff : -line.assignedStaff;
   const nextCapacityDelta =
     mode === "activate" ? line.dailyPointCapacity : -line.dailyPointCapacity;
-  const lockedByStatus = line.status === "SOLD" || line.status === "RUNNING";
+  const lockedByStatus =
+    line.status === "SOLD" ||
+    line.status === "RUNNING" ||
+    line.status === "INSTALLING";
   const runStatusChange = useCallback(
     async (
       previousState: SetProductionLineStatusResult | null,
@@ -663,6 +696,238 @@ function ProductionLineStatusTab({
               : statusCopy.buttons.activate}
         </Button>
       </form>
+    </div>
+  );
+}
+
+function ProductionLineInstallationTab({
+  factoryId,
+  installation,
+  isLeased,
+  lineId,
+  statusCopy,
+}: {
+  factoryId: string;
+  installation: NonNullable<ProductionLineMapItem["installation"]>;
+  isLeased: boolean;
+  lineId: string;
+  statusCopy: InvestmentLineStatusCopy;
+}) {
+  const router = useRouter();
+  const { isShiftPlaybackActive } = useGameUiStore();
+  const maximumAccelerationDays = Math.max(
+    0,
+    installation.remainingDays - installation.minimumRemainingDays,
+  );
+  const [days, setDays] = useState(
+    Math.min(1, maximumAccelerationDays),
+  );
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const runAcceleration = useCallback(
+    async (
+      previousState: AccelerateProductionLineInstallationResult | null,
+      formData: FormData,
+    ) => {
+      const result = await accelerateProductionLineInstallationAction(
+        previousState,
+        formData,
+      );
+
+      if (result.ok) {
+        setRequestId(crypto.randomUUID());
+        router.refresh();
+      }
+
+      return result;
+    },
+    [router],
+  );
+  const [result, accelerationAction, pending] = useActionState(
+    runAcceleration,
+    null,
+  );
+  const selectedDays = Math.max(
+    0,
+    Math.min(days, maximumAccelerationDays),
+  );
+  const tokensRequired =
+    selectedDays * installation.tokenSkipCostPerDay;
+  const errorMessage =
+    result?.ok === false
+      ? statusCopy.installation.errors[result.code]
+      : null;
+
+  return (
+    <div className="flex min-h-0 flex-col gap-4">
+      <section className="rounded-lg border border-cyan-400/25 bg-cyan-400/[0.06] p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-widest text-cyan-200">
+              <CalendarClock size={14} />
+              {statusCopy.installation.title}
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-white">
+              {statusCopy.statusLabels.INSTALLING}
+            </h3>
+          </div>
+          <Badge className="border-cyan-400/30 bg-cyan-400/10 text-cyan-100" variant="outline">
+            {statusCopy.installation.daysValue(
+              installation.remainingDays,
+            )}
+          </Badge>
+        </div>
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">
+          {statusCopy.statusDescriptions.INSTALLING}
+        </p>
+      </section>
+
+      <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <InstallationDatum
+          label={statusCopy.installation.requestedDay}
+          value={statusCopy.installation.gameDayValue(
+            installation.requestedDay,
+          )}
+        />
+        <InstallationDatum
+          label={statusCopy.installation.originalReadyDay}
+          value={statusCopy.installation.gameDayValue(
+            installation.originalReadyDay,
+          )}
+        />
+        <InstallationDatum
+          label={statusCopy.installation.readyDay}
+          value={statusCopy.installation.gameDayValue(
+            installation.readyDay,
+          )}
+        />
+        <InstallationDatum
+          label={statusCopy.installation.remainingDays}
+          value={statusCopy.installation.daysValue(
+            installation.remainingDays,
+          )}
+        />
+        <InstallationDatum
+          label={statusCopy.installation.acceleratedDays}
+          value={statusCopy.installation.daysValue(
+            installation.acceleratedDays,
+          )}
+        />
+        <InstallationDatum
+          label={statusCopy.installation.tokenRate}
+          value={statusCopy.installation.tokenRateValue(
+            installation.tokenSkipCostPerDay,
+          )}
+        />
+      </dl>
+
+      {isLeased ? (
+        <Alert>
+          <AlertTriangle className="size-4" />
+          <AlertTitle>{statusCopy.alerts.leasingTitle}</AlertTitle>
+          <AlertDescription>
+            {statusCopy.installation.leasePending}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      <section className="rounded-lg border border-white/10 bg-background/35 p-3">
+        <p className="flex items-center gap-2 text-sm font-semibold text-white">
+          <Coins size={15} className="text-amber-300" />
+          {statusCopy.installation.accelerationTitle}
+        </p>
+        <p className="mt-1 text-xs leading-5 text-muted-foreground">
+          {statusCopy.installation.accelerationBody}
+        </p>
+        <div className="mt-3 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
+          <label className="space-y-1 text-xs text-muted-foreground">
+            <span className="block">
+              {statusCopy.installation.accelerationDays}
+            </span>
+            <input
+              className="h-9 w-full rounded-md border border-white/10 bg-black/25 px-3 font-mono text-white outline-none focus:border-primary/60"
+              disabled={maximumAccelerationDays === 0}
+              max={maximumAccelerationDays}
+              min={1}
+              onChange={(event) => {
+                const nextDays = Number(event.target.value);
+                setDays(Number.isFinite(nextDays) ? nextDays : 0);
+              }}
+              type="number"
+              value={selectedDays}
+            />
+          </label>
+          <Badge
+            className="h-9 px-3 font-mono text-amber-200"
+            variant="outline"
+          >
+            {statusCopy.installation.accelerationCost(tokensRequired)}
+          </Badge>
+        </div>
+      </section>
+
+      {result?.ok ? (
+        <Alert className="border-emerald-500/30 bg-emerald-500/10">
+          <Sparkles className="size-4" />
+          <AlertTitle>{statusCopy.installation.successTitle}</AlertTitle>
+          <AlertDescription>
+            {statusCopy.installation.successBody(
+              result.acceleratedDays,
+              result.newReadyDay,
+            )}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {errorMessage ? (
+        <Alert variant="destructive">
+          <AlertTitle>{statusCopy.installation.errorTitle}</AlertTitle>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <form
+        action={accelerationAction}
+        className="sticky bottom-0 mt-auto border-t border-white/10 bg-card/95 pt-3 backdrop-blur"
+      >
+        <input name="factoryId" type="hidden" value={factoryId} />
+        <input
+          name="factoryProductionLineId"
+          type="hidden"
+          value={lineId}
+        />
+        <input name="days" type="hidden" value={selectedDays} />
+        <input name="requestId" type="hidden" value={requestId} />
+        <Button
+          className="w-full"
+          disabled={
+            pending ||
+            isShiftPlaybackActive ||
+            selectedDays === 0 ||
+            result?.ok === true
+          }
+          type="submit"
+        >
+          <Coins size={15} />
+          {pending
+            ? statusCopy.installation.accelerationPending
+            : statusCopy.installation.accelerationAction}
+        </Button>
+      </form>
+    </div>
+  );
+}
+
+function InstallationDatum({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-white/8 bg-background/40 p-2.5">
+      <dt className="text-[10px] text-muted-foreground">{label}</dt>
+      <dd className="mt-1 font-mono text-xs text-white">{value}</dd>
     </div>
   );
 }

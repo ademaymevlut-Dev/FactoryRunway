@@ -123,6 +123,7 @@ enum FactoryStatus {
 }
 
 enum FactoryProductionLineStatus {
+  INSTALLING
   IDLE
   RUNNING
   BLOCKED
@@ -140,9 +141,17 @@ enum LineAcquisitionType {
 }
 
 enum LeasingContractStatus {
+  PENDING_ACTIVATION
   ACTIVE
   COMPLETED
   DEFAULTED
+  CANCELLED
+}
+
+enum ProductionLineInstallationStatus {
+  PENDING
+  READY
+  ACTIVATED
   CANCELLED
 }
 
@@ -406,6 +415,7 @@ enum TokenTransactionReason {
   TASK_REWARD
   AWARD_REWARD
   EVENT_REWARD
+  INSTALLATION_ACCELERATION
   TOURNAMENT_ENTRY
   COSMETIC_PURCHASE
   REAL_MONEY_PURCHASE
@@ -549,17 +559,17 @@ model AuthSession {
 }
 
 model Sector {
-  id                      String                        @id @default(cuid())
-  key                     String                        @unique
-  status                  SectorStatus                  @default(IN_DEVELOPMENT)
-  sortOrder               Int                           @default(0) @map("sort_order")
-  photoUrl                String?                       @map("photo_url")
-  photoPathname           String?                       @map("photo_pathname")
-  slimPhotoUrl            String?                       @map("slim_photo_url")
-  slimPhotoPathname       String?                       @map("slim_photo_pathname")
+  id                      String                                 @id @default(cuid())
+  key                     String                                 @unique
+  status                  SectorStatus                           @default(IN_DEVELOPMENT)
+  sortOrder               Int                                    @default(0) @map("sort_order")
+  photoUrl                String?                                @map("photo_url")
+  photoPathname           String?                                @map("photo_pathname")
+  slimPhotoUrl            String?                                @map("slim_photo_url")
+  slimPhotoPathname       String?                                @map("slim_photo_pathname")
   metadata                Json?
-  createdAt               DateTime                      @default(now()) @map("created_at")
-  updatedAt               DateTime                      @updatedAt @map("updated_at")
+  createdAt               DateTime                               @default(now()) @map("created_at")
+  updatedAt               DateTime                               @updatedAt @map("updated_at")
   translations            SectorTranslation[]
   departmentGroups        DepartmentGroup[]
   departments             Department[]
@@ -568,6 +578,8 @@ model Sector {
   products                Product[]
   colorVariants           ProductColorVariant[]
   productionLineTemplates ProductionLineTemplate[]
+  installationRules       SectorProductionLineInstallationRule[]
+  leasingCreditRules      SectorLeasingCreditRule[]
   firstOrderOptions       FirstOrderProductOption[]
   operatingStages         SectorFactoryOperatingStage[]
   simulationConfig        SectorSimulationConfig?
@@ -1150,49 +1162,51 @@ model SectorOperatingCostConfig {
 }
 
 model Factory {
-  id                      String                         @id @default(cuid())
-  playerProfileId         String                         @map("player_profile_id")
-  sectorId                String                         @map("sector_id")
-  name                    String
-  currencyCode            CurrencyCode                   @default(EUR) @map("currency_code")
-  cashBalanceCents        BigInt                         @default(0) @map("cash_balance_cents")
-  currentDay              Int                            @default(1) @map("current_day")
-  currentFinancePeriod    Int                            @default(1) @map("current_finance_period")
-  currentLevel            Int                            @default(1) @map("current_level")
-  currentXp               Int                            @default(0) @map("current_xp")
-  status                  FactoryStatus                  @default(ACTIVE)
-  startedAt               DateTime                       @default(now()) @map("started_at")
-  lastSimulatedAt         DateTime?                      @map("last_simulated_at")
-  metadata                Json?
-  createdAt               DateTime                       @default(now()) @map("created_at")
-  updatedAt               DateTime                       @updatedAt @map("updated_at")
-  playerProfile           PlayerProfile                  @relation(fields: [playerProfileId], references: [id], onDelete: Cascade)
-  sector                  Sector                         @relation(fields: [sectorId], references: [id], onDelete: Restrict)
-  operatingStageState     FactoryOperatingStageState?
-  operatingStageHistory   FactoryOperatingStageHistory[]
-  productionLines         FactoryProductionLine[]
-  staffAssignments        FactoryStaffAssignment[]
-  tutorialProgress        TutorialProgress[]
-  marketOrderOffers       MarketOrderOffer[]
-  customerOrders          CustomerOrder[]
-  customerOrderItems      CustomerOrderItem[]
-  productionOrders        ProductionOrder[]
-  productionRouteProgress ProductionOrderRouteProgress[]
-  productionPlans         ProductionPlan[]
-  productionAllocations   ProductionAllocation[]
-  shiftSimulations        ShiftSimulation[]
-  shiftLineResults        ShiftLineResult[]
-  shiftDepartmentResults  ShiftDepartmentResult[]
-  outsourceJobs           ProductionOutsourceJob[]
-  chaosEvents             FactoryChaosEvent[]
-  leasingContracts        FactoryLeasingContract[]
-  financeDues             FactoryFinanceDue[]
-  financeTransactions     FactoryFinanceTransaction[]
-  financePeriodSnapshots  FactoryFinancePeriodSnapshot[]
-  xpTransactions          FactoryXpTransaction[]
-  taskProgress            FactoryTaskProgress[]
-  awardProgress           FactoryAwardProgress[]
-  rankingSnapshots        FactoryRankingSnapshot[]
+  id                                    String                              @id @default(cuid())
+  playerProfileId                       String                              @map("player_profile_id")
+  sectorId                              String                              @map("sector_id")
+  name                                  String
+  currencyCode                          CurrencyCode                        @default(EUR) @map("currency_code")
+  cashBalanceCents                      BigInt                              @default(0) @map("cash_balance_cents")
+  currentDay                            Int                                 @default(1) @map("current_day")
+  currentFinancePeriod                  Int                                 @default(1) @map("current_finance_period")
+  currentLevel                          Int                                 @default(1) @map("current_level")
+  currentXp                             Int                                 @default(0) @map("current_xp")
+  nextProductionLineAcquisitionSequence Int                                 @default(1) @map("next_production_line_acquisition_sequence")
+  status                                FactoryStatus                       @default(ACTIVE)
+  startedAt                             DateTime                            @default(now()) @map("started_at")
+  lastSimulatedAt                       DateTime?                           @map("last_simulated_at")
+  metadata                              Json?
+  createdAt                             DateTime                            @default(now()) @map("created_at")
+  updatedAt                             DateTime                            @updatedAt @map("updated_at")
+  playerProfile                         PlayerProfile                       @relation(fields: [playerProfileId], references: [id], onDelete: Cascade)
+  sector                                Sector                              @relation(fields: [sectorId], references: [id], onDelete: Restrict)
+  operatingStageState                   FactoryOperatingStageState?
+  operatingStageHistory                 FactoryOperatingStageHistory[]
+  productionLines                       FactoryProductionLine[]
+  productionLineInstallations           FactoryProductionLineInstallation[]
+  staffAssignments                      FactoryStaffAssignment[]
+  tutorialProgress                      TutorialProgress[]
+  marketOrderOffers                     MarketOrderOffer[]
+  customerOrders                        CustomerOrder[]
+  customerOrderItems                    CustomerOrderItem[]
+  productionOrders                      ProductionOrder[]
+  productionRouteProgress               ProductionOrderRouteProgress[]
+  productionPlans                       ProductionPlan[]
+  productionAllocations                 ProductionAllocation[]
+  shiftSimulations                      ShiftSimulation[]
+  shiftLineResults                      ShiftLineResult[]
+  shiftDepartmentResults                ShiftDepartmentResult[]
+  outsourceJobs                         ProductionOutsourceJob[]
+  chaosEvents                           FactoryChaosEvent[]
+  leasingContracts                      FactoryLeasingContract[]
+  financeDues                           FactoryFinanceDue[]
+  financeTransactions                   FactoryFinanceTransaction[]
+  financePeriodSnapshots                FactoryFinancePeriodSnapshot[]
+  xpTransactions                        FactoryXpTransaction[]
+  taskProgress                          FactoryTaskProgress[]
+  awardProgress                         FactoryAwardProgress[]
+  rankingSnapshots                      FactoryRankingSnapshot[]
 
   @@unique([playerProfileId, sectorId])
   @@index([sectorId])
@@ -1239,33 +1253,37 @@ model FactoryOperatingStageHistory {
 }
 
 model FactoryProductionLine {
-  id                       String                      @id @default(cuid())
-  factoryId                String                      @map("factory_id")
-  productionLineTemplateId String                      @map("production_line_template_id")
-  departmentId             String                      @map("department_id")
-  lineNumber               Int                         @map("line_number")
-  customName               String?                     @map("custom_name")
-  acquisitionType          LineAcquisitionType         @default(PURCHASED) @map("acquisition_type")
-  purchasePriceCents       BigInt                      @default(0) @map("purchase_price_cents")
-  conditionBps             Int                         @default(10000) @map("condition_bps")
-  status                   FactoryProductionLineStatus @default(IDLE)
-  installedDay             Int                         @default(1) @map("installed_day")
-  lastMaintenanceDay       Int?                        @map("last_maintenance_day")
-  lastBreakdownDay         Int?                        @map("last_breakdown_day")
-  sortOrder                Int                         @default(0) @map("sort_order")
+  id                       String                             @id @default(cuid())
+  factoryId                String                             @map("factory_id")
+  productionLineTemplateId String                             @map("production_line_template_id")
+  departmentId             String                             @map("department_id")
+  lineNumber               Int                                @map("line_number")
+  customName               String?                            @map("custom_name")
+  acquisitionType          LineAcquisitionType                @default(PURCHASED) @map("acquisition_type")
+  /// Nullable only for legacy rows until the controlled acquisition-sequence backfill runs.
+  acquisitionSequence      Int?                               @map("acquisition_sequence")
+  purchasePriceCents       BigInt                             @default(0) @map("purchase_price_cents")
+  conditionBps             Int                                @default(10000) @map("condition_bps")
+  status                   FactoryProductionLineStatus        @default(IDLE)
+  installedDay             Int                                @default(1) @map("installed_day")
+  lastMaintenanceDay       Int?                               @map("last_maintenance_day")
+  lastBreakdownDay         Int?                               @map("last_breakdown_day")
+  sortOrder                Int                                @default(0) @map("sort_order")
   metadata                 Json?
-  createdAt                DateTime                    @default(now()) @map("created_at")
-  updatedAt                DateTime                    @updatedAt @map("updated_at")
-  factory                  Factory                     @relation(fields: [factoryId], references: [id], onDelete: Cascade)
-  productionLineTemplate   ProductionLineTemplate      @relation(fields: [productionLineTemplateId], references: [id], onDelete: Restrict)
-  department               Department                  @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  createdAt                DateTime                           @default(now()) @map("created_at")
+  updatedAt                DateTime                           @updatedAt @map("updated_at")
+  factory                  Factory                            @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  productionLineTemplate   ProductionLineTemplate             @relation(fields: [productionLineTemplateId], references: [id], onDelete: Restrict)
+  department               Department                         @relation(fields: [departmentId], references: [id], onDelete: Restrict)
   staffAssignments         FactoryStaffAssignment[]
   leasingContracts         FactoryLeasingContract[]
   productionAllocations    ProductionAllocation[]
   shiftLineResults         ShiftLineResult[]
   chaosEvents              FactoryChaosEvent[]
+  installation             FactoryProductionLineInstallation?
 
   @@unique([factoryId, departmentId, lineNumber])
+  @@unique([factoryId, acquisitionSequence])
   @@index([factoryId, status])
   @@index([factoryId, departmentId, status])
   @@index([factoryId, departmentId, sortOrder, lineNumber])
@@ -1305,6 +1323,75 @@ model FactoryLeasingContract {
   @@index([factoryId, status])
   @@index([productionLineId])
   @@map("factory_leasing_contracts")
+}
+
+model SectorProductionLineInstallationRule {
+  id                     String                              @id @default(cuid())
+  sectorId               String                              @map("sector_id")
+  minAcquisitionSequence Int                                 @map("min_acquisition_sequence")
+  maxAcquisitionSequence Int?                                @map("max_acquisition_sequence")
+  delayDays              Int                                 @map("delay_days")
+  maxConcurrentInstalls  Int                                 @map("max_concurrent_installs")
+  tokenSkipCostPerDay    Int                                 @map("token_skip_cost_per_day")
+  minimumRemainingDays   Int                                 @default(0) @map("minimum_remaining_days")
+  status                 ContentStatus                       @default(ACTIVE)
+  metadata               Json?
+  createdAt              DateTime                            @default(now()) @map("created_at")
+  updatedAt              DateTime                            @updatedAt @map("updated_at")
+  sector                 Sector                              @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+  installations          FactoryProductionLineInstallation[]
+
+  @@unique([sectorId, minAcquisitionSequence])
+  @@index([sectorId, status, minAcquisitionSequence])
+  @@map("sector_production_line_installation_rules")
+}
+
+model SectorLeasingCreditRule {
+  id                            String        @id @default(cuid())
+  sectorId                      String        @map("sector_id")
+  minOwnedProductionLines       Int           @map("min_owned_production_lines")
+  maxOwnedProductionLines       Int?          @map("max_owned_production_lines")
+  maxActiveContracts            Int           @map("max_active_contracts")
+  maxExposureCents              BigInt        @map("max_exposure_cents")
+  maxCyclePaymentCents          BigInt        @map("max_cycle_payment_cents")
+  configuredMinimumReserveCents BigInt        @map("configured_minimum_reserve_cents")
+  status                        ContentStatus @default(ACTIVE)
+  metadata                      Json?
+  createdAt                     DateTime      @default(now()) @map("created_at")
+  updatedAt                     DateTime      @updatedAt @map("updated_at")
+  sector                        Sector        @relation(fields: [sectorId], references: [id], onDelete: Cascade)
+
+  @@unique([sectorId, minOwnedProductionLines])
+  @@index([sectorId, status, minOwnedProductionLines])
+  @@map("sector_leasing_credit_rules")
+}
+
+model FactoryProductionLineInstallation {
+  id                      String                                @id @default(cuid())
+  factoryId               String                                @map("factory_id")
+  factoryProductionLineId String                                @unique @map("factory_production_line_id")
+  ruleId                  String?                               @map("rule_id")
+  requestedDay            Int                                   @map("requested_day")
+  originalReadyDay        Int                                   @map("original_ready_day")
+  readyDay                Int                                   @map("ready_day")
+  activatedDay            Int?                                  @map("activated_day")
+  cancelledDay            Int?                                  @map("cancelled_day")
+  delayDays               Int                                   @map("delay_days")
+  acceleratedDays         Int                                   @default(0) @map("accelerated_days")
+  tokensSpent             Int                                   @default(0) @map("tokens_spent")
+  concurrentSlot          Int?                                  @map("concurrent_slot")
+  status                  ProductionLineInstallationStatus      @default(PENDING)
+  referenceKey            String                                @unique @map("reference_key")
+  metadata                Json?
+  createdAt               DateTime                              @default(now()) @map("created_at")
+  updatedAt               DateTime                              @updatedAt @map("updated_at")
+  factory                 Factory                               @relation(fields: [factoryId], references: [id], onDelete: Cascade)
+  factoryProductionLine   FactoryProductionLine                 @relation(fields: [factoryProductionLineId], references: [id], onDelete: Cascade)
+  rule                    SectorProductionLineInstallationRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@index([factoryId, status, readyDay])
+  @@index([ruleId, status, readyDay])
+  @@map("factory_production_line_installations")
 }
 
 model StaffRole {
@@ -2262,6 +2349,7 @@ model PlayerLevelConfig {
 
 model FactoryXpTransaction {
   id             String   @id @default(cuid())
+  referenceKey   String?  @unique @map("reference_key")
   factoryId      String   @map("factory_id")
   gameDay        Int      @map("game_day")
   amountXp       Int      @map("amount_xp")
