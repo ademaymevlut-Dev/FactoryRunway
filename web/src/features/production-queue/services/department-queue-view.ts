@@ -26,6 +26,10 @@ import {
 import { productionQueueCopy } from "../production-queue-copy"
 import { calculateOutsourceUnitCostCents } from "./outsource-cost"
 import { calculateQueueQuantities } from "./queue-quantity"
+import {
+  getProductionQueueUpstreamWaitKind,
+  isWaitingForUpstreamInput,
+} from "./queue-upstream-wait"
 
 import type {
   GameDepartmentQueueView,
@@ -318,6 +322,7 @@ export async function getProductionQueuesView(input: {
   const configsByDepartmentId = new Map<string, typeof outsourceConfigs>()
   const jobsByDepartmentId = new Map<string, ProductionOutsourceJobView[]>()
   const progressByDepartmentId = new Map<string, typeof routeProgress>()
+  const upstreamWaitingCountByDepartmentId = new Map<string, number>()
 
   for (const config of outsourceConfigs) {
     const current = configsByDepartmentId.get(config.departmentId) ?? []
@@ -338,11 +343,18 @@ export async function getProductionQueuesView(input: {
       ...progress,
       inputReadyQuantity: getReconciledInputReadyQuantity(progress),
     }
+    const quantities = calculateRouteProgressQuantities(reconciledProgress)
 
-    if (
-      calculateRouteProgressQuantities(reconciledProgress)
-        .internalAvailableQuantity <= 0
-    ) {
+    if (quantities.internalAvailableQuantity <= 0) {
+      if (isWaitingForUpstreamInput(quantities)) {
+        upstreamWaitingCountByDepartmentId.set(
+          reconciledProgress.departmentId,
+          (upstreamWaitingCountByDepartmentId.get(
+            reconciledProgress.departmentId,
+          ) ?? 0) + 1,
+        )
+      }
+
       continue
     }
 
@@ -363,6 +375,8 @@ export async function getProductionQueuesView(input: {
         locale,
         outsourceJobs: jobsByDepartmentId.get(department.id) ?? [],
         routeProgress: progressByDepartmentId.get(department.id) ?? [],
+        upstreamWaitingCount:
+          upstreamWaitingCountByDepartmentId.get(department.id) ?? 0,
       }),
     ),
   }
@@ -455,6 +469,7 @@ function toDepartmentQueue(input: {
   department: DepartmentRecord
   locale: SupportedLocale
   outsourceJobs: ProductionOutsourceJobView[]
+  upstreamWaitingCount: number
   routeProgress: Array<{
     canOutsource: boolean
     completedQuantity: number
@@ -555,6 +570,13 @@ function toDepartmentQueue(input: {
     (total, item) => total + item.queueRemainingQuantity,
     0,
   )
+  const upstreamWaitKind = getProductionQueueUpstreamWaitKind(
+    input.department.key,
+    input.upstreamWaitingCount,
+  )
+  const upstreamWaitingCount = upstreamWaitKind
+    ? input.upstreamWaitingCount
+    : 0
 
   return {
     actionLabel: getActionLabel(input.department.key, input.locale),
@@ -570,6 +592,10 @@ function toDepartmentQueue(input: {
     outsourceCandidates,
     outsourceJobs: input.outsourceJobs,
     planningLines: input.capacity.planningLines,
+    upstreamWait: {
+      count: upstreamWaitingCount,
+      kind: upstreamWaitKind,
+    },
     summary: {
       dailyCapacityLabel: copy.pointsPerDay(
         formatNumber(input.capacity.effectiveDailyPointCapacity, input.locale),
@@ -580,6 +606,7 @@ function toDepartmentQueue(input: {
       nextDeliveryLabel: allItems[0]?.deliveryLabel ?? "-",
       queueCount:
         new Set(allItems.map((item) => item.routeProgressId)).size +
+        upstreamWaitingCount +
         input.outsourceJobs.length,
       totalCompletedQuantityLabel: copy.quantity(
         formatNumber(totalCompletedQuantity, input.locale),

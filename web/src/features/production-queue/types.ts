@@ -10,6 +10,8 @@ import type { AutomaticAllocationLine } from "@/features/game/services/productio
 
 export type ProductionQueueTone = "danger" | "info" | "success" | "warning"
 
+export type ProductionQueueUpstreamWaitKind = "cutting" | "sewing"
+
 export type ProductionOutsourceOptionView = {
   id: string
   optionType: OutsourceOptionType
@@ -114,6 +116,10 @@ export type GameDepartmentQueueView = {
   items: ProductionQueueItem[]
   outsourceCandidates: ProductionQueueItem[]
   outsourceJobs: ProductionOutsourceJobView[]
+  upstreamWait: {
+    count: number
+    kind: ProductionQueueUpstreamWaitKind | null
+  }
   summary: {
     queueCount: number
     totalOrderQuantityLabel: string

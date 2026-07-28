@@ -865,6 +865,9 @@ function QueueProductThumb({
 
 function DepartmentEmptyState({ queue }: { queue: GameDepartmentQueueView }) {
   const { copy } = useQueueUi()
+  const upstreamWaitCopy = queue.upstreamWait.kind
+    ? copy.empty.upstreamWait[queue.upstreamWait.kind]
+    : null
 
   return (
     <div className="grid h-full min-h-[320px] place-items-center p-6 text-center">
@@ -873,10 +876,10 @@ function DepartmentEmptyState({ queue }: { queue: GameDepartmentQueueView }) {
           {renderDepartmentIcon(queue.departmentKey, 22)}
         </span>
         <h2 className="mt-3 text-base font-semibold text-foreground">
-          {copy.empty.title(queue.label)}
+          {upstreamWaitCopy?.title ?? copy.empty.title(queue.label)}
         </h2>
         <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          {copy.empty.body}
+          {upstreamWaitCopy?.body(queue.label) ?? copy.empty.body}
         </p>
       </div>
     </div>
@@ -911,6 +914,7 @@ function getQueueRevision(queue: GameDepartmentQueueView) {
       .map((item) => `${item.id}:${item.availableQuantity}`)
       .join(","),
     queue.outsourceJobs.map((job) => `${job.id}:${job.status}`).join(","),
+    `${queue.upstreamWait.kind ?? "none"}:${queue.upstreamWait.count}`,
   ].join("|")
 }
 

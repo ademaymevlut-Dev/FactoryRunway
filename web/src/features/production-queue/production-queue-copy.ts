@@ -4,7 +4,10 @@ import type {
 } from "@/generated/prisma/enums";
 import type { SupportedLocale } from "@/lib/i18n/locales";
 
-import type { ProductionQueueTone } from "./types";
+import type {
+  ProductionQueueTone,
+  ProductionQueueUpstreamWaitKind,
+} from "./types";
 
 export const productionQueueCopy = {
   tr: {
@@ -85,6 +88,18 @@ export const productionQueueCopy = {
         body: "Hazır iş geldiğinde üretim önceliği burada sürüklenebilir liste olarak açılır.",
         noQueue: "Üretim kuyruğu bulunamadı.",
         title: (department: string) => `${department} kuyruğu boş`,
+        upstreamWait: {
+          cutting: {
+            body: (department: string) =>
+              `Kesim tamamlandığında ürünler ${department} kuyruğunda görünecek.`,
+            title: "Ürünlerin kesimi bekleniyor",
+          },
+          sewing: {
+            body: (department: string) =>
+              `Dikim tamamlandığında ürünler ${department} kuyruğunda görünecek.`,
+            title: "Ürünlerin dikimi bekleniyor",
+          },
+        },
       },
       header: {
         dayPriority: (day: number) => `${day}. gün vardiya öncesi öncelik`,
@@ -150,7 +165,7 @@ export const productionQueueCopy = {
         cutting: "Cutting",
         dyeing: "Dyeing",
         embroidery: "Embroidery",
-        ironing_packing: "Ironing-packing",
+        ironing_packing: "IR & Pack",
         printing: "Printing",
         sewing: "Sewing",
         washing: "Washing",
@@ -222,6 +237,18 @@ export const productionQueueCopy = {
         body: "When ready work arrives, production priority will appear here as a draggable list.",
         noQueue: "Production queue not found.",
         title: (department: string) => `${department} queue is empty`,
+        upstreamWait: {
+          cutting: {
+            body: (department: string) =>
+              `Products will appear in the ${department} queue once cutting is complete.`,
+            title: "Waiting for cutting to finish",
+          },
+          sewing: {
+            body: (department: string) =>
+              `Products will appear in the ${department} queue once sewing is complete.`,
+            title: "Waiting for sewing to finish",
+          },
+        },
       },
       header: {
         dayPriority: (day: number) => `Pre-shift priority for day ${day}`,
@@ -341,6 +368,13 @@ export const productionQueueCopy = {
         body: string;
         noQueue: string;
         title: (department: string) => string;
+        upstreamWait: Record<
+          ProductionQueueUpstreamWaitKind,
+          {
+            body: (department: string) => string;
+            title: string;
+          }
+        >;
       };
       header: {
         dayPriority: (day: number) => string;
