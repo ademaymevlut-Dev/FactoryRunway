@@ -8,9 +8,12 @@ function readSource(relativePath: string) {
 
 test("playback HUD sabit overlay, global saat ve kullanıcı close sözleşmesini kullanır", () => {
   const hud = readSource("./components/shift-playback-hud.tsx");
+  const layout = readSource("./components/shift-playback-overlay-layout.tsx");
   const store = readSource("./store/game-ui-store.tsx");
 
   assert.match(hud, /data-shift-playback-hud/);
+  assert.match(layout, /data-shift-playback-overlay-layout/);
+  assert.match(layout, /data-shift-overlay-progress-slot/);
   assert.match(hud, /router\.refresh\(\)/);
   assert.match(hud, /dismissShiftPlayback/);
   assert.match(hud, /closingShiftId === activeShiftPlayback\.shiftId/);
@@ -18,6 +21,7 @@ test("playback HUD sabit overlay, global saat ve kullanıcı close sözleşmesin
   assert.doesNotMatch(hud, /requestAnimationFrame/);
   assert.match(hud, /shiftPlaybackNowMs/);
   assert.doesNotMatch(hud, /setInterval|setTimeout/);
+  assert.doesNotMatch(hud, /translate-x|pr-\[440px\]|absolute inset-x-0/);
   assert.match(store, /requestAnimationFrame/);
   assert.doesNotMatch(store, /setInterval|setTimeout/);
 });
@@ -62,22 +66,32 @@ test("vardiya boyunca yönetim yüzeyi merkezi bir UI kilidiyle korunur", () => 
 
 test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () => {
   const panel = readSource("./components/daily-event-panel.tsx");
+  const layout = readSource("./components/shift-playback-overlay-layout.tsx");
   const shell = readSource("./components/game-shell.tsx");
 
   assert.match(
     shell,
-    /<DailyEventPanel[\s\S]*?currencyCode=\{initialSnapshot\.factory\.currencyCode\}[\s\S]*?locale=\{initialSnapshot\.locale\}/,
+    /<ShiftPlaybackOverlayLayout[\s\S]*?currencyCode=\{initialSnapshot\.factory\.currencyCode\}[\s\S]*?locale=\{initialSnapshot\.locale\}/,
   );
+  assert.match(layout, /<DailyEventPanel/);
+  assert.match(layout, /<ShiftPlaybackHud/);
+  assert.match(layout, /data-shift-overlay-events-slot/);
+  assert.match(layout, /min-\[1180px\]:grid-cols-/);
+  assert.match(layout, /360px/);
+  assert.match(layout, /400px/);
+  assert.match(layout, /removeStoredString/);
+  assert.match(layout, /copy\.openAria/);
   assert.match(panel, /data-daily-event-panel/);
   assert.match(panel, /shiftPlaybackCopy\[locale\]\.dailyEvents/);
   assert.match(panel, /copy\.categories\[event\.category\]/);
-  assert.match(panel, /right-4 top-6/);
-  assert.match(panel, /max-w-\[calc\(100vw-24px\)\]/);
+  assert.match(panel, /relative flex size-full max-h-\[760px\]/);
+  assert.match(panel, /onCloseComplete/);
+  assert.doesNotMatch(panel, /absolute right-4|w-\[400px\]/);
   assert.match(panel, /overscroll-contain/);
   assert.match(panel, /prefers-reduced-motion/);
   assert.match(panel, /bg-background\/50/);
   assert.match(panel, /backdrop-blur-sm/);
-  assert.match(panel, /bg-background\/45 p-4 backdrop-blur-md/);
+  assert.match(panel, /bg-background\/45 p-3 backdrop-blur-md/);
   assert.match(panel, /shouldShowDailyEvent/);
   assert.match(panel, /!event\.eventKey\.startsWith\("department\."\)/);
   assert.match(panel, /displayableEvents\.length/);

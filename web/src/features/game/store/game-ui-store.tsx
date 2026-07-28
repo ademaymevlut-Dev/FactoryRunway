@@ -230,6 +230,11 @@ export function setStoredString(key: string, value: string) {
   window.dispatchEvent(new Event(GAME_STORAGE_EVENT));
 }
 
+export function removeStoredString(key: string) {
+  window.localStorage.removeItem(key);
+  window.dispatchEvent(new Event(GAME_STORAGE_EVENT));
+}
+
 function subscribeToStorage(callback: () => void) {
   window.addEventListener("storage", callback);
   window.addEventListener(GAME_STORAGE_EVENT, callback);

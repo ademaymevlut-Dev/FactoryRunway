@@ -22,26 +22,21 @@ import {
   shiftPlaybackCopy,
   type ShiftPlaybackCopy,
 } from "../shift-playback-copy";
-import {
-  setStoredString,
-  useGameUiStore,
-  useStoredString,
-} from "../store/game-ui-store";
+import { useGameUiStore } from "../store/game-ui-store";
 import type { GameSnapshot, ShiftPlaybackTimelineEvent } from "../types";
-
-const CLOSED_DAILY_EVENT_PANEL_KEY = "factory-runway:closed-daily-events";
 
 export function DailyEventPanel({
   currencyCode,
   locale,
+  onCloseComplete,
 }: {
   currencyCode: GameSnapshot["factory"]["currencyCode"];
   locale: SupportedLocale;
+  onCloseComplete: (shiftId: string) => void;
 }) {
   const copy = shiftPlaybackCopy[locale].dailyEvents;
   const numberLocale = resolveNumberLocale(locale);
   const { activeShiftPlayback, shiftPlaybackNowMs } = useGameUiStore();
-  const closedShiftId = useStoredString(CLOSED_DAILY_EVENT_PANEL_KEY);
   const [closingShiftId, setClosingShiftId] = useState<string | null>(null);
   const [revealState, setRevealState] = useState({ count: 0, shiftId: "" });
   const viewportRef = useRef<HTMLDivElement | null>(null);
@@ -112,43 +107,40 @@ export function DailyEventPanel({
   }, [visibleEvents.length]);
 
   if (!activeShiftPlayback) return null;
-  if (closedShiftId === activeShiftPlayback.shiftId) return null;
 
   const isClosing = closingShiftId === activeShiftPlayback.shiftId;
   const close = () => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      finalizeClose(activeShiftPlayback.shiftId);
+      onCloseComplete(activeShiftPlayback.shiftId);
       return;
     }
     setClosingShiftId(activeShiftPlayback.shiftId);
-  };
-  const finalizeClose = (shiftId: string) => {
-    setStoredString(CLOSED_DAILY_EVENT_PANEL_KEY, shiftId);
   };
 
   return (
     <aside
       aria-label={copy.panelAria}
       className={[
-        "pointer-events-auto absolute right-4 top-6 z-[55] flex h-[min(760px,calc(100dvh-48px))] w-[400px] max-w-[calc(100vw-24px)] flex-col overflow-hidden rounded-xl border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-right-12 motion-safe:duration-500",
+        "pointer-events-auto relative flex size-full max-h-[760px] max-w-[820px] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-right-12 motion-safe:duration-500",
         isClosing
           ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-right-10 motion-safe:duration-300"
           : "",
       ].join(" ")}
       data-daily-event-panel
-      onAnimationEnd={() => {
-        if (isClosing) finalizeClose(activeShiftPlayback.shiftId);
+      onAnimationEnd={(event) => {
+        if (event.currentTarget !== event.target) return;
+        if (isClosing) onCloseComplete(activeShiftPlayback.shiftId);
       }}
     >
-      <header className="flex items-start gap-3 border-b border-white/10 bg-background/45 p-4 backdrop-blur-md">
+      <header className="flex items-start gap-2.5 border-b border-white/10 bg-background/45 p-3 backdrop-blur-md min-[1440px]:gap-3 min-[1440px]:p-4">
         <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-primary">
+          <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-primary min-[1440px]:text-[10px] min-[1440px]:tracking-[0.22em]">
             {copy.title}
           </p>
-          <h2 className="mt-1 text-lg font-semibold text-white">
+          <h2 className="mt-0.5 text-base font-semibold text-white min-[1440px]:mt-1 min-[1440px]:text-lg">
             {copy.dayLabel(activeShiftPlayback.simulatedGameDay)}
           </h2>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-[10px] text-muted-foreground min-[1440px]:mt-1 min-[1440px]:text-xs">
             {copy.countLabel(visibleEvents.length, displayableEvents.length)}
           </p>
         </div>
@@ -158,7 +150,7 @@ export function DailyEventPanel({
               aria-label={copy.closeAria}
               onClick={close}
               className="border border-white/15 bg-white/10 text-white shadow-sm hover:bg-white/20 hover:text-white"
-              size="icon-sm"
+              size="icon-lg"
               type="button"
               variant="ghost"
             >
@@ -169,7 +161,7 @@ export function DailyEventPanel({
         </Tooltip>
       </header>
       <div
-        className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-3"
+        className="min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain p-2 min-[1440px]:space-y-2 min-[1440px]:p-3"
         onScroll={(event) => {
           const target = event.currentTarget;
           pinnedToBottomRef.current =

@@ -83,21 +83,22 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
   return (
     <aside
       aria-live="polite"
-      className="pointer-events-none absolute inset-x-0 top-16 z-[60] px-2 sm:px-3 lg:pr-[440px] xl:top-24 xl:px-6"
+      className="pointer-events-none flex size-full min-h-0 items-start"
       data-shift-playback-hud
     >
       <div
         className={[
-          "pointer-events-auto mx-auto flex max-h-[min(520px,calc(100dvh-4.75rem))] max-w-[min(760px,calc(100vw-1rem))] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/94 shadow-2xl backdrop-blur-xl lg:-translate-x-20 xl:-translate-x-24 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 xl:max-h-[min(760px,calc(100dvh-8rem))] xl:max-w-5xl xl:rounded-xl",
+          "pointer-events-auto mx-auto flex max-h-full w-full max-w-[820px] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/94 shadow-2xl backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 min-[1180px]:max-h-[min(680px,100%)] min-[1440px]:max-h-[min(760px,100%)] min-[1440px]:max-w-5xl min-[1440px]:rounded-xl",
           isClosing
             ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-top-2 motion-safe:duration-200"
             : "",
         ].join(" ")}
-        onAnimationEnd={() => {
+        onAnimationEnd={(event) => {
+          if (event.currentTarget !== event.target) return;
           if (isClosing) finalizeClose();
         }}
       >
-        <div className="flex items-start gap-2 border-b border-white/10 p-2 xl:gap-3 xl:p-4">
+        <div className="flex items-start gap-2 border-b border-white/10 p-2.5 min-[1440px]:gap-3 min-[1440px]:p-4">
           <div className="min-w-0 flex-1">
             <ShiftProgressBar
               currentTime={formatShiftPlaybackTime(shiftMinute)}
@@ -113,19 +114,19 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
                 aria-label={copy.closeAria}
                 disabled={!isFinal || isClosing}
                 onClick={requestClose}
-                size="icon-sm"
+                size="icon-lg"
                 type="button"
                 variant="ghost"
               >
-                <X className="size-3.5 xl:size-4" />
+                <X className="size-4" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="left">{copy.closeAria}</TooltipContent>
           </Tooltip>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2 xl:space-y-3 xl:p-4">
-          <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:gap-2">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 min-[1440px]:space-y-3 min-[1440px]:p-4">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-2">
             {activeShiftPlayback.departmentResults.map((department) => (
               <ShiftDepartmentCard
                 throughputBps={

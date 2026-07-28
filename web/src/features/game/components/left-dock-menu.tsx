@@ -15,7 +15,7 @@ import type { GamePanelKey, GameSnapshot } from "../types";
 
 type LeftDockKey = Extract<
   GamePanelKey,
-  "orders" | "tasks" | "management" | "finance" | "reports"
+  "orders" | "tasks" | "finance" | "reports"
 >;
 
 type LeftDockItem = {
@@ -31,7 +31,6 @@ type LeftDockIconPath = {
 const leftDockItems: LeftDockItem[] = [
   { key: "orders" },
   { key: "tasks" },
-  { key: "management" },
   { key: "finance" },
   { key: "reports" },
 ];
@@ -46,13 +45,6 @@ const leftDockIconPaths: Record<LeftDockKey, LeftDockIconPath[]> = {
     {
       clipRule: "evenodd",
       d: "M12.293 3.293a1 1 0 0 1 1.414 0L16.414 6h-2.828l-1.293-1.293a1 1 0 0 1 0-1.414ZM12.414 6 9.707 3.293a1 1 0 0 0-1.414 0L5.586 6h6.828ZM4.586 7l-.056.055A2 2 0 0 0 3 9v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2h-4a5 5 0 0 1 0-10h4a2 2 0 0 0-1.53-1.945L17.414 7H4.586Z",
-      fillRule: "evenodd",
-    },
-  ],
-  management: [
-    {
-      clipRule: "evenodd",
-      d: "M7.05 4.05A7 7 0 0 1 19 9c0 2.407-1.197 3.874-2.186 5.084l-.04.048C15.77 15.362 15 16.34 15 18a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1c0-1.612-.77-2.613-1.78-3.875l-.045-.056C6.193 12.842 5 11.352 5 9a7 7 0 0 1 2.05-4.95ZM9 21a1 1 0 0 1 1-1h4a1 1 0 1 1 0 2h-4a1 1 0 0 1-1-1Zm1.586-13.414A2 2 0 0 1 12 7a1 1 0 1 0 0-2 4 4 0 0 0-4 4 1 1 0 0 0 2 0 2 2 0 0 1 .586-1.414Z",
       fillRule: "evenodd",
     },
   ],

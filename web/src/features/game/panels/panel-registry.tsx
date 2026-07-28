@@ -16,7 +16,6 @@ import { WarehousePanel } from "@/features/warehouse/components/warehouse-panel"
 import { ProductionLineInvestmentPanel } from "@/features/investment/components/production-line-investment-panel";
 import { UpgradeProductionLinePanel } from "@/features/investment/components/upgrade-production-line-panel";
 import type { ProductionLineInvestmentTemplate } from "@/features/investment/types";
-import { ManagerRecommendationsPanel } from "@/features/manager/components/manager-recommendations-panel";
 import { TasksPanel } from "@/features/tasks/components/tasks-panel";
 import { RankingPanel } from "@/features/ranking/components/ranking-panel";
 import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
@@ -73,17 +72,6 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
         currencyCode={snapshot.factory.currencyCode}
         locale={snapshot.locale}
         tasks={snapshot.tasks}
-      />
-    ),
-  },
-  management: {
-    layout: "dock",
-    size: "compact",
-    titleKey: "management",
-    render: ({ snapshot }) => (
-      <ManagerRecommendationsPanel
-        locale={snapshot.locale}
-        recommendations={snapshot.managerRecommendations}
       />
     ),
   },

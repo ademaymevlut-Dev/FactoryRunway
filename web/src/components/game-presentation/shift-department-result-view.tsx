@@ -88,11 +88,11 @@ export function ShiftDepartmentResultView({
 }: ShiftDepartmentResultViewProps) {
   return (
     <article
-      className="min-w-0 rounded-lg border border-white/10 bg-card/80 p-2 shadow-lg backdrop-blur xl:p-3"
+      className="min-w-0 rounded-lg border border-white/10 bg-card/80 p-2 shadow-lg backdrop-blur min-[1440px]:p-3"
       data-shift-department-result-view
     >
-      <div className="mb-2 flex items-center justify-between gap-2 xl:mb-3">
-        <h3 className="truncate text-xs font-semibold text-white xl:text-sm">
+      <div className="mb-2 flex items-center justify-between gap-2 min-[1440px]:mb-3">
+        <h3 className="truncate text-xs font-semibold text-white min-[1440px]:text-sm">
           {departmentLabel}
         </h3>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -107,14 +107,14 @@ export function ShiftDepartmentResultView({
               {statusLabel}
             </Badge>
           ) : null}
-          <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground xl:text-[10px]">
+          <span className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground min-[1440px]:text-[10px]">
             {activeLineLabel}
           </span>
         </div>
       </div>
 
-      <div className="grid gap-2 lg:grid-cols-[1fr_auto] xl:gap-3">
-        <div className="grid grid-cols-3 gap-2 xl:gap-3">
+      <div className="grid gap-2 sm:grid-cols-[1fr_auto] min-[1440px]:gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,4.5rem),1fr))] gap-2 min-[1440px]:gap-3">
           {metrics.map((metric) => (
             <Metric
               isFinal={isFinal}
@@ -130,12 +130,12 @@ export function ShiftDepartmentResultView({
         </div>
         <div
           aria-label={utilizationAriaLabel}
-          className="flex min-w-10 items-center justify-end xl:min-w-[56px]"
+          className="flex min-w-10 items-center justify-end min-[1440px]:min-w-[56px]"
           data-utilization-percent={utilizationPercent}
         >
           <span
             className={cn(
-              "flex items-baseline font-mono text-base font-semibold tabular-nums xl:text-lg",
+              "flex items-baseline font-mono text-base font-semibold tabular-nums min-[1440px]:text-lg",
               utilizationToneClasses[utilizationTone],
             )}
           >
@@ -154,11 +154,11 @@ export function ShiftDepartmentResultView({
         <div
           aria-label={activeProduct.ariaLabel}
           aria-live="polite"
-          className="mt-2 border-t border-white/8 pt-1.5 xl:mt-3 xl:pt-2"
+          className="mt-2 border-t border-white/8 pt-1.5 min-[1440px]:mt-3 min-[1440px]:pt-2"
           data-active-product-key={activeProduct.key}
           style={{ opacity: activeProduct.opacity }}
         >
-          <div className="flex min-h-12 items-center gap-2 rounded-md bg-background/35 px-1.5 py-1.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-100 xl:min-h-[72px] xl:gap-3 xl:px-2 xl:py-2">
+          <div className="flex min-h-12 items-center gap-2 rounded-md bg-background/35 px-1.5 py-1.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:duration-100 min-[1440px]:min-h-[72px] min-[1440px]:gap-3 min-[1440px]:px-2 min-[1440px]:py-2">
             <ProductThumb
               imageUrl={activeProduct.imageUrl}
               name={activeProduct.name}
@@ -166,10 +166,10 @@ export function ShiftDepartmentResultView({
               size="lg"
             />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-white xl:text-sm">
+              <p className="truncate text-xs font-semibold text-white min-[1440px]:text-sm">
                 {activeProduct.name}
               </p>
-              <p className="mt-0.5 truncate text-[8px] text-muted-foreground xl:mt-1 xl:text-[10px]">
+              <p className="mt-0.5 truncate text-[8px] text-muted-foreground min-[1440px]:mt-1 min-[1440px]:text-[10px]">
                 {activeProduct.orderLabel}
               </p>
             </div>
@@ -178,14 +178,14 @@ export function ShiftDepartmentResultView({
       ) : null}
 
       {isFinal && products.length > 0 ? (
-        <div className="mt-2 border-t border-white/8 pt-1.5 xl:mt-3 xl:pt-2">
-          <p className="mb-1.5 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground xl:mb-2 xl:text-[9px]">
+        <div className="mt-2 border-t border-white/8 pt-1.5 min-[1440px]:mt-3 min-[1440px]:pt-2">
+          <p className="mb-1.5 text-[8px] font-semibold uppercase tracking-wider text-muted-foreground min-[1440px]:mb-2 min-[1440px]:text-[9px]">
             {processedProductsLabel}
           </p>
-          <div className="space-y-1 xl:space-y-1.5">
+          <div className="space-y-1 min-[1440px]:space-y-1.5">
             {products.map((product) => (
               <div
-                className="flex items-center justify-between gap-1.5 rounded-md bg-background/45 px-1.5 py-1 text-[10px] xl:gap-2 xl:px-2 xl:py-1.5 xl:text-xs"
+                className="flex items-center justify-between gap-1.5 rounded-md bg-background/45 px-1.5 py-1 text-[10px] min-[1440px]:gap-2 min-[1440px]:px-2 min-[1440px]:py-1.5 min-[1440px]:text-xs"
                 key={product.key}
               >
                 <ProductThumb
@@ -197,7 +197,7 @@ export function ShiftDepartmentResultView({
                   <p className="truncate font-medium text-white">
                     {product.name}
                   </p>
-                  <p className="truncate text-[8px] text-muted-foreground xl:text-[10px]">
+                  <p className="truncate text-[8px] text-muted-foreground min-[1440px]:text-[10px]">
                     {product.orderLabel}
                   </p>
                 </div>
@@ -241,7 +241,7 @@ function Metric({
           "font-semibold uppercase text-muted-foreground",
           compact
             ? "whitespace-nowrap text-[7px] tracking-[0.04em]"
-            : "truncate text-[7px] tracking-wider xl:text-[8px]",
+            : "truncate text-[7px] tracking-wider min-[1440px]:text-[8px]",
         )}
       >
         {label}
@@ -249,7 +249,9 @@ function Metric({
       <CountUp
         className={cn(
           "block truncate font-mono font-semibold tabular-nums text-emerald-300",
-          compact ? "text-xs xl:text-sm" : "text-sm xl:text-base",
+          compact
+            ? "text-xs min-[1440px]:text-sm"
+            : "text-sm min-[1440px]:text-base",
         )}
         immediate={isFinal}
         locale={locale}
@@ -273,13 +275,16 @@ function ProductThumb({
 }) {
   const dimensions =
     size === "lg"
-      ? "size-10 rounded-md xl:size-16 xl:rounded-lg"
-      : "size-7 rounded-md xl:size-9";
-  const imagePadding = size === "lg" ? "p-1 xl:p-1.5" : "p-0.5 xl:p-1";
+      ? "size-10 rounded-md min-[1440px]:size-16 min-[1440px]:rounded-lg"
+      : "size-7 rounded-md min-[1440px]:size-9";
+  const imagePadding =
+    size === "lg"
+      ? "p-1 min-[1440px]:p-1.5"
+      : "p-0.5 min-[1440px]:p-1";
   const imageSizes =
     size === "lg"
-      ? "(min-width: 1280px) 64px, 40px"
-      : "(min-width: 1280px) 36px, 28px";
+      ? "(min-width: 1440px) 64px, 40px"
+      : "(min-width: 1440px) 36px, 28px";
 
   return (
     <div
@@ -300,8 +305,8 @@ function ProductThumb({
             aria-hidden="true"
             className={
               size === "lg"
-                ? "size-4 xl:size-[22px]"
-                : "size-3.5 xl:size-4"
+                ? "size-4 min-[1440px]:size-[22px]"
+                : "size-3.5 min-[1440px]:size-4"
             }
           />
         </span>

@@ -17,6 +17,7 @@ test("Ranking üst header üzerinden açılır ve Mesajlar şimdilik pasiftir", 
   assert.match(header, /GameLocaleSwitcher/);
   assert.match(header, /disabled/);
   assert.doesNotMatch(leftDock, /key: "ranking"/);
+  assert.doesNotMatch(leftDock, /key: "management"/);
 });
 
 test("Ranking paneli kompakt başlık ve liste düzenini kullanır", () => {

@@ -15,7 +15,6 @@ export const gameCopy = {
       navLabel: "Hızlı oyun menüsü",
       items: {
         finance: { label: "Finans", tooltip: "Finans" },
-        management: { label: "Yönetim", tooltip: "Yönetim tavsiyeleri" },
         orders: { label: "Sipariş", tooltip: "Yeni Siparişler" },
         reports: { label: "Reports", tooltip: "Raporlar" },
         tasks: { label: "Görevler", tooltip: "Görevler" },
@@ -68,7 +67,6 @@ export const gameCopy = {
         finance: "Finans",
         investment: "Üretim Hattı Yatırımı",
         lineDetail: "Üretim Hattı Geliştirme",
-        management: "Yönetim",
         orders: "Siparişler",
         production: "Üretim",
         ranking: "",
@@ -111,7 +109,6 @@ export const gameCopy = {
     snapshot: {
       badges: {
         activeTask: "Aktif görev",
-        managementNote: "Yönetim notu",
         materialMissing: "Malzeme uyarısı",
         newOrder: "Yeni sipariş",
         pendingTask: "Bekleyen iş",
@@ -216,7 +213,6 @@ export const gameCopy = {
       navLabel: "Quick game menu",
       items: {
         finance: { label: "Finance", tooltip: "Finance" },
-        management: { label: "Manager", tooltip: "Manager recommendations" },
         orders: { label: "Orders", tooltip: "New Orders" },
         reports: { label: "Reports", tooltip: "Reports" },
         tasks: { label: "Tasks", tooltip: "Tasks" },
@@ -269,7 +265,6 @@ export const gameCopy = {
         finance: "Finance",
         investment: "Production Line Investment",
         lineDetail: "Production Line Upgrade",
-        management: "Management",
         orders: "Orders",
         production: "Production",
         ranking: "",
@@ -312,7 +307,6 @@ export const gameCopy = {
     snapshot: {
       badges: {
         activeTask: "Active task",
-        managementNote: "Manager note",
         materialMissing: "Material warning",
         newOrder: "New order",
         pendingTask: "Pending work",
@@ -418,7 +412,7 @@ export const gameCopy = {
     leftDock: {
       navLabel: string;
       items: Record<
-        "finance" | "management" | "orders" | "reports" | "tasks",
+        "finance" | "orders" | "reports" | "tasks",
         { label: string; tooltip: string }
       >;
     };
@@ -473,7 +467,6 @@ export const gameCopy = {
     snapshot: {
       badges: Record<
         | "activeTask"
-        | "managementNote"
         | "materialMissing"
         | "newOrder"
         | "pendingTask"

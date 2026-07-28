@@ -29,6 +29,8 @@ type ShiftPlaybackLocaleCopy = {
     countLabel: (visible: number, total: number) => string;
     closeAria: string;
     closeTooltip: string;
+    openAria: string;
+    openTooltip: string;
     levelUpBadge: string;
     categories: Record<PlaybackCategory, string>;
     financeCategories: Record<
@@ -160,6 +162,8 @@ export const shiftPlaybackCopy = {
       countLabel: (visible, total) => `${visible} / ${total} olay`,
       closeAria: "Günlük olayları kapat",
       closeTooltip: "Kapat",
+      openAria: "Günlük olayları aç",
+      openTooltip: "Günlük olayları aç",
       levelUpBadge: "Seviye Atlama",
       categories: {
         FINANCE: "Finans",
@@ -317,6 +321,8 @@ export const shiftPlaybackCopy = {
       countLabel: (visible, total) => `${visible} / ${total} events`,
       closeAria: "Close daily events",
       closeTooltip: "Close",
+      openAria: "Open daily events",
+      openTooltip: "Open daily events",
       levelUpBadge: "Level Up",
       categories: {
         FINANCE: "Finance",

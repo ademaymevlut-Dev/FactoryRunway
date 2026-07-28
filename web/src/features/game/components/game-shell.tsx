@@ -3,15 +3,14 @@
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import type { GameSnapshot } from "../types";
-import { DailyEventPanel } from "./daily-event-panel";
 import { DockMenu } from "./dock-menu";
 import { FactoryMap } from "./factory-map";
 import { LeftDockMenu } from "./left-dock-menu";
 import { NotificationCenter } from "./notification-center";
 import { OverlayLayerManager } from "./overlay-layer-manager";
 import { ShiftControlBar } from "./shift-control-bar";
-import { ShiftPlaybackHud } from "./shift-playback-hud";
 import { ShiftPlaybackInteractionLock } from "./shift-playback-interaction-lock";
+import { ShiftPlaybackOverlayLayout } from "./shift-playback-overlay-layout";
 import { TopStatusBar } from "./top-status-bar";
 import { GameUiProvider } from "../store/game-ui-store";
 
@@ -31,11 +30,10 @@ export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }
           <ShiftControlBar snapshot={initialSnapshot} />
           <OverlayLayerManager snapshot={initialSnapshot} />
           <ShiftPlaybackInteractionLock locale={initialSnapshot.locale} />
-          <DailyEventPanel
+          <ShiftPlaybackOverlayLayout
             currencyCode={initialSnapshot.factory.currencyCode}
             locale={initialSnapshot.locale}
           />
-          <ShiftPlaybackHud locale={initialSnapshot.locale} />
         </main>
       </TooltipProvider>
     </GameUiProvider>

@@ -24,7 +24,6 @@ import {
 import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
 import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
 import { getFinancePeriod } from "@/features/finance/services/finance-period";
-import { buildManagerRecommendations } from "@/features/manager/services/manager-recommendation-engine";
 import { getPrisma } from "@/lib/db";
 import {
   buildFactoryLevelProgress,
@@ -740,19 +739,6 @@ export async function getGameSnapshot(input: {
     ),
     templates: investmentTemplates,
   });
-  const managerRecommendations = buildManagerRecommendations({
-    activeOrderCount,
-    activeProductionOrderCount,
-    cashBalanceCents: factory.cashBalanceCents.toString(),
-    currentDay: factory.currentDay,
-    investment,
-    lateOrderCount,
-    locale,
-    mapSections: sections,
-    productionQueues,
-    tasks,
-  });
-
   return {
     locale,
     numberLocale: numberLocale(locale),
@@ -787,13 +773,11 @@ export async function getGameSnapshot(input: {
       levelUpTransactions,
       locale,
     }),
-    managerRecommendations,
     activeShiftPlayback,
     dock: {
       badges: buildLeftDockBadges({
         availableOrderCount: orderMarket.availableCount,
         locale,
-        managerRecommendations,
         tasks,
       }),
       items: dockItems,
@@ -970,7 +954,6 @@ function buildDockItems({
 function buildLeftDockBadges(input: {
   availableOrderCount: number;
   locale: SupportedLocale;
-  managerRecommendations: GameSnapshot["managerRecommendations"];
   tasks: GameSnapshot["tasks"];
 }): GameSnapshot["dock"]["badges"] {
   const badges: GameSnapshot["dock"]["badges"] = {};
@@ -999,46 +982,7 @@ function buildLeftDockBadges(input: {
     };
   }
 
-  const managerBadge = buildManagerRecommendationBadge(
-    input.managerRecommendations,
-    input.locale,
-  );
-  if (managerBadge) {
-    badges.management = managerBadge;
-  }
-
   return badges;
-}
-
-function buildManagerRecommendationBadge(
-  recommendations: GameSnapshot["managerRecommendations"],
-  locale: SupportedLocale,
-): GameDockBadge | null {
-  if (recommendations.length === 0) return null;
-
-  return {
-    count: recommendations.length,
-    label: gameCopy[locale].snapshot.badges.managementNote,
-    tone: getManagerRecommendationBadgeTone(recommendations),
-  };
-}
-
-function getManagerRecommendationBadgeTone(
-  recommendations: GameSnapshot["managerRecommendations"],
-): GameDockBadge["tone"] {
-  if (recommendations.some((item) => item.severity === "CRITICAL")) {
-    return "danger";
-  }
-
-  if (recommendations.some((item) => item.severity === "WARNING")) {
-    return "warning";
-  }
-
-  if (recommendations.some((item) => item.severity === "OPPORTUNITY")) {
-    return "success";
-  }
-
-  return "info";
 }
 
 function buildRouteCountsByDepartmentId(routeProgressCounts: RouteProgressCountRecord[]) {
