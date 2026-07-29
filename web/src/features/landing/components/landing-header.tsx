@@ -18,7 +18,7 @@ export function LandingHeader({ content }: LandingHeaderProps) {
         <Link
           aria-label="Factory Runway"
           className="factory-brand-lockup shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          href={content.locale === "tr" ? "/" : "/en"}
+          href={content.locale === "tr" ? "/tr" : "/"}
         >
           <Image
             alt=""

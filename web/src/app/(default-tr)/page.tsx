@@ -5,10 +5,10 @@ import { landingContent } from "@/features/landing/content/landing-content";
 import { createLandingMetadata } from "@/features/landing/metadata";
 
 export const metadata: Metadata = createLandingMetadata(
-  landingContent.tr,
+  landingContent.en,
   "/",
 );
 
-export default function TurkishLandingPage() {
-  return <LandingPage content={landingContent.tr} />;
+export default function EnglishIndexLandingPage() {
+  return <LandingPage content={landingContent.en} />;
 }

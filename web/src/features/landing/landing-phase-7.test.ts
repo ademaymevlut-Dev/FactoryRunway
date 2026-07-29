@@ -154,15 +154,20 @@ test("TR/EN sayı ve EUR formatları locale sözleşmesini korur", () => {
 });
 
 test("route group'lar gerçek document lang üretir ve ortak LandingPage kullanır", () => {
-  const turkishLayout = read("../../app/(default-tr)/layout.tsx");
+  const defaultLayout = read("../../app/(default-tr)/layout.tsx");
   const englishLayout = read("../../app/(landing-en)/layout.tsx");
-  const turkishPage = read("../../app/(default-tr)/page.tsx");
+  const turkishLayout = read("../../app/(landing-tr)/layout.tsx");
+  const indexPage = read("../../app/(default-tr)/page.tsx");
   const englishPage = read("../../app/(landing-en)/en/page.tsx");
+  const turkishPage = read("../../app/(landing-tr)/tr/page.tsx");
 
+  assert.match(defaultLayout, /<html[^>]+lang="en"/);
   assert.match(turkishLayout, /<html[^>]+lang="tr"/);
   assert.match(englishLayout, /<html[^>]+lang="en"/);
+  assert.match(indexPage, /<LandingPage content=\{landingContent\.en\} \/>/);
   assert.match(turkishPage, /<LandingPage content=\{landingContent\.tr\} \/>/);
   assert.match(englishPage, /<LandingPage content=\{landingContent\.en\} \/>/);
+  assert.match(indexPage, /createLandingMetadata\([\s\S]*landingContent\.en/);
   assert.match(turkishPage, /createLandingMetadata\([\s\S]*landingContent\.tr/);
   assert.match(englishPage, /createLandingMetadata\([\s\S]*landingContent\.en/);
 });
@@ -215,7 +220,7 @@ test("language switcher gerçek Next Link ve karşı locale route'unu kullanır"
   const source = read("./components/landing-language-switcher.tsx");
 
   assert.match(source, /import Link from "next\/link"/);
-  assert.match(source, /content\.locale === "tr" \? "\/en" : "\/"/);
+  assert.match(source, /content\.locale === "tr" \? "\/" : "\/tr"/);
   assert.match(source, /hrefLang=\{hrefLang\}/);
   assert.doesNotMatch(source, /localStorage|useRouter|router\.push/);
 });
@@ -236,9 +241,9 @@ test("metadata locale, canonical ve alternates değerlerini güvenilir site URL 
   process.env.NEXT_PUBLIC_SITE_URL = "https://example.com";
 
   try {
-    const trMetadata = createLandingMetadata(landingContent.tr, "/");
-    const enMetadata = createLandingMetadata(landingContent.en, "/en");
-    const trLanguages = trMetadata.alternates?.languages as
+    const enMetadata = createLandingMetadata(landingContent.en, "/");
+    const trMetadata = createLandingMetadata(landingContent.tr, "/tr");
+    const enLanguages = enMetadata.alternates?.languages as
       | Record<string, URL>
       | undefined;
     const enOpenGraph = enMetadata.openGraph as
@@ -248,18 +253,18 @@ test("metadata locale, canonical ve alternates değerlerini güvenilir site URL 
     assert.equal(trMetadata.title, landingContent.tr.metadata.title);
     assert.equal(enMetadata.title, landingContent.en.metadata.title);
     assert.equal(
-      (trMetadata.alternates?.canonical as URL).href,
+      (enMetadata.alternates?.canonical as URL).href,
       "https://example.com/",
     );
     assert.equal(
-      (enMetadata.alternates?.canonical as URL).href,
-      "https://example.com/en",
+      (trMetadata.alternates?.canonical as URL).href,
+      "https://example.com/tr",
     );
-    assert.equal(trLanguages?.tr.href, "https://example.com/");
-    assert.equal(trLanguages?.en.href, "https://example.com/en");
-    assert.equal(trLanguages?.["x-default"].href, "https://example.com/");
+    assert.equal(enLanguages?.en.href, "https://example.com/");
+    assert.equal(enLanguages?.tr.href, "https://example.com/tr");
+    assert.equal(enLanguages?.["x-default"].href, "https://example.com/");
     assert.equal(enOpenGraph?.locale, "en_US");
-    assert.equal(enOpenGraph?.url?.href, "https://example.com/en");
+    assert.equal(enOpenGraph?.url?.href, "https://example.com/");
   } finally {
     if (previousSiteUrl === undefined) {
       delete process.env.NEXT_PUBLIC_SITE_URL;

@@ -1,6 +1,8 @@
 import { getPrisma } from "@/lib/db";
 import { normalizeLocale, type SupportedLocale } from "./locales";
 
+const defaultPlayerLocale: SupportedLocale = "en";
+
 export async function getPlayerPreferredLocale(
   userId: string,
 ): Promise<SupportedLocale> {
@@ -9,5 +11,7 @@ export async function getPlayerPreferredLocale(
     select: { preferredLocale: true },
   });
 
-  return normalizeLocale(playerProfile?.preferredLocale);
+  return playerProfile?.preferredLocale
+    ? normalizeLocale(playerProfile.preferredLocale)
+    : defaultPlayerLocale;
 }

@@ -8,21 +8,19 @@ const factoryRunwayIcon = {
 };
 
 export const metadata: Metadata = {
-  description: "Factory Runway factory management simulation.",
   icons: {
     icon: [factoryRunwayIcon],
     shortcut: [factoryRunwayIcon],
   },
-  title: "Factory Runway",
 };
 
-export default function DefaultRootLayout({
+export default function TurkishLandingRootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html className="h-full font-sans antialiased" lang="en">
+    <html className="h-full font-sans antialiased" lang="tr">
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );

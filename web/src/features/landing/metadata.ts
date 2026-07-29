@@ -40,7 +40,7 @@ export function resolveLandingSiteUrl(
 
 export function createLandingMetadata(
   content: LandingContent,
-  canonicalPath: "/" | "/en",
+  canonicalPath: "/" | "/tr",
 ): Metadata {
   const siteUrl = resolveLandingSiteUrl();
   const canonicalUrl = siteUrl
@@ -48,8 +48,8 @@ export function createLandingMetadata(
     : undefined;
   const languageAlternates = siteUrl
     ? {
-        en: new URL("/en", siteUrl),
-        tr: new URL("/", siteUrl),
+        en: new URL("/", siteUrl),
+        tr: new URL("/tr", siteUrl),
         "x-default": new URL("/", siteUrl),
       }
     : undefined;

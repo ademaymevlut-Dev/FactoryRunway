@@ -63,7 +63,7 @@ function readStateCookie(value: string | undefined):
   if (!state || !nonce) return null;
 
   return {
-    locale: normalizeLocale(locale),
+    locale: normalizeLocale(locale ?? "en"),
     nonce,
     state,
   };

@@ -28,7 +28,7 @@ function readString(formData: FormData, key: CreateUserField) {
 }
 
 function readRequestedLocale(formData: FormData) {
-  return normalizeLocale(formData.get("locale"));
+  return normalizeLocale(formData.get("locale") ?? "en");
 }
 
 function validateBaseUser(formData: FormData) {

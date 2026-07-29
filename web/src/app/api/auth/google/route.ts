@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
 
   const state = randomBytes(32).toString("base64url");
   const nonce = randomBytes(32).toString("base64url");
-  const locale = normalizeLocale(request.nextUrl.searchParams.get("locale"));
+  const locale = normalizeLocale(
+    request.nextUrl.searchParams.get("locale") ?? "en",
+  );
   const redirectUri = resolveGoogleRedirectUri(request.url);
   const cookieStore = await cookies();
 

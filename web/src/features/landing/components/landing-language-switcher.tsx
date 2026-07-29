@@ -12,7 +12,7 @@ export function LandingLanguageSwitcher({
   content,
 }: LandingLanguageSwitcherProps) {
   const currentLanguage = content.locale === "tr" ? "TR" : "EN";
-  const href = content.locale === "tr" ? "/en" : "/";
+  const href = content.locale === "tr" ? "/" : "/tr";
   const hrefLang = content.locale === "tr" ? "en" : "tr";
 
   return (
