@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   CalendarDays,
   ClipboardList,
+  Coins,
   Gauge,
   LogOut,
   Mail,
@@ -45,11 +46,12 @@ const metricIcons: Record<string, LucideIcon> = {
   late: AlertTriangle,
   level: Sparkles,
   orders: ClipboardList,
+  rt: Coins,
   staff: UserRound,
   xp: Zap,
 };
 
-const compactHeaderMetricIds = new Set(["cash", "xp"]);
+const compactHeaderMetricIds = new Set(["cash", "xp", "rt"]);
 
 export function TopStatusBar({
   position = "absolute",
@@ -99,7 +101,7 @@ export function TopStatusBar({
           </div>
         </div>
 
-        <div className="grid min-w-0 flex-1 grid-cols-2 divide-x divide-card xl:grid-cols-6">
+        <div className="grid min-w-0 flex-1 grid-cols-3 divide-x divide-card xl:grid-cols-7">
           {displayedSnapshot.metrics.map((metric) => {
             const Icon = metricIcons[metric.id] ?? Gauge;
             const metricVisibilityClassName = compactHeaderMetricIds.has(metric.id)
@@ -123,6 +125,15 @@ export function TopStatusBar({
               metricNode = (
                 <AnimatedXpMetric
                   currentXp={displayedSnapshot.factory.currentXp}
+                  icon={Icon}
+                  label={metric.label}
+                  numberLocale={displayedSnapshot.numberLocale}
+                />
+              );
+            } else if (metric.id === "rt") {
+              metricNode = (
+                <AnimatedRunwayTokenMetric
+                  balance={displayedSnapshot.factory.runwayTokenBalance}
                   icon={Icon}
                   label={metric.label}
                   numberLocale={displayedSnapshot.numberLocale}
@@ -354,6 +365,54 @@ function AnimatedXpMetric({
   );
 }
 
+function AnimatedRunwayTokenMetric({
+  balance,
+  icon,
+  label,
+  numberLocale,
+}: {
+  balance: number;
+  icon: LucideIcon;
+  label: string;
+  numberLocale: GameSnapshot["numberLocale"];
+}) {
+  const transition = useNumericTransition(balance, VALUE_ANIMATION_MS);
+  const isPositive = (transition.change?.delta ?? 0) > 0;
+  const isNegative = (transition.change?.delta ?? 0) < 0;
+
+  return (
+    <MetricFrame
+      className={isPositive ? styles.tokenPositive : undefined}
+      icon={icon}
+      iconClassName="text-amber-300 drop-shadow-[0_0_8px_rgba(251,191,36,0.55)]"
+      label={label}
+    >
+      <div className="flex min-w-0 items-center gap-2">
+        <strong
+          className={`block truncate font-mono text-[10px] font-semibold leading-tight tabular-nums text-amber-100 sm:text-[11px] xl:text-xs ${
+            isPositive
+              ? styles.valueToken
+              : isNegative
+                ? styles.valueNegative
+                : ""
+          }`}
+        >
+          {formatNumber(transition.displayValue, numberLocale)} RT
+        </strong>
+        {transition.change ? (
+          <span
+            className={`hidden xl:inline-flex ${styles.deltaBadge} ${
+              isPositive ? styles.deltaToken : styles.deltaNegative
+            }`}
+          >
+            {formatSignedNumber(transition.change.delta, numberLocale)} RT
+          </span>
+        ) : null}
+      </div>
+    </MetricFrame>
+  );
+}
+
 function AnimatedLevelMetric({
   currentLevel,
   icon,
@@ -443,11 +502,13 @@ function AnimatedMetric({
 function MetricFrame({
   children,
   className,
+  iconClassName,
   icon: Icon,
   label,
 }: {
   children: ReactNode;
   className?: string;
+  iconClassName?: string;
   icon: LucideIcon;
   label: string;
 }) {
@@ -457,7 +518,7 @@ function MetricFrame({
         className ?? ""
       }`}
     >
-      <Icon className="size-3.5 shrink-0 text-primary xl:size-4" />
+      <Icon className={cn("size-3.5 shrink-0 text-primary xl:size-4", iconClassName)} />
       <div className="min-w-0">
         <span className="block truncate text-[8px] font-semibold uppercase tracking-widest text-muted-foreground xl:text-[10px]">
           {label}

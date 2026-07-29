@@ -856,6 +856,7 @@ export async function getGameSnapshot(input: {
       currentFinancePeriod: factory.currentFinancePeriod,
       currentLevel: factory.currentLevel,
       currentXp: factory.currentXp,
+      runwayTokenBalance: tokenWallet?.balance ?? 0,
       levelProgress,
       operatingStageName,
     },
@@ -867,6 +868,7 @@ export async function getGameSnapshot(input: {
         availableBalanceCents: availableBalance.availableBalanceCents,
         levelProgress,
         operatingStageName,
+        runwayTokenBalance: tokenWallet?.balance ?? 0,
       },
       lateOrderCount,
       locale,
@@ -1750,6 +1752,7 @@ function buildMetrics({
     currentXp: number;
     levelProgress: GameSnapshot["factory"]["levelProgress"];
     operatingStageName: string;
+    runwayTokenBalance: number;
   };
   lateOrderCount: number;
   locale: SupportedLocale;
@@ -1782,6 +1785,13 @@ function buildMetrics({
           ? copy.maxLevel
           : copy.xpForNextLevel(factory.levelProgress.nextLevel, xpRemainingLabel),
       tone: "violet",
+    },
+    {
+      id: "rt",
+      label: copy.runwayToken,
+      value: `${formatNumber(factory.runwayTokenBalance, locale)} RT`,
+      subLabel: "Runway Token",
+      tone: "amber",
     },
     {
       id: "day",

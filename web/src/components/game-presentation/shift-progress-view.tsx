@@ -44,14 +44,14 @@ export function ShiftProgressView({
           </strong>
         </div>
         <span
-          className="font-mono text-[10px] tabular-nums text-muted-foreground min-[1440px]:text-xs"
+          className="font-mono text-[10px] tabular-nums text-white min-[1440px]:text-xs"
           data-shift-progress-label
         >
           {progressLabel}
         </span>
       </div>
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 min-[1440px]:gap-3">
-        <span className="font-mono text-[10px] text-muted-foreground min-[1440px]:text-xs">
+        <span className="font-mono text-[10px] text-white min-[1440px]:text-xs">
           {startLabel}
         </span>
         <Progress
@@ -59,7 +59,7 @@ export function ShiftProgressView({
           className="h-1.5 bg-white/10 [&_[data-slot=progress-indicator]]:bg-emerald-400 [&_[data-slot=progress-indicator]]:transition-none min-[1440px]:h-2"
           value={progress * 100}
         />
-        <span className="font-mono text-[10px] text-muted-foreground min-[1440px]:text-xs">
+        <span className="font-mono text-[10px] text-white min-[1440px]:text-xs">
           {endLabel}
         </span>
       </div>

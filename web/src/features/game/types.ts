@@ -274,6 +274,7 @@ export type GameSnapshot = {
     currentFinancePeriod: number;
     currentLevel: number;
     currentXp: number;
+    runwayTokenBalance: number;
     levelProgress: {
       currentLevelRequiredXp: number;
       nextLevel: number | null;

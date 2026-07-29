@@ -147,6 +147,7 @@ export const gameCopy = {
         productionArea: "Üretim alanı",
         productionOrders: (count: number) => `${count} üretim emri`,
         risk: "Risk altında",
+        runwayToken: "Runway Token",
         xp: "Tecrübe",
         xpForNextLevel: (level: number, xp: string) => `Lv. ${level} için ${xp} XP`,
         xpRemaining: (xp: string) => `${xp} XP kaldı`,
@@ -352,6 +353,7 @@ export const gameCopy = {
         productionArea: "Production area",
         productionOrders: (count: number) => `${count} production orders`,
         risk: "At risk",
+        runwayToken: "Runway Token",
         xp: "Experience",
         xpForNextLevel: (level: number, xp: string) => `${xp} XP for Lv. ${level}`,
         xpRemaining: (xp: string) => `${xp} XP left`,
@@ -517,6 +519,7 @@ export const gameCopy = {
         productionArea: string;
         productionOrders: (count: number) => string;
         risk: string;
+        runwayToken: string;
         xp: string;
         xpForNextLevel: (level: number, xp: string) => string;
         xpRemaining: (xp: string) => string;
