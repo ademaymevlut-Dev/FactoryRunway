@@ -25,6 +25,8 @@ import { DEPARTMENT_GROUP_SEMANTIC_KEYS } from "@/features/tasks/department-grou
 import { processShippingAndReceivables } from "@/features/warehouse/services/shipping-service";
 import { grantFactoryXp } from "./factory-progression";
 import {
+  getOutsourcePaymentStates,
+  mergeFinancialTriggerResults,
   processOutsourceCompletionPayments,
   processPeriodicFinancialTriggers,
 } from "./financial-triggers";
@@ -43,6 +45,10 @@ import {
   calculateEffectiveLinePointCapacity,
   getLineStaffCoverageBps,
 } from "./production-capacity";
+import {
+  getFactoryPayrollProductionImpact,
+  toPayrollProductionImpactMetadata,
+} from "./payroll-production-impact";
 
 export { getLineStaffCoverageBps } from "./production-capacity";
 
@@ -90,6 +96,7 @@ type ProductionLineForSimulation = {
   conditionBps: number;
   eventPenaltyBps: number;
   assignedStaffQuantity: number;
+  payrollCapacityBps: number;
   requiredStaffQuantity: number;
   productionLineTemplate: {
     dailyPointCapacity: number;
@@ -247,6 +254,14 @@ export async function simulateFactoryDay(input: {
 
   const simulatedGameDay = factory.currentDay;
   const nextGameDay = simulatedGameDay + 1;
+  const payrollProductionImpact =
+    await getFactoryPayrollProductionImpact({
+      factoryId: factory.id,
+      gameDay: simulatedGameDay,
+      tx: prisma,
+    });
+  const payrollProductionImpactMetadata =
+    toPayrollProductionImpactMetadata(payrollProductionImpact);
   const idempotencyKey = buildShiftIdempotencyKey(
     factory.id,
     simulatedGameDay,
@@ -367,6 +382,8 @@ export async function simulateFactoryDay(input: {
     eventPenaltyBps: 10_000,
     id: line.id,
     lineNumber: line.lineNumber,
+    payrollCapacityBps:
+      payrollProductionImpact.capacityMultiplierBps,
     productionLineTemplate: {
       dailyPointCapacity: line.productionLineTemplate.dailyPointCapacity,
     },
@@ -473,13 +490,30 @@ export async function simulateFactoryDay(input: {
     prisma,
     queueEnteredByDepartmentId,
   });
-  const outsourceCompletionResult = await completeReadyOutsourceJobs({
+  const initialOutsourceCompletionResult = await completeReadyOutsourceJobs({
     activeDepartmentIds,
     factoryDay: simulatedGameDay,
     factoryId: factory.id,
     prisma,
     queueEnteredByDepartmentId,
   });
+  const shippingResult = await processShippingAndReceivables({
+    factoryDay: simulatedGameDay,
+    factoryId: factory.id,
+    prisma,
+  });
+  const postReceiptOutsourceCompletionResult =
+    await completeReadyOutsourceJobs({
+      activeDepartmentIds,
+      factoryDay: simulatedGameDay,
+      factoryId: factory.id,
+      prisma,
+      queueEnteredByDepartmentId,
+    });
+  const outsourceCompletionResult = mergeFinancialTriggerResults(
+    initialOutsourceCompletionResult,
+    postReceiptOutsourceCompletionResult,
+  );
   const endingQueueByDepartmentId = await getFactoryQueueSnapshot({
     factoryId,
     prisma,
@@ -504,11 +538,6 @@ export async function simulateFactoryDay(input: {
     tx: prisma,
   });
 
-  const shippingResult = await processShippingAndReceivables({
-    factoryDay: simulatedGameDay,
-    factoryId: factory.id,
-    prisma,
-  });
   const shippedOrderTaskFacts = await getShippedOrderTaskFacts({
     factoryId: factory.id,
     orderIds: shippingResult.shippedOrderIds,
@@ -721,6 +750,7 @@ export async function simulateFactoryDay(input: {
       partialLeasingDueCount: leasingPaymentResult.partialDueIds.length,
       partialPeriodicFinanceDueCount:
         periodicFinanceResult.partialDueIds.length,
+      payrollProductionImpact: payrollProductionImpactMetadata,
       producedQuantity: day.totalProducedQuantity,
       productionOrderIds,
       orderXpAwarded: orderXpRewardResult.totalAwardedXp,
@@ -752,6 +782,7 @@ export async function simulateFactoryDay(input: {
       blockedLineCount: day.blockedLineCount,
       completedAt: playbackStartedAt,
       metadata: {
+        payrollProductionImpact: payrollProductionImpactMetadata,
         productionOrderIds,
         source: "main-factory-day",
       },
@@ -1058,6 +1089,7 @@ function buildShiftLineResults({
     lineNumber: result.line.lineNumber,
     lineSortOrder: result.line.sortOrder,
     metadata: {
+      payrollCapacityBps: result.line.payrollCapacityBps,
       source: "main-factory-day",
     },
     plannedPointCapacity: result.plannedPointCapacity,
@@ -1343,12 +1375,16 @@ async function completeReadyOutsourceJobs({
     where: {
       factoryId,
       readyDay: { lte: factoryDay },
-      status: OutsourceJobStatus.IN_PROGRESS,
+      status: {
+        in: [OutsourceJobStatus.IN_PROGRESS, OutsourceJobStatus.DELAYED],
+      },
     },
     orderBy: [{ readyDay: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
       quantity: true,
+      status: true,
+      totalCostCents: true,
       productionOrderRouteProgress: {
         select: {
           canOutsource: true,
@@ -1390,6 +1426,38 @@ async function completeReadyOutsourceJobs({
       },
     },
   });
+  const paymentResult = await processOutsourceCompletionPayments({
+    factoryDay,
+    factoryId,
+    jobIds: dueJobs.map((job) => job.id),
+    tx: prisma,
+  });
+  const paymentStates = await getOutsourcePaymentStates({
+    factoryId,
+    jobs: dueJobs,
+    tx: prisma,
+  });
+  const paidJobs = dueJobs.filter(
+    (job) => paymentStates.get(job.id)?.isPaid === true,
+  );
+  const newlyBlockedJobIds = dueJobs
+    .filter(
+      (job) =>
+        job.status === OutsourceJobStatus.IN_PROGRESS &&
+        paymentStates.get(job.id)?.isPaid !== true,
+    )
+    .map((job) => job.id);
+
+  if (newlyBlockedJobIds.length > 0) {
+    await prisma.productionOutsourceJob.updateMany({
+      where: {
+        id: { in: newlyBlockedJobIds },
+        status: OutsourceJobStatus.IN_PROGRESS,
+      },
+      data: { status: OutsourceJobStatus.DELAYED },
+    });
+  }
+
   const jobsByRouteProgressId = new Map<
     string,
     {
@@ -1399,7 +1467,7 @@ async function completeReadyOutsourceJobs({
     }
   >();
 
-  for (const job of dueJobs) {
+  for (const job of paidJobs) {
     const routeProgress = job.productionOrderRouteProgress;
     const current = jobsByRouteProgressId.get(routeProgress.id);
 
@@ -1438,7 +1506,12 @@ async function completeReadyOutsourceJobs({
       },
     });
     await prisma.productionOutsourceJob.updateMany({
-      where: { id: { in: group.jobIds }, status: OutsourceJobStatus.IN_PROGRESS },
+      where: {
+        id: { in: group.jobIds },
+        status: {
+          in: [OutsourceJobStatus.IN_PROGRESS, OutsourceJobStatus.DELAYED],
+        },
+      },
       data: {
         actualReadyDay: factoryDay,
         status: OutsourceJobStatus.COMPLETED,
@@ -1536,12 +1609,7 @@ async function completeReadyOutsourceJobs({
 
   void completedProductionOrderIds;
 
-  return processOutsourceCompletionPayments({
-    factoryDay,
-    factoryId,
-    jobIds: completedJobIds,
-    tx: prisma,
-  });
+  return paymentResult;
 }
 
 async function getFactoryQueueSnapshot({
@@ -1854,6 +1922,7 @@ function getEffectivePointCapacity(line: ProductionLineForSimulation) {
     conditionBps: line.conditionBps,
     dailyPointCapacity: line.productionLineTemplate.dailyPointCapacity,
     eventPenaltyBps: line.eventPenaltyBps,
+    payrollCapacityBps: line.payrollCapacityBps,
     staffCoverageBps: getLineStaffCoverageBps(line),
   });
 }

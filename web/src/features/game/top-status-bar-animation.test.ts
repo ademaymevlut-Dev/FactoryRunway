@@ -18,6 +18,25 @@ test("üst HUD nakitten sonra XP metriğini üretir", () => {
   assert.match(snapshot, /value: `\$\{currentXpLabel\} XP`/);
 });
 
+test("üst HUD açık borçları düşen kullanılabilir bakiyeyi gösterir", () => {
+  const snapshot = readSource("./services/game-snapshot.ts");
+  const statusBar = readSource("./components/top-status-bar.tsx");
+
+  assert.match(snapshot, /getFactoryAvailableBalance/);
+  assert.match(
+    snapshot,
+    /availableBalanceCents:\s*availableBalance\.availableBalanceCents/,
+  );
+  assert.match(
+    statusBar,
+    /displayedSnapshot\.factory\.availableBalanceCents/,
+  );
+  assert.doesNotMatch(
+    statusBar,
+    /currentCents=\{Number\(displayedSnapshot\.factory\.cashBalanceCents\)\}/,
+  );
+});
+
 test("üst HUD gün metriğini oyun ayı ve yılı ile gösterir", () => {
   const snapshot = readSource("./services/game-snapshot.ts");
 

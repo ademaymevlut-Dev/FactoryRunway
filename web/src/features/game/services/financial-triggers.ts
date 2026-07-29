@@ -7,6 +7,10 @@ import {
   StaffAssignmentStatus,
   type Prisma,
 } from "@/generated/prisma/client";
+import {
+  createFinanceDue,
+  postFinanceTransaction,
+} from "@/features/finance/services/finance-ledger";
 
 export type FinancialTriggerClient = Prisma.TransactionClient;
 
@@ -17,6 +21,12 @@ export type FinancialTriggerResult = {
   paidTransactionIds: string[];
   partialDueIds: string[];
   overdueDueIds: string[];
+};
+
+export type OutsourcePaymentState = {
+  isPaid: boolean;
+  paidCents: bigint;
+  remainingCents: bigint;
 };
 
 export async function processPeriodicFinancialTriggers(input: {
@@ -32,7 +42,7 @@ export async function processPeriodicFinancialTriggers(input: {
       ? await processOperatingExpensePayments(input)
       : emptyResult();
 
-  return mergeResults(payroll, operatingExpenses);
+  return mergeFinancialTriggerResults(payroll, operatingExpenses);
 }
 
 export async function processOutsourceCompletionPayments(input: {
@@ -59,7 +69,7 @@ export async function processOutsourceCompletionPayments(input: {
   let result = emptyResult();
 
   for (const job of jobs) {
-    result = mergeResults(
+    result = mergeFinancialTriggerResults(
       result,
       await settleFactoryExpense({
         amountCents: job.totalCostCents,
@@ -82,6 +92,101 @@ export async function processOutsourceCompletionPayments(input: {
   }
 
   return result;
+}
+
+export async function getOutsourcePaymentStates(input: {
+  factoryId: string;
+  jobs: Array<{ id: string; totalCostCents: bigint }>;
+  tx: FinancialTriggerClient;
+}) {
+  const referenceKeyByJobId = new Map(
+    input.jobs.map((job) => [
+      job.id,
+      buildOutsourcePaymentReferenceKey(job.id),
+    ]),
+  );
+  const referenceKeys = Array.from(referenceKeyByJobId.values());
+
+  if (referenceKeys.length === 0) {
+    return new Map<string, OutsourcePaymentState>();
+  }
+
+  const [dues, transactions] = await Promise.all([
+    input.tx.factoryFinanceDue.findMany({
+      where: {
+        factoryId: input.factoryId,
+        referenceKey: { in: referenceKeys },
+      },
+      select: {
+        referenceKey: true,
+        settledAmountCents: true,
+      },
+    }),
+    input.tx.factoryFinanceTransaction.findMany({
+      where: {
+        factoryId: input.factoryId,
+        referenceKey: { in: referenceKeys },
+      },
+      select: {
+        amountCents: true,
+        referenceKey: true,
+      },
+    }),
+  ]);
+  const dueByReferenceKey = new Map(
+    dues.flatMap((due) =>
+      due.referenceKey
+        ? [[due.referenceKey, due] as const]
+        : [],
+    ),
+  );
+  const transactionByReferenceKey = new Map(
+    transactions.flatMap((transaction) =>
+      transaction.referenceKey
+        ? [[transaction.referenceKey, transaction] as const]
+        : [],
+    ),
+  );
+
+  return new Map(
+    input.jobs.map((job) => {
+      const referenceKey = referenceKeyByJobId.get(job.id);
+      const due = referenceKey
+        ? dueByReferenceKey.get(referenceKey)
+        : undefined;
+      const transaction = referenceKey
+        ? transactionByReferenceKey.get(referenceKey)
+        : undefined;
+
+      return [
+        job.id,
+        resolveOutsourcePaymentState({
+          dueSettledAmountCents: due?.settledAmountCents,
+          totalCostCents: job.totalCostCents,
+          transactionAmountCents: transaction?.amountCents,
+        }),
+      ] as const;
+    }),
+  );
+}
+
+export function resolveOutsourcePaymentState(input: {
+  dueSettledAmountCents?: bigint;
+  totalCostCents: bigint;
+  transactionAmountCents?: bigint;
+}): OutsourcePaymentState {
+  const paidCents = clampBigInt(
+    input.dueSettledAmountCents ?? input.transactionAmountCents ?? BigInt(0),
+    BigInt(0),
+    input.totalCostCents,
+  );
+  const remainingCents = input.totalCostCents - paidCents;
+
+  return {
+    isPaid: remainingCents === BigInt(0),
+    paidCents,
+    remainingCents,
+  };
 }
 
 export function buildPayrollReferenceKey(factoryId: string, gameDay: number) {
@@ -225,7 +330,7 @@ async function processOperatingExpensePayments(input: {
 
   let result = emptyResult();
 
-  result = mergeResults(
+  result = mergeFinancialTriggerResults(
     result,
     await settleFactoryExpense({
       amountCents: electricityCents,
@@ -248,7 +353,7 @@ async function processOperatingExpensePayments(input: {
       tx: input.tx,
     }),
   );
-  result = mergeResults(
+  result = mergeFinancialTriggerResults(
     result,
     await settleFactoryExpense({
       amountCents: rentCents,
@@ -270,7 +375,7 @@ async function processOperatingExpensePayments(input: {
       tx: input.tx,
     }),
   );
-  result = mergeResults(
+  result = mergeFinancialTriggerResults(
     result,
     await settleFactoryExpense({
       amountCents: mealCents,
@@ -294,7 +399,7 @@ async function processOperatingExpensePayments(input: {
       tx: input.tx,
     }),
   );
-  result = mergeResults(
+  result = mergeFinancialTriggerResults(
     result,
     await settleFactoryExpense({
       amountCents: overheadCents,
@@ -351,66 +456,56 @@ export async function settleFactoryExpense(input: {
     select: { cashBalanceCents: true, currentFinancePeriod: true },
   });
   const paidCents =
-    factory.cashBalanceCents < input.amountCents
-      ? factory.cashBalanceCents
-      : input.amountCents;
-  const balanceAfterCents = factory.cashBalanceCents - paidCents;
+    factory.cashBalanceCents <= BigInt(0)
+      ? BigInt(0)
+      : factory.cashBalanceCents < input.amountCents
+        ? factory.cashBalanceCents
+        : input.amountCents;
   const result = emptyResult();
 
   if (paidCents > BigInt(0)) {
-    await input.tx.factory.update({
-      where: { id: input.factoryId },
-      data: { cashBalanceCents: balanceAfterCents },
+    const posted = await postFinanceTransaction({
+      amountCents: paidCents,
+      category: input.category,
+      description: input.description,
+      direction: FinanceDirection.EXPENSE,
+      factoryId: input.factoryId,
+      gameDay: input.factoryDay,
+      metadata: input.metadata,
+      referenceKey: input.referenceKey,
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
+      tx: input.tx,
     });
-    const transaction = await input.tx.factoryFinanceTransaction.create({
-      data: {
-        amountCents: paidCents,
-        balanceAfterCents,
-        balanceBeforeCents: factory.cashBalanceCents,
-        category: input.category,
-        description: input.description,
-        direction: FinanceDirection.EXPENSE,
-        factoryId: input.factoryId,
-        gameDay: input.factoryDay,
-        metadata: input.metadata,
-        periodIndex: factory.currentFinancePeriod,
-        referenceKey: input.referenceKey,
-        sourceId: input.sourceId,
-        sourceType: input.sourceType,
-      },
-      select: { id: true },
-    });
-    result.paidTransactionIds.push(transaction.id);
+    result.paidTransactionIds.push(posted.transaction.id);
   }
 
   if (paidCents < input.amountCents) {
-    const due = await input.tx.factoryFinanceDue.create({
-      data: {
-        amountCents: input.amountCents,
-        category: input.category,
-        createdDay: input.factoryDay,
-        description: input.description,
-        direction: FinanceDirection.EXPENSE,
-        dueDay: input.factoryDay,
-        factoryId: input.factoryId,
-        metadata: input.metadata,
-        periodIndex: factory.currentFinancePeriod,
-        referenceKey: input.referenceKey,
-        settledAmountCents: paidCents,
-        sourceId: input.sourceId,
-        sourceType: input.sourceType,
-        status:
-          paidCents > BigInt(0)
-            ? FinanceDueStatus.PARTIAL
-            : FinanceDueStatus.OVERDUE,
-      },
-      select: { id: true, status: true },
+    const created = await createFinanceDue({
+      amountCents: input.amountCents,
+      category: input.category,
+      createdDay: input.factoryDay,
+      description: input.description,
+      direction: FinanceDirection.EXPENSE,
+      dueDay: input.factoryDay,
+      factoryId: input.factoryId,
+      metadata: input.metadata,
+      periodIndex: factory.currentFinancePeriod,
+      referenceKey: input.referenceKey,
+      settledAmountCents: paidCents,
+      sourceId: input.sourceId,
+      sourceType: input.sourceType,
+      status:
+        paidCents > BigInt(0)
+          ? FinanceDueStatus.PARTIAL
+          : FinanceDueStatus.OVERDUE,
+      tx: input.tx,
     });
-    result.dueIds.push(due.id);
-    if (due.status === FinanceDueStatus.PARTIAL) {
-      result.partialDueIds.push(due.id);
+    result.dueIds.push(created.due.id);
+    if (created.due.status === FinanceDueStatus.PARTIAL) {
+      result.partialDueIds.push(created.due.id);
     } else {
-      result.overdueDueIds.push(due.id);
+      result.overdueDueIds.push(created.due.id);
     }
   }
 
@@ -426,7 +521,7 @@ function emptyResult(): FinancialTriggerResult {
   };
 }
 
-function mergeResults(
+export function mergeFinancialTriggerResults(
   first: FinancialTriggerResult,
   second: FinancialTriggerResult,
 ): FinancialTriggerResult {
@@ -439,4 +534,11 @@ function mergeResults(
     ],
     partialDueIds: [...first.partialDueIds, ...second.partialDueIds],
   };
+}
+
+function clampBigInt(value: bigint, minimum: bigint, maximum: bigint) {
+  if (value < minimum) return minimum;
+  if (value > maximum) return maximum;
+
+  return value;
 }

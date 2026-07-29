@@ -111,7 +111,9 @@ export function TopStatusBar({
               metricNode = (
                 <AnimatedCashMetric
                   currencyCode={displayedSnapshot.factory.currencyCode}
-                  currentCents={Number(displayedSnapshot.factory.cashBalanceCents)}
+                  currentCents={Number(
+                    displayedSnapshot.factory.availableBalanceCents,
+                  )}
                   icon={Icon}
                   label={metric.label}
                   numberLocale={displayedSnapshot.numberLocale}

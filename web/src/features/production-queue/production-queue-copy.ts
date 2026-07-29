@@ -79,8 +79,8 @@ export const productionQueueCopy = {
         WAITING_INPUT: "Girdi bekliyor",
         WAITING_OUTSOURCE: "Fason bekliyor",
       },
-      statusOutsourceDelayed: "Gecikmeli",
       statusOutsourceInProgress: "Fasonda",
+      statusOutsourcePaymentPending: "Ödeme bekliyor",
       unitCost: (value: string) => `${value} / adet`,
     },
     ui: {
@@ -228,8 +228,8 @@ export const productionQueueCopy = {
         WAITING_INPUT: "Waiting input",
         WAITING_OUTSOURCE: "Waiting outsource",
       },
-      statusOutsourceDelayed: "Delayed",
       statusOutsourceInProgress: "Outsourced",
+      statusOutsourcePaymentPending: "Payment pending",
       unitCost: (value: string) => `${value} / pc`,
     },
     ui: {
@@ -359,8 +359,8 @@ export const productionQueueCopy = {
         later: (days: number) => string;
       };
       status: Record<RouteProgressStatus, string>;
-      statusOutsourceDelayed: string;
       statusOutsourceInProgress: string;
+      statusOutsourcePaymentPending: string;
       unitCost: (value: string) => string;
     };
     ui: {

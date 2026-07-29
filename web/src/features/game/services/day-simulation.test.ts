@@ -28,6 +28,7 @@ function buildLine(
   id: string,
   dailyPointCapacity: number,
   eventPenaltyBps = 10_000,
+  payrollCapacityBps = 10_000,
 ): SimulationLine {
   return {
     assignedStaffQuantity: 10,
@@ -37,6 +38,7 @@ function buildLine(
     eventPenaltyBps,
     id,
     lineNumber: Number(id.replace(/\D/g, "")) || 1,
+    payrollCapacityBps,
     productionLineTemplate: { dailyPointCapacity },
     productionLineTemplateId: `template-${id}`,
     requiredStaffQuantity: 10,
@@ -246,6 +248,28 @@ test("chaos event penalty hat kapasitesini ve üretilen adedi düşürür", () =
   assert.equal(results[0]?.effectivePointCapacity, 80);
   assert.equal(results[0]?.producedQuantity, 8);
   assert.equal(results[0]?.usedPoints, 80);
+});
+
+test("maaş gecikmesi hat kapasitesini mevcut üretim akışında düşürür", () => {
+  const results = buildDailyLineResults({
+    allocationQuantityByLineAndRouteProgressId: new Map([
+      ["line-1", new Map([["order", allocation("order", 100)]])],
+    ]),
+    lines: [buildLine("line-1", 1_000, 10_000, 9_500)],
+    queue: [
+      buildQueueItem({
+        id: "order",
+        inputReadyQuantity: 100,
+        plannedQuantity: 100,
+        workloadPointsPerUnit: 10,
+      }),
+    ],
+  });
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0]?.effectivePointCapacity, 950);
+  assert.equal(results[0]?.producedQuantity, 95);
+  assert.equal(results[0]?.usedPoints, 950);
 });
 
 test("staff coverage requirement ve assignment toplamından hesaplanır", () => {

@@ -17,13 +17,20 @@ export function calculateEffectiveLinePointCapacity(input: {
   conditionBps: number
   dailyPointCapacity: number
   eventPenaltyBps?: number
+  payrollCapacityBps?: number
   staffCoverageBps: number
 }) {
-  return Math.floor(
+  const capacityBeforePayroll = Math.floor(
     (Math.max(0, input.dailyPointCapacity) *
       Math.max(0, input.conditionBps) *
       Math.max(0, input.staffCoverageBps) *
       Math.max(0, input.eventPenaltyBps ?? 10_000)) /
       1_000_000_000_000,
+  )
+
+  return Math.floor(
+    (capacityBeforePayroll *
+      Math.min(10_000, Math.max(0, input.payrollCapacityBps ?? 10_000))) /
+      10_000,
   )
 }

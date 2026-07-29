@@ -7,6 +7,10 @@ import {
   TokenTransactionReason,
   XpReason,
 } from "@/generated/prisma/client";
+import {
+  postFinanceTransaction,
+  processDuePayments,
+} from "@/features/finance/services/finance-ledger";
 import { grantFactoryXp } from "@/features/game/services/factory-progression";
 import { creditRunwayTokens } from "@/features/tokens/services/runway-token-service";
 
@@ -54,9 +58,7 @@ export async function claimTaskReward(input: {
       },
       factory: {
         select: {
-          cashBalanceCents: true,
           currentDay: true,
-          currentFinancePeriod: true,
           currentLevel: true,
           currentXp: true,
           playerProfileId: true,
@@ -125,27 +127,23 @@ export async function claimTaskReward(input: {
 
   if (reward.rewardCashCents && BigInt(reward.rewardCashCents) > BigInt(0)) {
     cashRewardCents = BigInt(reward.rewardCashCents);
-    const balanceAfter = progress.factory.cashBalanceCents + cashRewardCents;
-    await input.tx.factory.update({
-      where: { id: input.factoryId },
-      data: { cashBalanceCents: balanceAfter },
+    await postFinanceTransaction({
+      amountCents: cashRewardCents,
+      category: FinanceCategory.BONUS,
+      description: "Görev ödülü",
+      direction: FinanceDirection.INCOME,
+      factoryId: input.factoryId,
+      gameDay: progress.factory.currentDay,
+      metadata: { taskKey: progress.taskDefinition.key },
+      referenceKey: `TASK_CASH_REWARD:${progress.id}`,
+      sourceId: progress.id,
+      sourceType: FinanceSourceType.MANUAL_ADJUSTMENT,
+      tx: input.tx,
     });
-    await input.tx.factoryFinanceTransaction.create({
-      data: {
-        amountCents: cashRewardCents,
-        balanceAfterCents: balanceAfter,
-        balanceBeforeCents: progress.factory.cashBalanceCents,
-        category: FinanceCategory.BONUS,
-        description: "Görev ödülü",
-        direction: FinanceDirection.INCOME,
-        factoryId: input.factoryId,
-        gameDay: progress.factory.currentDay,
-        metadata: { taskKey: progress.taskDefinition.key },
-        periodIndex: progress.factory.currentFinancePeriod,
-        referenceKey: `TASK_CASH_REWARD:${progress.id}`,
-        sourceId: progress.id,
-        sourceType: FinanceSourceType.MANUAL_ADJUSTMENT,
-      },
+    await processDuePayments({
+      factoryId: input.factoryId,
+      gameDay: progress.factory.currentDay,
+      tx: input.tx,
     });
   }
 

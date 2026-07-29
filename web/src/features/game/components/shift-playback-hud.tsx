@@ -88,7 +88,7 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
     >
       <div
         className={[
-          "pointer-events-auto mx-auto flex max-h-full w-full max-w-[820px] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/94 shadow-2xl backdrop-blur-xl motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 min-[1180px]:max-h-[min(680px,100%)] min-[1440px]:max-h-[min(760px,100%)] min-[1440px]:max-w-5xl min-[1440px]:rounded-xl",
+          "pointer-events-auto mx-auto flex max-h-full w-full max-w-[820px] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 min-[1180px]:max-h-[min(680px,100%)] min-[1440px]:max-h-[min(760px,100%)] min-[1440px]:max-w-5xl min-[1440px]:rounded-xl",
           isClosing
             ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-top-2 motion-safe:duration-200"
             : "",

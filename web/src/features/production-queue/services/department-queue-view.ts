@@ -830,14 +830,16 @@ function toOutsourceJobView(
     readyDay: job.readyDay,
     remainingDays,
     remainingDaysLabel:
-      remainingDays === 0
+      isDelayed
+        ? copy.statusOutsourcePaymentPending
+        : remainingDays === 0
         ? copy.returns.today
         : copy.returns.later(remainingDays),
     routeProgressId: job.productionOrderRouteProgressId,
     sentDay: job.sentDay,
     status: job.status,
     statusLabel: isDelayed
-      ? copy.statusOutsourceDelayed
+      ? copy.statusOutsourcePaymentPending
       : copy.statusOutsourceInProgress,
     tone: isDelayed ? "danger" : presentation.tone,
     totalCostCents: job.totalCostCents.toString(),

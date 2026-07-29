@@ -24,6 +24,7 @@ import {
 import { getProductionQueuesView } from "@/features/production-queue/services/department-queue-view";
 import { getWarehouseView } from "@/features/warehouse/services/warehouse-view";
 import { getFinancePeriod } from "@/features/finance/services/finance-period";
+import { getFactoryAvailableBalance } from "@/features/finance/services/finance-ledger";
 import { getPrisma } from "@/lib/db";
 import {
   buildFactoryLevelProgress,
@@ -372,6 +373,7 @@ export async function getGameSnapshot(input: {
     tokenWallet,
     installationPreview,
     leasingCreditContext,
+    availableBalance,
   ] = await Promise.all([
     prisma.departmentGroup.findMany({
       where: {
@@ -756,6 +758,11 @@ export async function getGameSnapshot(input: {
       factoryId: factory.id,
       prisma,
     }),
+    getFactoryAvailableBalance({
+      currentDay: factory.currentDay,
+      factoryId: factory.id,
+      tx: prisma,
+    }),
   ]);
 
   const sections = buildFactoryMapSections({
@@ -843,6 +850,8 @@ export async function getGameSnapshot(input: {
       sectorName: pickTranslation(factory.sector.translations, factory.sector.key, locale),
       currencyCode: factory.currencyCode,
       cashBalanceCents: factory.cashBalanceCents.toString(),
+      availableBalanceCents:
+        availableBalance.availableBalanceCents.toString(),
       currentDay: factory.currentDay,
       currentFinancePeriod: factory.currentFinancePeriod,
       currentLevel: factory.currentLevel,
@@ -853,7 +862,12 @@ export async function getGameSnapshot(input: {
     metrics: buildMetrics({
       activeOrderCount,
       activeProductionOrderCount,
-      factory: { ...factory, levelProgress, operatingStageName },
+      factory: {
+        ...factory,
+        availableBalanceCents: availableBalance.availableBalanceCents,
+        levelProgress,
+        operatingStageName,
+      },
       lateOrderCount,
       locale,
     }),
@@ -1727,6 +1741,7 @@ function buildMetrics({
   activeOrderCount: number;
   activeProductionOrderCount: number;
   factory: {
+    availableBalanceCents: bigint;
     cashBalanceCents: bigint;
     currencyCode: GameSnapshot["factory"]["currencyCode"];
     currentDay: number;
@@ -1750,7 +1765,11 @@ function buildMetrics({
     {
       id: "cash",
       label: copy.cash,
-      value: formatMoney(factory.cashBalanceCents, factory.currencyCode, locale),
+      value: formatMoney(
+        factory.availableBalanceCents,
+        factory.currencyCode,
+        locale,
+      ),
       subLabel: copy.financePeriod(factory.currentFinancePeriod),
       tone: "green",
     },

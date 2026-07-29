@@ -7,10 +7,13 @@ import {
   ChaosSeverity,
   FinanceCategory,
   FinanceDirection,
+  FinanceDueStatus,
   ProductImageVariant,
   ProductImageView,
+  XpReason,
 } from "@/generated/prisma/client";
 
+import { shiftPlaybackCopy } from "../shift-playback-copy";
 import {
   getShiftDepartmentPerformance,
   getShiftProductResults,
@@ -207,13 +210,66 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
         },
       ],
     },
-    factoryFinanceDue: { findMany: async () => [] },
+    factoryFinanceDue: {
+      findMany: async () => [
+        {
+          amountCents: BigInt(50_000),
+          category: FinanceCategory.RENT,
+          dueDay: 10,
+          id: "rent-due",
+          metadata: {},
+          referenceKey: "OPERATING_EXPENSE:RENT:factory-1:10",
+          settledAmountCents: BigInt(0),
+          sourceId: "factory-1",
+          sourceType: "MONTHLY_CLOSING",
+          status: FinanceDueStatus.OVERDUE,
+        },
+        {
+          amountCents: BigInt(30_000),
+          category: FinanceCategory.ELECTRICITY,
+          dueDay: 10,
+          id: "electricity-due",
+          metadata: {},
+          referenceKey:
+            "OPERATING_EXPENSE:ELECTRICITY:factory-1:10",
+          settledAmountCents: BigInt(10_000),
+          sourceId: "factory-1",
+          sourceType: "MONTHLY_CLOSING",
+          status: FinanceDueStatus.PARTIAL,
+        },
+        {
+          amountCents: BigInt(100_000),
+          category: FinanceCategory.PAYROLL,
+          dueDay: 10,
+          id: "payroll-due",
+          metadata: {},
+          referenceKey: "PAYROLL:factory-1:10",
+          settledAmountCents: BigInt(0),
+          sourceId: "factory-1",
+          sourceType: "MONTHLY_CLOSING",
+          status: FinanceDueStatus.OVERDUE,
+        },
+        {
+          amountCents: BigInt(40_000),
+          category: FinanceCategory.OUTSOURCE_COST,
+          dueDay: 12,
+          id: "outsource-due",
+          metadata: {},
+          referenceKey: "OUTSOURCE_COMPLETION_PAYMENT:outsource-job-1",
+          settledAmountCents: BigInt(15_000),
+          sourceId: "outsource-job-1",
+          sourceType: "OUTSOURCE_JOB",
+          status: FinanceDueStatus.PARTIAL,
+        },
+      ],
+    },
     factoryFinanceTransaction: {
       findMany: async () => [
         {
           amountCents: BigInt(120000),
           category: FinanceCategory.ORDER_REVENUE,
           direction: FinanceDirection.INCOME,
+          financeDueId: null,
           id: "finance-1",
           metadata: {},
           referenceKey: "ORDER_REVENUE:1",
@@ -224,11 +280,47 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
           amountCents: BigInt(24000),
           category: FinanceCategory.PENALTY,
           direction: FinanceDirection.EXPENSE,
+          financeDueId: null,
           id: "finance-2",
           metadata: { orderNo: "ORD-1042" },
           referenceKey: "LATE_DELIVERY_PENALTY:order-1",
           sourceId: "order-1",
           sourceType: "CUSTOMER_ORDER",
+        },
+        {
+          amountCents: BigInt(10_000),
+          category: FinanceCategory.ELECTRICITY,
+          direction: FinanceDirection.EXPENSE,
+          financeDueId: null,
+          id: "finance-3",
+          metadata: {},
+          referenceKey:
+            "OPERATING_EXPENSE:ELECTRICITY:factory-1:10",
+          sourceId: "factory-1",
+          sourceType: "MONTHLY_CLOSING",
+        },
+        {
+          amountCents: BigInt(20_000),
+          category: FinanceCategory.OVERHEAD,
+          direction: FinanceDirection.EXPENSE,
+          financeDueId: null,
+          id: "finance-4",
+          metadata: {},
+          referenceKey:
+            "OPERATING_EXPENSE:OVERHEAD:factory-1:10",
+          sourceId: "factory-1",
+          sourceType: "MONTHLY_CLOSING",
+        },
+        {
+          amountCents: BigInt(15_000),
+          category: FinanceCategory.OUTSOURCE_COST,
+          direction: FinanceDirection.EXPENSE,
+          financeDueId: null,
+          id: "finance-5",
+          metadata: {},
+          referenceKey: "OUTSOURCE_COMPLETION_PAYMENT:outsource-job-1",
+          sourceId: "outsource-job-1",
+          sourceType: "OUTSOURCE_JOB",
         },
       ],
     },
@@ -265,6 +357,16 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
           amountXp: 120,
           balanceAfterXp: 1_240,
           id: "xp-1",
+          metadata: {
+            payrollProductionImpact: {
+              capacityMultiplierBps: 9_000,
+              oldestDueDay: 10,
+              outstandingCents: "100000",
+              overdueDays: 2,
+              productionPenaltyBps: 1_000,
+            },
+          },
+          reason: XpReason.SHIFT_COMPLETED,
           sourceId: "shift-1",
           sourceType: "shift",
         },
@@ -354,6 +456,74 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
   );
   assert.ok(events.some((event) => event.eventKey === "payment.customer_received"));
   assert.deepEqual(
+    events.find(
+      (event) => event.eventKey === "payroll.production_reduced",
+    )?.payload,
+    {
+      capacityMultiplierBps: 9_000,
+      outstandingCents: "100000",
+      overdueDays: 2,
+      productionPenaltyBps: 1_000,
+    },
+  );
+  assert.deepEqual(
+    events.find(
+      (event) => event.eventKey === "operating_expense.overdue",
+    )?.payload,
+    {
+      amountCents: "50000",
+      category: FinanceCategory.RENT,
+      dueDay: 10,
+      overdueDays: 2,
+      paidCents: "0",
+      remainingCents: "50000",
+    },
+  );
+  assert.deepEqual(
+    events.find(
+      (event) => event.eventKey === "operating_expense.partial",
+    )?.payload,
+    {
+      amountCents: "30000",
+      category: FinanceCategory.ELECTRICITY,
+      dueDay: 10,
+      overdueDays: 2,
+      paidCents: "10000",
+      remainingCents: "20000",
+    },
+  );
+  assert.equal(
+    events.some(
+      (event) =>
+        event.eventKey === "operating_expense.paid" &&
+        event.payload.category === FinanceCategory.ELECTRICITY,
+    ),
+    false,
+  );
+  assert.ok(
+    events.some(
+      (event) =>
+        event.eventKey === "operating_expense.paid" &&
+        event.payload.category === FinanceCategory.OVERHEAD,
+    ),
+  );
+  assert.deepEqual(
+    events.find(
+      (event) => event.eventKey === "outsource.payment_partial",
+    )?.payload,
+    {
+      amountCents: "40000",
+      dueDay: 12,
+      overdueDays: 0,
+      paidCents: "15000",
+      remainingCents: "25000",
+    },
+  );
+  assert.equal(
+    events.some((event) => event.eventKey === "outsource.payment_paid"),
+    false,
+  );
+  assert.deepEqual(
     events.find((event) => event.eventKey === "penalty.order_late_paid")
       ?.payload,
     {
@@ -377,6 +547,76 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
       shiftId: "shift-1",
       simulatedGameDay: 12,
     },
+  );
+});
+
+test("gider borcu Daily Event metinleri ödenemeyen ve kısmi durumu ayırır", () => {
+  const tr = shiftPlaybackCopy.tr.dailyEvents;
+  const en = shiftPlaybackCopy.en.dailyEvents;
+
+  assert.equal(
+    tr.titles.financeExpenseOverdue(tr.financeCategories.RENT),
+    "Kira ödenemedi",
+  );
+  assert.equal(
+    tr.titles.financeExpensePartial(tr.financeCategories.ELECTRICITY),
+    "Elektrik ödemesi eksik kaldı",
+  );
+  assert.match(
+    tr.descriptions.financeExpenseOverdue(
+      tr.financeCategories.RENT,
+      "₺500",
+      "3",
+    ),
+    /3 gündür gecikiyor/,
+  );
+  assert.match(
+    en.descriptions.financeExpensePartialToday(
+      en.financeCategories.OVERHEAD,
+      "€100",
+      "€250",
+    ),
+    /recorded as debt/,
+  );
+});
+
+test("maaş gecikmesi Daily Event metni gün ve üretim etkisini gösterir", () => {
+  const tr = shiftPlaybackCopy.tr.dailyEvents;
+  const en = shiftPlaybackCopy.en.dailyEvents;
+
+  assert.equal(
+    tr.titles.payrollProductionReduced(3),
+    "Maaş ödemesi 3 gün gecikti",
+  );
+  assert.match(
+    tr.descriptions.payrollProductionReduced("₺1.000", "%15"),
+    /Üretim kapasitesi %15 düşürüldü/,
+  );
+  assert.equal(
+    en.titles.payrollProductionReduced(1),
+    "Payroll is 1 day overdue",
+  );
+  assert.match(
+    en.descriptions.payrollOverdue("€1,000"),
+    /production impact starts next shift/,
+  );
+});
+
+test("fason ödeme kilidi Daily Event metni ürünün beklediğini açıklar", () => {
+  const tr = shiftPlaybackCopy.tr.dailyEvents;
+  const en = shiftPlaybackCopy.en.dailyEvents;
+
+  assert.equal(
+    tr.titles.outsourcePaymentPending,
+    "Fason ödeme bekliyor",
+  );
+  assert.match(
+    tr.descriptions.outsourcePaymentPartial("₺150", "₺250"),
+    /sonraki kuyruğa geçmeyecek/,
+  );
+  assert.match(
+    en.descriptions.outsourcePaymentPending("€400"),
+    /remain in the outsource queue/,
   );
 });
 

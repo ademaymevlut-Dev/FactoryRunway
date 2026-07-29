@@ -206,7 +206,7 @@ function getEventIconKey(
   if (event.eventKey === "shift.completed") return "flag";
   if (event.eventKey.startsWith("xp.")) return "sparkles";
   if (event.category === "FINANCE" || event.category === "PAYMENT") {
-    return event.eventKey === "operating_expense.paid"
+    return event.eventKey.startsWith("operating_expense.")
       ? "receipt"
       : "banknote";
   }
@@ -225,6 +225,29 @@ function getEventTone(event: ShiftPlaybackTimelineEvent): DailyEventTone {
     return "violet";
   }
   if (event.eventKey.startsWith("penalty.")) {
+    return "danger";
+  }
+  if (event.eventKey === "operating_expense.overdue") {
+    return "danger";
+  }
+  if (event.eventKey === "operating_expense.partial") {
+    return "orange";
+  }
+  if (event.eventKey === "outsource.payment_pending") {
+    return "danger";
+  }
+  if (event.eventKey === "outsource.payment_partial") {
+    return "orange";
+  }
+  if (event.eventKey === "payroll.production_reduced") {
+    return Number(event.payload.productionPenaltyBps ?? 0) >= 2_000
+      ? "danger"
+      : "orange";
+  }
+  if (
+    event.eventKey === "payroll.overdue" ||
+    event.eventKey === "payroll.partial"
+  ) {
     return "danger";
   }
   if (event.eventKey.startsWith("customer.relationship_")) {
@@ -367,16 +390,36 @@ function renderEventTitle({
       return copy.titles.leasingContractCompleted;
     case "installation.activated":
       return copy.titles.installationActivated;
+    case "payroll.overdue":
+      return copy.titles.payrollOverdue;
     case "payroll.paid":
       return copy.titles.payrollPaid;
+    case "payroll.partial":
+      return copy.titles.payrollPartial;
+    case "payroll.production_reduced":
+      return copy.titles.payrollProductionReduced(
+        Math.max(0, Number(payload.overdueDays ?? 0)),
+      );
+    case "operating_expense.overdue":
+      return copy.titles.financeExpenseOverdue(
+        getFinanceCategoryLabel(copy, payload.category),
+      );
     case "operating_expense.paid":
       return copy.titles.financeExpensePaid(
+        getFinanceCategoryLabel(copy, payload.category),
+      );
+    case "operating_expense.partial":
+      return copy.titles.financeExpensePartial(
         getFinanceCategoryLabel(copy, payload.category),
       );
     case "outsource.completed":
       return copy.titles.outsourceCompleted;
     case "outsource.payment_paid":
       return copy.titles.outsourcePaymentPaid;
+    case "outsource.payment_partial":
+      return copy.titles.outsourcePaymentPartial;
+    case "outsource.payment_pending":
+      return copy.titles.outsourcePaymentPending;
     default:
       if (event.eventKey.startsWith("chaos.")) {
         return copy.titles.chaosDefault;
@@ -483,11 +526,120 @@ function renderEventDescription({
           numberLocale,
         ),
       );
+    case "payroll.overdue":
+      return copy.descriptions.payrollOverdue(
+        formatMoneyLike(
+          String(payload.outstandingCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
+    case "payroll.paid":
+      return copy.descriptions.payrollPaid(
+        formatMoneyLike(
+          String(payload.amountCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
+    case "payroll.partial":
+      return copy.descriptions.payrollPartial(
+        formatMoneyLike(
+          String(payload.paidCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+        formatMoneyLike(
+          String(payload.outstandingCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
+    case "payroll.production_reduced":
+      return copy.descriptions.payrollProductionReduced(
+        formatMoneyLike(
+          String(payload.outstandingCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+        formatBpsPercent(
+          Number(payload.productionPenaltyBps ?? 0),
+          numberLocale,
+        ),
+      );
     case "operating_expense.paid":
       return copy.descriptions.financeExpensePaid(
         getFinanceCategoryLabel(copy, payload.category),
         formatMoneyLike(
           String(payload.amountCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
+    case "operating_expense.overdue": {
+      const categoryName = getFinanceCategoryLabel(copy, payload.category);
+      const remainingAmount = formatMoneyLike(
+        String(payload.remainingCents ?? payload.amountCents ?? "0"),
+        currencyCode,
+        numberLocale,
+      );
+      const overdueDays = Math.max(0, Number(payload.overdueDays ?? 0));
+
+      return overdueDays > 0
+        ? copy.descriptions.financeExpenseOverdue(
+            categoryName,
+            remainingAmount,
+            formatNumber(overdueDays, numberLocale),
+          )
+        : copy.descriptions.financeExpenseOverdueToday(
+            categoryName,
+            remainingAmount,
+          );
+    }
+    case "operating_expense.partial": {
+      const categoryName = getFinanceCategoryLabel(copy, payload.category);
+      const paidAmount = formatMoneyLike(
+        String(payload.paidCents ?? "0"),
+        currencyCode,
+        numberLocale,
+      );
+      const remainingAmount = formatMoneyLike(
+        String(payload.remainingCents ?? "0"),
+        currencyCode,
+        numberLocale,
+      );
+      const overdueDays = Math.max(0, Number(payload.overdueDays ?? 0));
+
+      return overdueDays > 0
+        ? copy.descriptions.financeExpensePartial(
+            categoryName,
+            paidAmount,
+            remainingAmount,
+            formatNumber(overdueDays, numberLocale),
+          )
+        : copy.descriptions.financeExpensePartialToday(
+            categoryName,
+            paidAmount,
+            remainingAmount,
+          );
+    }
+    case "outsource.payment_pending":
+      return copy.descriptions.outsourcePaymentPending(
+        formatMoneyLike(
+          String(payload.remainingCents ?? payload.amountCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+      );
+    case "outsource.payment_partial":
+      return copy.descriptions.outsourcePaymentPartial(
+        formatMoneyLike(
+          String(payload.paidCents ?? "0"),
+          currencyCode,
+          numberLocale,
+        ),
+        formatMoneyLike(
+          String(payload.remainingCents ?? "0"),
           currencyCode,
           numberLocale,
         ),

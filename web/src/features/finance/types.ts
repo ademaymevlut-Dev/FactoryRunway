@@ -61,6 +61,45 @@ export type FinanceDueItem = {
   status: "PENDING" | "PAID" | "PARTIAL" | "OVERDUE" | "CANCELLED";
 };
 
+export type FinanceCashCalendarEntry = {
+  amountCents: string;
+  category: string;
+  certainty: "CONFIRMED" | "PROJECTED";
+  day: number;
+  description: string;
+  direction: "INCOME" | "EXPENSE";
+  id: string;
+  label: string;
+  timing: "OVERDUE" | "TODAY" | "UPCOMING";
+};
+
+export type FinanceCashCalendarDay = {
+  day: number;
+  expenseCents: string;
+  incomeCents: string;
+  netCents: string;
+  projectedBalanceCents: string;
+};
+
+export type FinanceCashCalendar = {
+  currentDay: number;
+  days: FinanceCashCalendarDay[];
+  endDay: number;
+  estimatedEndBalanceCents: string;
+  firstIncome: {
+    amountCents: string;
+    certainty: "CONFIRMED" | "PROJECTED";
+    day: number;
+  } | null;
+  incomingCents: string;
+  lowestProjectedBalanceCents: string;
+  netCents: string;
+  outgoingCents: string;
+  risk: "NEUTRAL" | "POSITIVE" | "SHORTFALL" | "TIGHT";
+  shortfallDay: number | null;
+  upcomingEntries: FinanceCashCalendarEntry[];
+};
+
 export type FinanceProductionValueItem = {
   amountCents: string;
   day: number;
@@ -91,6 +130,7 @@ type FinanceReportBase = {
 export type FinanceOverviewReport = FinanceReportBase & {
   tab: "overview";
   cards: FinanceMetricView[];
+  cashCalendar: FinanceCashCalendar;
   dueSummary: {
     next7ReceivableCents: string;
     next7PayableCents: string;
@@ -115,6 +155,7 @@ export type FinanceProfitReport = FinanceReportBase & {
 
 export type FinanceCashReport = FinanceReportBase & {
   tab: "cash";
+  cashCalendar: FinanceCashCalendar;
   dailyNet: Array<{
     day: number;
     expenseCents: string;

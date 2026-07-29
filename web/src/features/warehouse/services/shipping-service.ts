@@ -7,18 +7,21 @@ import {
   FinanceSourceType,
   Prisma,
   ProductionOrderStatus,
-  type PrismaClient,
 } from "@/generated/prisma/client"
+import {
+  createFinanceDue,
+  processDuePayments,
+  settleFinanceDue,
+} from "@/features/finance/services/finance-ledger"
 import { calculateCustomerRelationshipImpact } from "@/lib/customer-relationship"
 
 import {
-  calculateDueSettlement,
   calculateEffectiveShippingDay,
   calculateReceivableDueDay,
   calculateShippingState,
 } from "./shipping-math"
 
-type ShippingClient = Prisma.TransactionClient | PrismaClient
+type ShippingClient = Prisma.TransactionClient
 
 export async function processShippingAndReceivables(input: {
   factoryDay: number
@@ -28,8 +31,14 @@ export async function processShippingAndReceivables(input: {
   const lateOrderIds = await markLateOrders(input)
   const shippedOrderIds = await dispatchReadyOrders(input)
   const settledDueIds = await settleDueReceivables(input)
+  const debtPaymentResult = await processDuePayments({
+    factoryId: input.factoryId,
+    gameDay: input.factoryDay,
+    tx: input.prisma,
+  })
 
   return {
+    debtPaymentResult,
     lateOrderIds,
     settledDueIds,
     shippedOrderIds,
@@ -226,27 +235,28 @@ async function dispatchReadyOrders(input: {
       )
 
       if (revenueCents > 0) {
-        await input.prisma.factoryFinanceDue.create({
-          data: {
-            amountCents: revenueCents,
-            category: FinanceCategory.ORDER_REVENUE,
-            createdDay: shippedDay,
-            description: `${order.orderNo} sipariş satışı`,
-            direction: FinanceDirection.INCOME,
-            dueDay: calculateReceivableDueDay({
-              paymentTermDays: order.paymentTermDays,
-              shippedDay,
-            }),
-            factoryId: input.factoryId,
-            metadata: {
-              orderNo: order.orderNo,
-              shippedDay,
-              shippedQuantity: totalQuantity,
-            },
-            periodIndex: factory.currentFinancePeriod,
-            sourceId: order.id,
-            sourceType: FinanceSourceType.CUSTOMER_ORDER,
+        await createFinanceDue({
+          amountCents: revenueCents,
+          category: FinanceCategory.ORDER_REVENUE,
+          createdDay: shippedDay,
+          description: `${order.orderNo} sipariş satışı`,
+          direction: FinanceDirection.INCOME,
+          dueDay: calculateReceivableDueDay({
+            paymentTermDays: order.paymentTermDays,
+            shippedDay,
+          }),
+          factoryId: input.factoryId,
+          metadata: {
+            orderNo: order.orderNo,
+            shippedDay,
+            shippedQuantity: totalQuantity,
           },
+          periodIndex: factory.currentFinancePeriod,
+          referenceKey: buildOrderRevenueDueReferenceKey(order.id),
+          sourceId: order.id,
+          sourceType: FinanceSourceType.CUSTOMER_ORDER,
+          status: FinanceDueStatus.PENDING,
+          tx: input.prisma,
         })
       }
     }
@@ -277,80 +287,26 @@ async function settleDueReceivables(input: {
     },
     orderBy: [{ dueDay: "asc" }, { createdAt: "asc" }],
   })
-  const factory = await input.prisma.factory.findUniqueOrThrow({
-    where: { id: input.factoryId },
-    select: {
-      cashBalanceCents: true,
-      currentFinancePeriod: true,
-    },
-  })
   const settledDueIds: string[] = []
-  let balanceCents = factory.cashBalanceCents
 
   for (const due of dues) {
-    const settlement = calculateDueSettlement({
-      amountCents: due.amountCents,
-      balanceCents,
-      settledAmountCents: due.settledAmountCents,
+    const settlement = await settleFinanceDue({
+      dueId: due.id,
+      factoryId: input.factoryId,
+      gameDay: input.factoryDay,
+      tx: input.prisma,
     })
 
-    if (settlement.remainingAmountCents <= 0) {
-      await input.prisma.factoryFinanceDue.update({
-        where: { id: due.id },
-        data: { status: FinanceDueStatus.PAID },
-      })
-      continue
+    if (settlement?.status === FinanceDueStatus.PAID) {
+      settledDueIds.push(due.id)
     }
-
-    const claimedDue = await input.prisma.factoryFinanceDue.updateMany({
-      where: {
-        id: due.id,
-        status: {
-          in: [
-            FinanceDueStatus.PENDING,
-            FinanceDueStatus.PARTIAL,
-            FinanceDueStatus.OVERDUE,
-          ],
-        },
-      },
-      data: {
-        settledAmountCents: due.amountCents,
-        status: FinanceDueStatus.PAID,
-      },
-    })
-
-    if (claimedDue.count !== 1) continue
-
-    await input.prisma.factory.update({
-      where: { id: input.factoryId },
-      data: { cashBalanceCents: settlement.balanceAfterCents },
-    })
-    await input.prisma.factoryFinanceTransaction.create({
-      data: {
-        amountCents: settlement.remainingAmountCents,
-        balanceAfterCents: settlement.balanceAfterCents,
-        balanceBeforeCents: balanceCents,
-        category: due.category,
-        description: due.description ?? "Sipariş geliri tahsilatı",
-        direction: FinanceDirection.INCOME,
-        factoryId: input.factoryId,
-        financeDueId: due.id,
-        gameDay: input.factoryDay,
-        metadata: {
-          dueDay: due.dueDay,
-          source: "automatic-receivable-settlement",
-        },
-        periodIndex: factory.currentFinancePeriod,
-        sourceId: due.sourceId,
-        sourceType: due.sourceType,
-      },
-    })
-
-    balanceCents = settlement.balanceAfterCents
-    settledDueIds.push(due.id)
   }
 
   return settledDueIds
+}
+
+export function buildOrderRevenueDueReferenceKey(customerOrderId: string) {
+  return `ORDER_REVENUE_DUE:${customerOrderId}`
 }
 
 function mergeMetadata(

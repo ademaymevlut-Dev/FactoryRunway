@@ -24,6 +24,7 @@ import {
 } from "react";
 
 import { getFinanceReportAction } from "@/features/finance/actions/get-finance-report-action";
+import { FinanceCashCalendar } from "@/features/finance/components/finance-cash-calendar";
 import type {
   FinanceCashReport,
   FinanceCategoryBreakdown,
@@ -150,17 +151,17 @@ export function FinancePanel({
     headerReport?.tab === "investment" ? null : headerReport?.period ?? null;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3">
+    <div className="flex h-full min-h-0 flex-col gap-2">
       <section className="shrink-0 overflow-hidden rounded-lg border border-border bg-card/70">
-        <div className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="grid gap-2 p-3 lg:grid-cols-[minmax(0,1fr)_auto]">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-primary">
               Finans Kontrol
             </p>
-            <h2 className="mt-2 truncate text-2xl font-semibold text-foreground">
+            <h2 className="mt-1 truncate text-lg font-semibold text-foreground">
               Fabrika performansı
             </h2>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-1.5">
               <Badge variant="outline">{periodLabel}</Badge>
               <Badge variant="secondary">
                 {headerPeriod
@@ -171,12 +172,12 @@ export function FinancePanel({
               </Badge>
             </div>
           </div>
-          <div className="grid min-w-[220px] content-center rounded-lg border border-primary/20 bg-primary/10 p-3">
-            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          <div className="grid min-w-[190px] content-center rounded-lg border border-primary/20 bg-primary/10 p-2.5">
+            <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-primary">
               <Banknote size={14} />
               Kasa
             </span>
-            <strong className="mt-1 truncate font-mono text-2xl text-foreground">
+            <strong className="mt-1 truncate font-mono text-lg text-foreground">
               {formatMoney(
                 headerReport?.cashBalanceCents ?? cashBalanceCents,
                 headerReport?.currencyCode ?? currencyCode,
@@ -308,6 +309,10 @@ function OverviewReport({ report }: { report: FinanceOverviewReport }) {
   return (
     <div className="space-y-3">
       <MetricGrid metrics={report.cards} currencyCode={report.currencyCode} />
+      <FinanceCashCalendar
+        calendar={report.cashCalendar}
+        currencyCode={report.currencyCode}
+      />
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
         <PanelBlock title="Bekleyen hareketler">
           <div className="grid grid-cols-2 gap-2">
@@ -455,6 +460,10 @@ function CashReport({ report }: { report: FinanceCashReport }) {
           tone={moneyTone(report.netCashCents)}
         />
       </div>
+      <FinanceCashCalendar
+        calendar={report.cashCalendar}
+        currencyCode={report.currencyCode}
+      />
       <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_360px]">
         <PanelBlock title="Günlük nakit çizgisi">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-6">
@@ -636,7 +645,7 @@ function MetricGrid({
   metrics: FinanceOverviewReport["cards"];
 }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
       {metrics.map((metric) => (
         <MetricCard
           amountCents={metric.amountCents}
@@ -668,12 +677,12 @@ function MetricCard({
   value?: string;
 }) {
   return (
-    <div className={cn("rounded-lg border bg-card/70 p-3", toneBorderClass(tone))}>
-      <p className="truncate text-xs font-medium text-muted-foreground">{label}</p>
-      <strong className={cn("mt-2 block truncate font-mono text-xl", toneTextClass(tone))}>
+    <div className={cn("rounded-lg border bg-card/70 p-2.5", toneBorderClass(tone))}>
+      <p className="truncate text-[11px] font-medium text-muted-foreground">{label}</p>
+      <strong className={cn("mt-1 block truncate font-mono text-base", toneTextClass(tone))}>
         {amountCents ? formatMoney(amountCents, currencyCode) : value}
       </strong>
-      <p className="mt-1 truncate text-xs text-muted-foreground">{caption}</p>
+      <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{caption}</p>
     </div>
   );
 }
@@ -686,8 +695,8 @@ function PanelBlock({
   title: string;
 }) {
   return (
-    <section className="rounded-lg border border-border bg-card/70 p-3">
-      <h3 className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+    <section className="rounded-lg border border-border bg-card/70 p-2.5">
+      <h3 className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
         {title}
       </h3>
       {children}

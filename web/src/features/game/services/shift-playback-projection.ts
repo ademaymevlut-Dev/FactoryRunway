@@ -20,6 +20,7 @@ import {
   preferredTranslation,
   type SupportedLocale,
 } from "@/lib/i18n/locales";
+import { calculatePayrollProductionImpact } from "./payroll-production-impact";
 
 import type {
   ShiftPlayback,
@@ -65,6 +66,7 @@ type FinanceTransactionRow = {
   amountCents: bigint;
   category: FinanceCategory;
   direction: unknown;
+  financeDueId: string | null;
   id: string;
   referenceKey: string | null;
   sourceId: string | null;
@@ -315,6 +317,7 @@ export async function getShiftTimelineEvents(input: {
           amountCents: true,
           category: true,
           direction: true,
+          financeDueId: true,
           id: true,
           referenceKey: true,
           sourceId: true,
@@ -334,8 +337,10 @@ export async function getShiftTimelineEvents(input: {
         select: {
           amountCents: true,
           category: true,
+          dueDay: true,
           id: true,
           metadata: true,
+          referenceKey: true,
           settledAmountCents: true,
           sourceId: true,
           sourceType: true,
@@ -506,6 +511,17 @@ export async function getShiftTimelineEvents(input: {
     ]);
 
   const events: ShiftPlaybackTimelineEvent[] = [];
+  const openPayrollDues = financeDues.filter(
+    (due) => due.category === FinanceCategory.PAYROLL,
+  );
+  const openDueIds = new Set(financeDues.map((due) => due.id));
+  const openDueReferenceKeys = new Set(
+    financeDues
+      .map((due) => due.referenceKey)
+      .filter((referenceKey): referenceKey is string =>
+        Boolean(referenceKey),
+      ),
+  );
   let sequence = 0;
   const add = (event: TimelineEventDraft) => {
     sequence += 1;
@@ -630,13 +646,134 @@ export async function getShiftTimelineEvents(input: {
     }
   }
 
+  const payrollProductionImpactEvent =
+    payrollProductionImpactToTimelineEvent({
+      shiftId: input.shift.shiftId,
+      transactions: xpTransactions,
+    });
+
+  if (payrollProductionImpactEvent) {
+    add(payrollProductionImpactEvent);
+  } else if (openPayrollDues.length > 0) {
+    const payrollImpact = calculatePayrollProductionImpact({
+      currentDay: input.gameDay,
+      dues: openPayrollDues,
+    });
+    const paidCents = openPayrollDues.reduce(
+      (total, due) => total + due.settledAmountCents,
+      BigInt(0),
+    );
+    const isPartial = paidCents > BigInt(0);
+
+    add({
+      category: "FINANCE",
+      eventKey:
+        payrollImpact.productionPenaltyBps > 0
+          ? "payroll.production_reduced"
+          : isPartial
+            ? "payroll.partial"
+            : "payroll.overdue",
+      id: `payroll-due:${input.factoryId}:${input.gameDay}`,
+      minute:
+        payrollImpact.productionPenaltyBps > 0
+          ? 15
+          : 432,
+      payload: {
+        capacityMultiplierBps: payrollImpact.capacityMultiplierBps,
+        overdueDays: payrollImpact.overdueDays,
+        outstandingCents: payrollImpact.outstandingCents.toString(),
+        paidCents: paidCents.toString(),
+        productionPenaltyBps:
+          payrollImpact.productionPenaltyBps,
+      },
+      severity:
+        payrollImpact.productionPenaltyBps >= 2_000
+          ? "CRITICAL"
+          : "WARNING",
+      sourceId: openPayrollDues[0]?.sourceId ?? input.factoryId,
+      sourceType:
+        openPayrollDues[0]?.sourceType ?? "FACTORY_FINANCE_DUE",
+    });
+  }
+
   for (const transaction of financeTransactions) {
+    if (
+      isOpenDueEventCategory(transaction.category) &&
+      ((transaction.financeDueId !== null &&
+        openDueIds.has(transaction.financeDueId)) ||
+        (transaction.referenceKey !== null &&
+          openDueReferenceKeys.has(transaction.referenceKey)))
+    ) {
+      continue;
+    }
+
     const event = financeTransactionToEvent(transaction);
     if (!event) continue;
     add(event);
   }
 
   for (const due of financeDues) {
+    if (due.category === FinanceCategory.PAYROLL) {
+      continue;
+    }
+
+    if (isOperatingExpenseCategory(due.category)) {
+      add({
+        category: "FINANCE",
+        eventKey:
+          due.status === FinanceDueStatus.PARTIAL
+            ? "operating_expense.partial"
+            : "operating_expense.overdue",
+        id: `finance-due:${due.id}:${input.gameDay}:${due.status}`,
+        minute: 442,
+        payload: {
+          amountCents: due.amountCents.toString(),
+          category: due.category,
+          dueDay: due.dueDay,
+          overdueDays: Math.max(0, input.gameDay - due.dueDay),
+          paidCents: due.settledAmountCents.toString(),
+          remainingCents: (
+            due.amountCents - due.settledAmountCents
+          ).toString(),
+        },
+        severity:
+          due.status === FinanceDueStatus.PARTIAL
+            ? "WARNING"
+            : "CRITICAL",
+        sourceId: due.sourceId ?? due.id,
+        sourceType: due.sourceType ?? "FACTORY_FINANCE_DUE",
+      });
+      continue;
+    }
+
+    if (due.category === FinanceCategory.OUTSOURCE_COST) {
+      add({
+        category: "OUTSOURCING",
+        eventKey:
+          due.status === FinanceDueStatus.PARTIAL
+            ? "outsource.payment_partial"
+            : "outsource.payment_pending",
+        id: `finance-due:${due.id}:${input.gameDay}:${due.status}`,
+        minute: 454,
+        payload: {
+          amountCents: due.amountCents.toString(),
+          dueDay: due.dueDay,
+          overdueDays: Math.max(0, input.gameDay - due.dueDay),
+          paidCents: due.settledAmountCents.toString(),
+          remainingCents: (
+            due.amountCents - due.settledAmountCents
+          ).toString(),
+        },
+        severity:
+          due.status === FinanceDueStatus.PARTIAL
+            ? "WARNING"
+            : "CRITICAL",
+        sourceId: due.sourceId ?? due.id,
+        sourceType: due.sourceType ?? "FACTORY_FINANCE_DUE",
+      });
+      continue;
+    }
+
     if (
       due.category === FinanceCategory.PENALTY &&
       due.sourceType === FinanceSourceType.CUSTOMER_ORDER
@@ -1045,6 +1182,73 @@ function financeTransactionToEvent(
   }
 
   return null;
+}
+
+function isOperatingExpenseCategory(category: FinanceCategory) {
+  return (
+    category === FinanceCategory.ELECTRICITY ||
+    category === FinanceCategory.RENT ||
+    category === FinanceCategory.MEAL ||
+    category === FinanceCategory.OVERHEAD
+  );
+}
+
+function isOpenDueEventCategory(category: FinanceCategory) {
+  return (
+    category === FinanceCategory.PAYROLL ||
+    category === FinanceCategory.OUTSOURCE_COST ||
+    isOperatingExpenseCategory(category)
+  );
+}
+
+function payrollProductionImpactToTimelineEvent(input: {
+  shiftId: string;
+  transactions: XpTransactionRow[];
+}): (TimelineEventDraft & { id: string }) | null {
+  const shiftXpTransaction = input.transactions.find(
+    (transaction) =>
+      transaction.reason === XpReason.SHIFT_COMPLETED &&
+      transaction.sourceId === input.shiftId,
+  );
+  const metadata = isJsonRecord(shiftXpTransaction?.metadata)
+    ? shiftXpTransaction.metadata
+    : {};
+  const impact = isJsonRecord(metadata.payrollProductionImpact)
+    ? metadata.payrollProductionImpact
+    : null;
+  const productionPenaltyBps = readFiniteNumber(
+    impact?.productionPenaltyBps,
+  );
+
+  if (productionPenaltyBps <= 0) return null;
+
+  return {
+    category: "FINANCE",
+    eventKey: "payroll.production_reduced",
+    id: `payroll-impact:${input.shiftId}`,
+    minute: 15,
+    payload: {
+      capacityMultiplierBps: readFiniteNumber(
+        impact?.capacityMultiplierBps,
+      ),
+      overdueDays: readFiniteNumber(impact?.overdueDays),
+      outstandingCents:
+        typeof impact?.outstandingCents === "string"
+          ? impact.outstandingCents
+          : "0",
+      productionPenaltyBps,
+    },
+    severity:
+      productionPenaltyBps >= 2_000 ? "CRITICAL" : "WARNING",
+    sourceId: input.shiftId,
+    sourceType: "SHIFT_SIMULATION",
+  };
+}
+
+function readFiniteNumber(value: Prisma.JsonValue | undefined) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : 0;
 }
 
 function xpTransactionToEvent(

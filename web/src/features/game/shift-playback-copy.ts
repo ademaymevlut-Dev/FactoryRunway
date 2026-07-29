@@ -64,7 +64,9 @@ type ShiftPlaybackLocaleCopy = {
       customerRelationshipLost: string;
       departmentNoWip: (departmentName: string) => string;
       departmentProductionCompleted: (departmentName: string) => string;
+      financeExpenseOverdue: (categoryName: string) => string;
       financeExpensePaid: (categoryName: string) => string;
+      financeExpensePartial: (categoryName: string) => string;
       installationActivated: string;
       leasingContractCompleted: string;
       leasingDownPaymentPaid: string;
@@ -74,7 +76,12 @@ type ShiftPlaybackLocaleCopy = {
       levelUp: (level: string) => string;
       outsourceCompleted: string;
       outsourcePaymentPaid: string;
+      outsourcePaymentPartial: string;
+      outsourcePaymentPending: string;
+      payrollOverdue: string;
       payrollPaid: string;
+      payrollPartial: string;
+      payrollProductionReduced: (overdueDays: number) => string;
       penaltyOverdue: string;
       penaltyPaid: string;
       penaltyPartial: string;
@@ -101,7 +108,27 @@ type ShiftPlaybackLocaleCopy = {
       chaosSystem: (target: string, capacityLoss: string) => string;
       customerRelationshipGained: (orderCode: string) => string;
       customerRelationshipLost: (orderCode: string) => string;
+      financeExpenseOverdue: (
+        categoryName: string,
+        amount: string,
+        overdueDays: string,
+      ) => string;
+      financeExpenseOverdueToday: (
+        categoryName: string,
+        amount: string,
+      ) => string;
       financeExpensePaid: (categoryName: string, amount: string) => string;
+      financeExpensePartial: (
+        categoryName: string,
+        paidAmount: string,
+        remainingAmount: string,
+        overdueDays: string,
+      ) => string;
+      financeExpensePartialToday: (
+        categoryName: string,
+        paidAmount: string,
+        remainingAmount: string,
+      ) => string;
       installationActivated: (
         departmentName: string,
         lineNumber: string,
@@ -110,9 +137,24 @@ type ShiftPlaybackLocaleCopy = {
       orderCompletedXp: (orderNo: string, balanceAfterXp: string) => string;
       orderQuantity: (orderCode: string, quantity: string) => string;
       onTimeDeliveryXp: (orderNo: string, balanceAfterXp: string) => string;
+      outsourcePaymentPartial: (
+        paidAmount: string,
+        remainingAmount: string,
+      ) => string;
+      outsourcePaymentPending: (amount: string) => string;
       penaltyOverdue: (orderNo: string, amount: string) => string;
       penaltyPaid: (orderNo: string, amount: string) => string;
       penaltyPartial: (orderNo: string, amount: string) => string;
+      payrollOverdue: (amount: string) => string;
+      payrollPaid: (amount: string) => string;
+      payrollPartial: (
+        paidAmount: string,
+        remainingAmount: string,
+      ) => string;
+      payrollProductionReduced: (
+        amount: string,
+        penaltyPercent: string,
+      ) => string;
       premiumBonus: (orderNo: string, balanceAfterXp: string) => string;
       luxuryBonus: (orderNo: string, balanceAfterXp: string) => string;
       processedQuantity: (quantity: string) => string;
@@ -212,7 +254,11 @@ export const shiftPlaybackCopy = {
           `${departmentName} için hazır WIP yok`,
         departmentProductionCompleted: (departmentName) =>
           `${departmentName} üretimi tamamladı`,
+        financeExpenseOverdue: (categoryName) =>
+          `${categoryName} ödenemedi`,
         financeExpensePaid: (categoryName) => `${categoryName} ödendi`,
+        financeExpensePartial: (categoryName) =>
+          `${categoryName} ödemesi eksik kaldı`,
         installationActivated: "Üretim hattı aktif edildi",
         leasingContractCompleted: "Leasing sözleşmesi tamamlandı",
         leasingDownPaymentPaid: "Leasing peşinatı ödendi",
@@ -226,7 +272,13 @@ export const shiftPlaybackCopy = {
         orderShipped: "Sipariş sevk edildi",
         outsourceCompleted: "Fason işlem tamamlandı",
         outsourcePaymentPaid: "Fason ödeme yapıldı",
+        outsourcePaymentPartial: "Fason ödemesi eksik kaldı",
+        outsourcePaymentPending: "Fason ödeme bekliyor",
+        payrollOverdue: "Maaş ödenemedi",
         payrollPaid: "Maaş ödemesi yapıldı",
+        payrollPartial: "Maaş ödemesi eksik kaldı",
+        payrollProductionReduced: (overdueDays) =>
+          `Maaş ödemesi ${overdueDays} gün gecikti`,
         paymentReceived: "Müşteri ödemesi alındı",
         penaltyOverdue: "Gecikme cezası bekliyor",
         penaltyPaid: "Gecikme cezası ödendi",
@@ -251,8 +303,25 @@ export const shiftPlaybackCopy = {
           `${orderCode} teslim performansı müşterinin tekrar sipariş ihtimalini artırdı.`,
         customerRelationshipLost: (orderCode) =>
           `${orderCode} gecikmesi müşterinin tekrar sipariş ihtimalini düşürdü.`,
+        financeExpenseOverdue: (categoryName, amount, overdueDays) =>
+          `${categoryName} ödemesi ${overdueDays} gündür gecikiyor. Bekleyen borç: ${amount}.`,
+        financeExpenseOverdueToday: (categoryName, amount) =>
+          `${categoryName} bugün ödenemedi. ${amount} borç olarak kaydedildi.`,
         financeExpensePaid: (categoryName, amount) =>
           `${categoryName} için ${amount} ödeme yapıldı.`,
+        financeExpensePartial: (
+          categoryName,
+          paidAmount,
+          remainingAmount,
+          overdueDays,
+        ) =>
+          `${categoryName} için toplam ${paidAmount} ödendi. Kalan ${remainingAmount}, ${overdueDays} gündür borç olarak bekliyor.`,
+        financeExpensePartialToday: (
+          categoryName,
+          paidAmount,
+          remainingAmount,
+        ) =>
+          `${categoryName} için ${paidAmount} ödendi. Kalan ${remainingAmount} borç olarak kaydedildi.`,
         installationActivated: (departmentName, lineNumber) =>
           `${departmentName} bölümündeki ${lineNumber}. hat kurulumdan çıktı ve üretim kapasitesine katıldı.`,
         levelUp: (xp, balanceAfterXp) =>
@@ -265,12 +334,24 @@ export const shiftPlaybackCopy = {
           `${orderNo} sevk edildiği için workload bazlı XP eklendi. Güncel XP: ${balanceAfterXp}.`,
         orderQuantity: (orderCode, quantity) =>
           `${orderCode} için ${quantity} adet.`,
+        outsourcePaymentPartial: (paidAmount, remainingAmount) =>
+          `Fason işlem için ${paidAmount} ödendi. Kalan ${remainingAmount} kapanana kadar ürün sonraki kuyruğa geçmeyecek.`,
+        outsourcePaymentPending: (amount) =>
+          `${amount} fason borcu kapanana kadar ürün fason kuyruğunda bekleyecek.`,
         penaltyOverdue: (orderNo, amount) =>
           `${orderNo} gecikme cezası ödenemedi. Bekleyen tutar: ${amount}.`,
         penaltyPaid: (orderNo, amount) =>
           `${orderNo} için ${amount} gecikme cezası kasadan çıktı.`,
         penaltyPartial: (orderNo, amount) =>
           `${orderNo} gecikme cezasının ${amount} kısmı bekliyor.`,
+        payrollOverdue: (amount) =>
+          `Maaş bugün ödenemedi. ${amount} borç olarak kaydedildi; üretim etkisi sonraki vardiyada başlayacak.`,
+        payrollPaid: (amount) =>
+          `Maaş için ${amount} ödeme yapıldı.`,
+        payrollPartial: (paidAmount, remainingAmount) =>
+          `Maaş için ${paidAmount} ödendi. Kalan ${remainingAmount} borç olarak kaydedildi.`,
+        payrollProductionReduced: (amount, penaltyPercent) =>
+          `Üretim kapasitesi ${penaltyPercent} düşürüldü. Vardiya başında bekleyen maaş borcu: ${amount}.`,
         premiumBonus: (orderNo, balanceAfterXp) =>
           `${orderNo} Premium zorluk bonusu verdi. Güncel XP: ${balanceAfterXp}.`,
         processedQuantity: (quantity) => `${quantity} adet işlendi.`,
@@ -373,7 +454,11 @@ export const shiftPlaybackCopy = {
         departmentNoWip: (departmentName) => `${departmentName} had no ready WIP`,
         departmentProductionCompleted: (departmentName) =>
           `${departmentName} completed production`,
+        financeExpenseOverdue: (categoryName) =>
+          `${categoryName} could not be paid`,
         financeExpensePaid: (categoryName) => `${categoryName} paid`,
+        financeExpensePartial: (categoryName) =>
+          `${categoryName} payment is incomplete`,
         installationActivated: "Production line activated",
         leasingContractCompleted: "Leasing contract completed",
         leasingDownPaymentPaid: "Leasing down payment paid",
@@ -387,7 +472,13 @@ export const shiftPlaybackCopy = {
         orderShipped: "Order shipped",
         outsourceCompleted: "Outsource job completed",
         outsourcePaymentPaid: "Outsource payment made",
+        outsourcePaymentPartial: "Outsource payment is incomplete",
+        outsourcePaymentPending: "Outsource payment pending",
+        payrollOverdue: "Payroll could not be paid",
         payrollPaid: "Payroll paid",
+        payrollPartial: "Payroll payment is incomplete",
+        payrollProductionReduced: (overdueDays) =>
+          `Payroll is ${overdueDays} ${overdueDays === 1 ? "day" : "days"} overdue`,
         paymentReceived: "Customer payment received",
         penaltyOverdue: "Late penalty pending",
         penaltyPaid: "Late penalty paid",
@@ -412,8 +503,25 @@ export const shiftPlaybackCopy = {
           `${orderCode} delivery performance increased the chance of repeat orders.`,
         customerRelationshipLost: (orderCode) =>
           `${orderCode} delay reduced the chance of repeat orders.`,
+        financeExpenseOverdue: (categoryName, amount, overdueDays) =>
+          `${categoryName} has been overdue for ${overdueDays} days. Outstanding debt: ${amount}.`,
+        financeExpenseOverdueToday: (categoryName, amount) =>
+          `${categoryName} could not be paid today. ${amount} was recorded as debt.`,
         financeExpensePaid: (categoryName, amount) =>
           `${amount} was paid for ${categoryName}.`,
+        financeExpensePartial: (
+          categoryName,
+          paidAmount,
+          remainingAmount,
+          overdueDays,
+        ) =>
+          `${paidAmount} has been paid for ${categoryName}. The remaining ${remainingAmount} has been outstanding for ${overdueDays} days.`,
+        financeExpensePartialToday: (
+          categoryName,
+          paidAmount,
+          remainingAmount,
+        ) =>
+          `${paidAmount} was paid for ${categoryName}. The remaining ${remainingAmount} was recorded as debt.`,
         installationActivated: (departmentName, lineNumber) =>
           `Line ${lineNumber} in ${departmentName} completed installation and joined production capacity.`,
         levelUp: (xp, balanceAfterXp) =>
@@ -426,12 +534,24 @@ export const shiftPlaybackCopy = {
           `${orderNo} shipped and earned workload-based XP. Current XP: ${balanceAfterXp}.`,
         orderQuantity: (orderCode, quantity) =>
           `${quantity} units for ${orderCode}.`,
+        outsourcePaymentPartial: (paidAmount, remainingAmount) =>
+          `${paidAmount} was paid for the outsource job. The product will remain in the outsource queue until the remaining ${remainingAmount} is paid.`,
+        outsourcePaymentPending: (amount) =>
+          `The product will remain in the outsource queue until the ${amount} outsource debt is paid.`,
         penaltyOverdue: (orderNo, amount) =>
           `${orderNo} late penalty could not be paid. Pending amount: ${amount}.`,
         penaltyPaid: (orderNo, amount) =>
           `${amount} late penalty was paid for ${orderNo}.`,
         penaltyPartial: (orderNo, amount) =>
           `${amount} of ${orderNo}'s late penalty is still pending.`,
+        payrollOverdue: (amount) =>
+          `Payroll could not be paid today. ${amount} was recorded as debt; the production impact starts next shift.`,
+        payrollPaid: (amount) =>
+          `${amount} was paid toward payroll.`,
+        payrollPartial: (paidAmount, remainingAmount) =>
+          `${paidAmount} was paid toward payroll. The remaining ${remainingAmount} was recorded as debt.`,
+        payrollProductionReduced: (amount, penaltyPercent) =>
+          `Production capacity was reduced by ${penaltyPercent}. Payroll debt at shift start: ${amount}.`,
         premiumBonus: (orderNo, balanceAfterXp) =>
           `${orderNo} granted a Premium difficulty bonus. Current XP: ${balanceAfterXp}.`,
         processedQuantity: (quantity) => `${quantity} units processed.`,

@@ -269,6 +269,7 @@ export type GameSnapshot = {
     sectorName: string;
     currencyCode: CurrencyCode;
     cashBalanceCents: string;
+    availableBalanceCents: string;
     currentDay: number;
     currentFinancePeriod: number;
     currentLevel: number;

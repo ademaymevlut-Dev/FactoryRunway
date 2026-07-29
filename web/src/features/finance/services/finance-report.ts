@@ -22,6 +22,7 @@ import {
   type FinanceTransactionItem,
   type FinanceTone,
 } from "../types";
+import { getFinanceCashCalendar } from "./finance-cash-calendar";
 import { getFinancePeriod } from "./finance-period";
 
 const operatingExpenseCategories = [
@@ -114,7 +115,14 @@ export async function getFinanceReport(input: {
 }
 
 async function buildOverviewReport(input: ReportBuilderInput): Promise<FinanceOverviewReport> {
-  const [productionValue, operatingExpenses, cashTotals, dueSummary, latestTransactions] =
+  const [
+    productionValue,
+    operatingExpenses,
+    cashTotals,
+    dueSummary,
+    latestTransactions,
+    cashCalendar,
+  ] =
     await Promise.all([
       getCompletedProductionValue(input),
       getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, operatingExpenseCategories),
@@ -122,6 +130,12 @@ async function buildOverviewReport(input: ReportBuilderInput): Promise<FinanceOv
       getDueSummary(input.prisma, input.factoryId, input.period.currentDay),
       getTransactions(input.prisma, input.factoryId, {
         limit: 5,
+      }),
+      getFinanceCashCalendar({
+        cashBalanceCents: BigInt(input.cashBalanceCents),
+        currentDay: input.period.currentDay,
+        factoryId: input.factoryId,
+        prisma: input.prisma,
       }),
     ]);
   const operationalExpenseCents = sumBreakdown(operatingExpenses);
@@ -131,6 +145,7 @@ async function buildOverviewReport(input: ReportBuilderInput): Promise<FinanceOv
 
   return {
     cashBalanceCents: input.cashBalanceCents,
+    cashCalendar,
     cards: [
       {
         amountCents: input.cashBalanceCents,
@@ -207,12 +222,18 @@ async function buildCashReport(input: ReportBuilderInput): Promise<FinanceCashRe
   const openDueUntilDay = input.period.isCurrentPeriod
     ? Math.max(input.period.endDay, input.period.currentDay + 7)
     : input.period.endDay;
-  const [transactions, openDues] = await Promise.all([
+  const [transactions, openDues, cashCalendar] = await Promise.all([
     getTransactions(input.prisma, input.factoryId, {
       endDay: input.period.endDay,
       startDay: input.period.startDay,
     }),
     getOpenDues(input.prisma, input.factoryId, openDueUntilDay),
+    getFinanceCashCalendar({
+      cashBalanceCents: BigInt(input.cashBalanceCents),
+      currentDay: input.period.currentDay,
+      factoryId: input.factoryId,
+      prisma: input.prisma,
+    }),
   ]);
   const incomeCents = sumTransactions(transactions, "INCOME");
   const expenseCents = sumTransactions(transactions, "EXPENSE");
@@ -220,6 +241,7 @@ async function buildCashReport(input: ReportBuilderInput): Promise<FinanceCashRe
 
   return {
     cashBalanceCents: input.cashBalanceCents,
+    cashCalendar,
     currencyCode: input.currencyCode,
     dailyNet,
     expenseCents: expenseCents.toString(),
@@ -549,6 +571,7 @@ async function getExpenseObligationBreakdown(
       select: {
         amountCents: true,
         category: true,
+        financeDueId: true,
         referenceKey: true,
       },
     }),
@@ -565,6 +588,10 @@ async function getExpenseObligationBreakdown(
   }
 
   for (const transaction of transactions) {
+    if (transaction.financeDueId) {
+      continue;
+    }
+
     if (
       transaction.referenceKey &&
       dueReferenceKeys.has(transaction.referenceKey)

@@ -8,6 +8,7 @@ import {
   buildOperatingExpenseReferenceKey,
   buildOutsourcePaymentReferenceKey,
   buildPayrollReferenceKey,
+  resolveOutsourcePaymentState,
 } from "./financial-triggers";
 
 function readSource(relativePath: string) {
@@ -50,4 +51,62 @@ test("fason action teklif seçiminde peşin ödeme oluşturmaz", () => {
 
   assert.doesNotMatch(source, /factoryFinanceTransaction\.create/);
   assert.doesNotMatch(source, /cashBalanceCents:\s*\{\s*decrement/);
+});
+
+test("fason işi yalnızca toplam bedelin tamamı ödendiğinde serbest kalır", () => {
+  assert.deepEqual(
+    resolveOutsourcePaymentState({
+      totalCostCents: BigInt(10_000),
+      transactionAmountCents: BigInt(10_000),
+    }),
+    {
+      isPaid: true,
+      paidCents: BigInt(10_000),
+      remainingCents: BigInt(0),
+    },
+  );
+  assert.deepEqual(
+    resolveOutsourcePaymentState({
+      dueSettledAmountCents: BigInt(3_000),
+      totalCostCents: BigInt(10_000),
+      transactionAmountCents: BigInt(3_000),
+    }),
+    {
+      isPaid: false,
+      paidCents: BigInt(3_000),
+      remainingCents: BigInt(7_000),
+    },
+  );
+  assert.deepEqual(
+    resolveOutsourcePaymentState({
+      dueSettledAmountCents: BigInt(10_000),
+      totalCostCents: BigInt(10_000),
+      transactionAmountCents: BigInt(3_000),
+    }),
+    {
+      isPaid: true,
+      paidCents: BigInt(10_000),
+      remainingCents: BigInt(0),
+    },
+  );
+});
+
+test("fason rota aktarımı ödeme kontrolünden sonra çalışır", () => {
+  const source = readSource("./day-simulation.ts");
+  const completionSource = source.slice(
+    source.indexOf("async function completeReadyOutsourceJobs"),
+  );
+
+  assert.ok(
+    completionSource.indexOf("getOutsourcePaymentStates") <
+      completionSource.indexOf("calculateOutsourceCompletion"),
+  );
+  assert.match(
+    completionSource,
+    /data: \{ status: OutsourceJobStatus\.DELAYED \}/,
+  );
+  assert.match(
+    completionSource,
+    /status: OutsourceJobStatus\.COMPLETED/,
+  );
 });
