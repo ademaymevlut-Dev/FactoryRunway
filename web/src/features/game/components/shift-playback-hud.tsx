@@ -163,7 +163,7 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
                 }}
               />
               <label
-                className="cursor-pointer text-[11px] font-medium text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-60 min-[1440px]:text-xs"
+                className="cursor-pointer text-[11px] font-medium text-white/90 drop-shadow-sm transition-colors hover:text-white peer-disabled:cursor-not-allowed peer-disabled:text-white/60 min-[1440px]:text-xs"
                 htmlFor={skipControlId}
               >
                 {isSkipping
