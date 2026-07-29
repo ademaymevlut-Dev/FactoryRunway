@@ -1,20 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { skipShiftPlaybackAction } from "../actions/skip-shift-playback-action";
 import {
   formatShiftPlaybackTime,
   getShiftPlaybackMinute,
   getShiftPlaybackProgress,
   getShiftQuantityAtMinute,
+  SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS,
 } from "../shift-playback";
 import { dismissShiftPlayback, useGameUiStore } from "../store/game-ui-store";
 import type { GameSnapshot, ShiftPlayback } from "../types";
@@ -27,11 +36,14 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
   const copy = shiftPlaybackCopy[locale].hud;
   const {
     activeShiftPlayback,
+    finishActiveShiftPlayback,
     isShiftPlaybackActive,
     setActiveShiftPlayback,
     shiftPlaybackNowMs,
   } = useGameUiStore();
   const [closingShiftId, setClosingShiftId] = useState<string | null>(null);
+  const [skipError, setSkipError] = useState<string | null>(null);
+  const [isSkipping, startSkipTransition] = useTransition();
   const closeFinalizedRef = useRef<string | null>(null);
 
   const finalizeClose = useCallback(() => {
@@ -52,6 +64,34 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
     }
     setClosingShiftId(activeShiftPlayback.shiftId);
   }, [activeShiftPlayback, finalizeClose, isShiftPlaybackActive]);
+
+  const requestSkip = useCallback(() => {
+    if (!activeShiftPlayback || !isShiftPlaybackActive || isSkipping) return;
+
+    const shiftId = activeShiftPlayback.shiftId;
+    setSkipError(null);
+
+    startSkipTransition(async () => {
+      try {
+        const result = await skipShiftPlaybackAction(shiftId);
+
+        if (!result.ok) {
+          setSkipError(result.message);
+          return;
+        }
+
+        finishActiveShiftPlayback(shiftId);
+      } catch {
+        setSkipError(copy.skipAnimationError);
+      }
+    });
+  }, [
+    activeShiftPlayback,
+    copy.skipAnimationError,
+    finishActiveShiftPlayback,
+    isShiftPlaybackActive,
+    isSkipping,
+  ]);
 
   useEffect(() => {
     if (!activeShiftPlayback) return;
@@ -79,6 +119,11 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
   );
   const isFinal = progress >= 1;
   const isClosing = closingShiftId === activeShiftPlayback.shiftId;
+  const isSkipped =
+    activeShiftPlayback.playbackDurationSeconds ===
+    SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS;
+  const skipControlId = `skip-shift-playback-${activeShiftPlayback.shiftId}`;
+  const skipErrorId = `${skipControlId}-error`;
 
   return (
     <aside
@@ -107,6 +152,34 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
               progress={progress}
               simulatedGameDay={activeShiftPlayback.simulatedGameDay}
             />
+            <div className="mt-2 flex min-h-5 items-center gap-2">
+              <Checkbox
+                aria-describedby={skipError ? skipErrorId : undefined}
+                checked={isSkipping || isSkipped}
+                disabled={isFinal || isSkipping || isClosing}
+                id={skipControlId}
+                onCheckedChange={(checked) => {
+                  if (checked === true) requestSkip();
+                }}
+              />
+              <label
+                className="cursor-pointer text-[11px] font-medium text-muted-foreground peer-disabled:cursor-not-allowed peer-disabled:opacity-60 min-[1440px]:text-xs"
+                htmlFor={skipControlId}
+              >
+                {isSkipping
+                  ? copy.skipAnimationPending
+                  : copy.skipAnimationLabel}
+              </label>
+            </div>
+            {skipError ? (
+              <p
+                className="mt-1 text-[11px] text-destructive min-[1440px]:text-xs"
+                id={skipErrorId}
+                role="alert"
+              >
+                {skipError}
+              </p>
+            ) : null}
           </div>
           <Tooltip>
             <TooltipTrigger asChild>

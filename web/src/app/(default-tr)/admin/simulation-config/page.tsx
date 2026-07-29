@@ -108,7 +108,7 @@ export default async function SimulationConfigPage() {
                 startingLevel: 1,
                 financePeriodDays: 22,
                 defaultPaymentTermDays: 7,
-                simulationDurationSeconds: 45,
+                simulationDurationSeconds: 15,
                 metadata: defaultMetadata,
               }}
             />

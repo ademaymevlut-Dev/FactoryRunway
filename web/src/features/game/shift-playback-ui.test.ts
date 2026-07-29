@@ -18,12 +18,29 @@ test("playback HUD sabit overlay, global saat ve kullanıcı close sözleşmesin
   assert.match(hud, /dismissShiftPlayback/);
   assert.match(hud, /closingShiftId === activeShiftPlayback\.shiftId/);
   assert.match(hud, /disabled=\{!isFinal \|\| isClosing\}/);
+  assert.match(hud, /skipShiftPlaybackAction/);
+  assert.match(hud, /copy\.skipAnimationLabel/);
+  assert.match(hud, /finishActiveShiftPlayback/);
+  assert.match(hud, /SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS/);
   assert.doesNotMatch(hud, /requestAnimationFrame/);
   assert.match(hud, /shiftPlaybackNowMs/);
   assert.doesNotMatch(hud, /setInterval|setTimeout/);
   assert.doesNotMatch(hud, /translate-x|pr-\[440px\]|absolute inset-x-0/);
   assert.match(store, /requestAnimationFrame/);
+  assert.match(store, /finishShiftPlaybackImmediately/);
   assert.doesNotMatch(store, /setInterval|setTimeout/);
+});
+
+test("playback skip action yalnızca tamamlanmış güncel vardiyayı sahiplik ile bitirir", () => {
+  const action = readSource("./actions/skip-shift-playback-action.ts");
+
+  assert.match(action, /getCurrentUser/);
+  assert.match(action, /factoryId: factory\.id/);
+  assert.match(action, /gameDay: factory\.currentDay - 1/);
+  assert.match(action, /status: ShiftSimulationStatus\.COMPLETED/);
+  assert.match(action, /completedAt: \{ not: null \}/);
+  assert.match(action, /simulationDurationSeconds: SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS/);
+  assert.match(action, /revalidatePath\("\/game"\)/);
 });
 
 test("departman kartları kontrollü CountUp hedefi ve final kesinliği kullanır", () => {

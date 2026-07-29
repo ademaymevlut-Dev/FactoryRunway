@@ -16,6 +16,7 @@ type ShiftPlaybackLocaleCopy = {
     errors: {
       SHIFT_RESULT_NOT_FOUND_AFTER_START: string;
       SHIFT_RESULT_NOT_FOUND_AFTER_COMPLETION: string;
+      SHIFT_SKIP_FAILED: string;
       SHIFT_START_FAILED: string;
     };
     warnings: {
@@ -171,6 +172,9 @@ type ShiftPlaybackLocaleCopy = {
     activeProductAria: (productName: string) => string;
     closeAria: string;
     lockAria: string;
+    skipAnimationError: string;
+    skipAnimationLabel: string;
+    skipAnimationPending: string;
     metrics: {
       produced: string;
       queueEntered: string;
@@ -195,6 +199,8 @@ export const shiftPlaybackCopy = {
           "Vardiya daha önce başlatıldı ancak sonucu okunamadı.",
         SHIFT_RESULT_NOT_FOUND_AFTER_COMPLETION:
           "Vardiya tamamlandı ancak sonucu okunamadı.",
+        SHIFT_SKIP_FAILED:
+          "Animasyon atlanamadı. Vardiya ilerlemeye devam ediyor.",
         SHIFT_START_FAILED: "Vardiya başlatılamadı. Lütfen tekrar deneyin.",
       },
       warnings: {
@@ -371,6 +377,10 @@ export const shiftPlaybackCopy = {
       activeProductAria: (productName) => `Aktif ürün: ${productName}`,
       closeAria: "Kapat",
       lockAria: "Vardiya sonucu kapatılana kadar planlama işlemleri kilitli",
+      skipAnimationError:
+        "Animasyon atlanamadı. Vardiya ilerlemeye devam ediyor.",
+      skipAnimationLabel: "Animasyonu atla ve sonuçları göster",
+      skipAnimationPending: "Sonuçlar hazırlanıyor…",
       metrics: {
         produced: "Çıkan",
         queueEntered: "Kuyruğa giren",
@@ -396,6 +406,8 @@ export const shiftPlaybackCopy = {
           "The shift had already started, but the result could not be read.",
         SHIFT_RESULT_NOT_FOUND_AFTER_COMPLETION:
           "The shift completed, but the result could not be read.",
+        SHIFT_SKIP_FAILED:
+          "The animation could not be skipped. Shift playback is continuing.",
         SHIFT_START_FAILED: "The shift could not be started. Please try again.",
       },
       warnings: {
@@ -571,6 +583,10 @@ export const shiftPlaybackCopy = {
       activeProductAria: (productName) => `Active product: ${productName}`,
       closeAria: "Close",
       lockAria: "Planning is locked until the shift result is closed",
+      skipAnimationError:
+        "The animation could not be skipped. Shift playback is continuing.",
+      skipAnimationLabel: "Skip animation and show results",
+      skipAnimationPending: "Preparing results…",
       metrics: {
         produced: "Output",
         queueEntered: "Queued",

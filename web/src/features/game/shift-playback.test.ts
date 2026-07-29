@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  finishShiftPlaybackImmediately,
   formatShiftPlaybackTime,
   getShiftPlaybackMinute,
   getShiftQuantityAtMinute,
@@ -45,20 +46,20 @@ test("simulatedGameDay ile nextGameDay değerlerini ayrı tutar", () => {
 test("completedAt değerini kalıcı playback başlangıç ankrajı olarak kullanır", () => {
   const playback = toShiftPlayback(
     buildRecord(),
-    new Date("2026-07-11T10:00:19.999Z"),
+    new Date("2026-07-11T10:00:14.999Z"),
   );
 
   assert.ok(playback);
   assert.equal(playback.playbackStartedAt, "2026-07-11T10:00:00.000Z");
-  assert.equal(playback.playbackEndsAt, "2026-07-11T10:00:20.000Z");
-  assert.equal(playback.playbackDurationSeconds, 20);
+  assert.equal(playback.playbackEndsAt, "2026-07-11T10:00:15.000Z");
+  assert.equal(playback.playbackDurationSeconds, 15);
   assert.equal(playback.isActive, true);
 });
 
-test("20 saniye dolduğunda playback aktif sayılmaz", () => {
+test("15 saniye dolduğunda playback aktif sayılmaz", () => {
   const playback = toShiftPlayback(
     buildRecord(),
-    new Date("2026-07-11T10:00:20.000Z"),
+    new Date("2026-07-11T10:00:15.000Z"),
   );
 
   assert.ok(playback);
@@ -87,7 +88,7 @@ test("tamamlanmamış vardiya için playback üretmez", () => {
   assert.equal(toShiftPlayback(buildRecord({ completedAt: null })), null);
 });
 
-test("tek global saat 0, 10 ve 20 saniyeyi 08:00, 12:30 ve 17:00'a eşler", () => {
+test("tek global saat 0, 7.5 ve 15 saniyeyi 08:00, 12:30 ve 17:00'a eşler", () => {
   const playback = toShiftPlayback(buildRecord());
 
   assert.ok(playback);
@@ -99,13 +100,30 @@ test("tek global saat 0, 10 ve 20 saniyeyi 08:00, 12:30 ve 17:00'a eşler", () =
   );
   assert.equal(
     formatShiftPlaybackTime(
-      getShiftPlaybackMinute(playback, startedAt + 10_000),
+      getShiftPlaybackMinute(playback, startedAt + 7_500),
     ),
     "12:30",
   );
   assert.equal(
     formatShiftPlaybackTime(
-      getShiftPlaybackMinute(playback, startedAt + 20_000),
+      getShiftPlaybackMinute(playback, startedAt + 15_000),
+    ),
+    "17:00",
+  );
+});
+
+test("atlanmış playback global saati ve sonucu anında finale taşır", () => {
+  const playback = toShiftPlayback(buildRecord());
+
+  assert.ok(playback);
+  const skipped = finishShiftPlaybackImmediately(playback);
+
+  assert.equal(skipped.playbackDurationSeconds, 0);
+  assert.equal(skipped.playbackEndsAt, skipped.playbackStartedAt);
+  assert.equal(skipped.isActive, false);
+  assert.equal(
+    formatShiftPlaybackTime(
+      getShiftPlaybackMinute(skipped, Date.parse(skipped.playbackStartedAt)),
     ),
     "17:00",
   );

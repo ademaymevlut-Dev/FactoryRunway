@@ -3,10 +3,14 @@ import test from "node:test";
 
 import {
   getActiveShiftPlayback,
+  getActiveShiftPlaybackReference,
   getLatestShiftPlayback,
 } from "./shift-playback-view";
 
-function buildPrisma(completedAt: Date) {
+function buildPrisma(
+  completedAt: Date,
+  simulationDurationSeconds: number = 20,
+) {
   return {
     shiftSimulation: {
       findFirst: async () => ({
@@ -15,7 +19,7 @@ function buildPrisma(completedAt: Date) {
         gameDay: 4,
         status: "COMPLETED" as const,
         simulationVersion: "v1",
-        simulationDurationSeconds: 20,
+        simulationDurationSeconds,
         completedAt,
         totalProducedQuantity: 300,
         activeLineCount: 2,
@@ -99,6 +103,32 @@ test("süresi dolmuş vardiya aktif playback olarak dönmez", async () => {
 
   assert.equal(active, null);
   assert.ok(latest);
+  assert.equal(latest.isActive, false);
+});
+
+test("sunucuda atlanan vardiya aktif playback kilidi oluşturmaz", async () => {
+  const completedAt = new Date("2026-07-11T10:00:00.000Z");
+  const prisma = buildPrisma(completedAt, 0);
+  const active = await getActiveShiftPlayback({
+    factoryId: "factory-1",
+    now: completedAt,
+    prisma,
+  });
+  const activeReference = await getActiveShiftPlaybackReference({
+    factoryId: "factory-1",
+    now: completedAt,
+    prisma,
+  });
+  const latest = await getLatestShiftPlayback({
+    factoryId: "factory-1",
+    now: completedAt,
+    prisma,
+  });
+
+  assert.equal(active, null);
+  assert.equal(activeReference, null);
+  assert.ok(latest);
+  assert.equal(latest.playbackDurationSeconds, 0);
   assert.equal(latest.isActive, false);
 });
 

@@ -9,7 +9,8 @@ import {
   type SupportedLocale,
 } from "@/lib/i18n/locales";
 
-export const SHIFT_PLAYBACK_DURATION_SECONDS = 20;
+export const SHIFT_PLAYBACK_DURATION_SECONDS = 15;
+export const SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS = 0;
 export const SHIFT_PLAYBACK_GAME_MINUTES = 540;
 export const SHIFT_PLAYBACK_GAME_START_MINUTE = 8 * 60;
 
@@ -52,8 +53,8 @@ export function toShiftPlayback(
 
   const locale = normalizeLocale(localeInput);
   const durationSeconds = Math.max(
-    1,
-    record.simulationDurationSeconds || SHIFT_PLAYBACK_DURATION_SECONDS,
+    0,
+    record.simulationDurationSeconds ?? SHIFT_PLAYBACK_DURATION_SECONDS,
   );
   const playbackEndsAt = new Date(
     record.completedAt.getTime() + durationSeconds * 1000,
@@ -128,10 +129,23 @@ export function getShiftPlaybackProgress(
   >,
   nowMs: number,
 ) {
-  const durationMs = Math.max(1, playback.playbackDurationSeconds * 1000);
+  if (playback.playbackDurationSeconds <= 0) return 1;
+
+  const durationMs = playback.playbackDurationSeconds * 1000;
   const elapsedMs = nowMs - Date.parse(playback.playbackStartedAt);
 
   return Math.min(1, Math.max(0, elapsedMs / durationMs));
+}
+
+export function finishShiftPlaybackImmediately(
+  playback: ShiftPlayback,
+): ShiftPlayback {
+  return {
+    ...playback,
+    isActive: false,
+    playbackDurationSeconds: SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS,
+    playbackEndsAt: playback.playbackStartedAt,
+  };
 }
 
 export function getShiftPlaybackMinute(

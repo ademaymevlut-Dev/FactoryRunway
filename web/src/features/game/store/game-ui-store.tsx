@@ -12,7 +12,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { isShiftPlaybackActive } from "../shift-playback";
+import {
+  finishShiftPlaybackImmediately,
+  isShiftPlaybackActive,
+} from "../shift-playback";
 import type { GamePanelKey, ShiftPlayback } from "../types";
 
 const DISMISSED_SHIFT_PLAYBACK_STORAGE_KEY = "factory-runway:dismissed-shift-playback";
@@ -58,6 +61,7 @@ type GameUiStore = {
   setMapPan: (pan: MapPan) => void;
   setMapZoom: (zoom: number) => void;
   setActiveShiftPlayback: (playback: ShiftPlayback | null) => void;
+  finishActiveShiftPlayback: (shiftId: string) => void;
   setRankingVisit: (visit: RankingVisitState | null) => void;
   setTasksView: (view: TasksView) => void;
 };
@@ -152,12 +156,21 @@ export function GameUiProvider({
     setActiveShiftPlaybackState(playback);
     setShiftPlaybackNowMs(getInitialShiftPlaybackNowMs(playback));
   }, []);
+  const finishActiveShiftPlayback = useCallback((shiftId: string) => {
+    setActiveShiftPlaybackState((playback) => {
+      if (!playback || playback.shiftId !== shiftId) return playback;
+
+      return finishShiftPlaybackImmediately(playback);
+    });
+    setShiftPlaybackNowMs(Date.now());
+  }, []);
 
   const value = useMemo<GameUiStore>(
     () => ({
       activePanel,
       activeShiftPlayback: visibleShiftPlayback,
       closePanel,
+      finishActiveShiftPlayback,
       hoveredDepartmentId,
       mapPan,
       mapZoom,
@@ -180,6 +193,7 @@ export function GameUiProvider({
     [
       activePanel,
       closePanel,
+      finishActiveShiftPlayback,
       visibleShiftPlayback,
       hoveredDepartmentId,
       shiftPlaybackIsActive,

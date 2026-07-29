@@ -1183,7 +1183,7 @@ model SectorSimulationConfig {
   startingLevel             Int          @default(1) @map("starting_level")
   financePeriodDays         Int          @default(22) @map("finance_period_days")
   defaultPaymentTermDays    Int          @default(7) @map("default_payment_term_days")
-  simulationDurationSeconds Int          @default(45) @map("simulation_duration_seconds")
+  simulationDurationSeconds Int          @default(15) @map("simulation_duration_seconds")
   metadata                  Json?
   createdAt                 DateTime     @default(now()) @map("created_at")
   updatedAt                 DateTime     @updatedAt @map("updated_at")
@@ -2040,7 +2040,7 @@ model ShiftSimulation {
   gameEndMinute             Int                     @default(1020) @map("game_end_minute")
   breakStartMinute          Int                     @default(720) @map("break_start_minute")
   breakEndMinute            Int                     @default(780) @map("break_end_minute")
-  simulationDurationSeconds Int                     @default(45) @map("simulation_duration_seconds")
+  simulationDurationSeconds Int                     @default(15) @map("simulation_duration_seconds")
   startedAt                 DateTime                @default(now()) @map("started_at")
   completedAt               DateTime?               @map("completed_at")
   idempotencyKey            String?                 @map("idempotency_key")

@@ -94,8 +94,8 @@ export async function getActiveShiftPlaybackReference(input: {
   if (!shift?.completedAt) return null;
 
   const durationSeconds = Math.max(
-    1,
-    shift.simulationDurationSeconds || SHIFT_PLAYBACK_DURATION_SECONDS,
+    0,
+    shift.simulationDurationSeconds ?? SHIFT_PLAYBACK_DURATION_SECONDS,
   );
   const playbackEndsAtMs =
     shift.completedAt.getTime() + durationSeconds * 1_000;
