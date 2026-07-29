@@ -174,6 +174,9 @@ export const ordersCopy = {
       sidebar: {
         changeFilterAria: "Filtreyi değiştir",
         openOffers: (count: number) => `${count} açık teklif`,
+        routeXpHintBody:
+          "Üretim rotası ve üretim zorluğu yüksek olan siparişler daha çok XP puanı kazandırır.",
+        routeXpHintTitle: "Üretim Rotası",
       },
       tierEmpty: {
         body: "Motor, oyuncu seviyene ve üretim kapasitesine uygun yeni teklifleri vardiya ilerledikçe oluşturacak.",
@@ -346,6 +349,9 @@ export const ordersCopy = {
       sidebar: {
         changeFilterAria: "Change filter",
         openOffers: (count: number) => `${count} open offers`,
+        routeXpHintBody:
+          "Orders with more complex production routes and higher production difficulty award more XP points.",
+        routeXpHintTitle: "Production Route",
       },
       tierEmpty: {
         body: "The engine will create new offers that match your level and production capacity as shifts advance.",
@@ -482,6 +488,8 @@ export const ordersCopy = {
       sidebar: {
         changeFilterAria: string;
         openOffers: (count: number) => string;
+        routeXpHintBody: string;
+        routeXpHintTitle: string;
       };
       tierEmpty: {
         body: string;

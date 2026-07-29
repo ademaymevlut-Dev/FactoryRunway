@@ -395,17 +395,20 @@ function OrderSidebarPanel({
       </div>
 
       {selectedFilter === null ? (
-        <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
-          {marketFilters.map((filter) => (
-            <MarketFilterButton
-              count={getMarketFilterCount(sourceOffers, filter.value)}
-              currentLevel={currentLevel}
-              filter={filter}
-              key={filter.value}
-              onSelect={onSelectFilter}
-            />
-          ))}
-        </div>
+        <>
+          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+            {marketFilters.map((filter) => (
+              <MarketFilterButton
+                count={getMarketFilterCount(sourceOffers, filter.value)}
+                currentLevel={currentLevel}
+                filter={filter}
+                key={filter.value}
+                onSelect={onSelectFilter}
+              />
+            ))}
+          </div>
+          <OrderSidebarRouteHint />
+        </>
       ) : null}
 
       {selectedMarketFilter ? (
@@ -432,6 +435,28 @@ function OrderSidebarPanel({
         </div>
       ) : null}
     </aside>
+  );
+}
+
+function OrderSidebarRouteHint() {
+  const { copy } = useOrdersUi();
+
+  return (
+    <div className="mt-3 shrink-0 rounded-lg border border-primary/20 bg-primary/10 p-3 text-primary">
+      <div className="flex items-start gap-2">
+        <span className="grid size-8 shrink-0 place-items-center rounded-md border border-primary/25 bg-background/45">
+          <Route size={15} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-xs font-semibold text-foreground">
+            {copy.sidebar.routeXpHintTitle}
+          </span>
+          <span className="mt-1 block text-[11px] leading-4 text-muted-foreground">
+            {copy.sidebar.routeXpHintBody}
+          </span>
+        </span>
+      </div>
+    </div>
   );
 }
 
