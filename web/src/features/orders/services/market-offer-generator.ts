@@ -31,7 +31,7 @@ const DEFAULT_MONTHLY_WORK_DAYS = 22;
 const DELIVERY_CAPACITY_HORIZON_DAYS = 20;
 const MATERIAL_READY_DAYS = 1;
 const RECENT_OFFER_LOOKBACK = 48;
-const MARKET_OFFER_POLICY_VERSION = 4;
+const MARKET_OFFER_POLICY_VERSION = 5;
 
 const COST_LINE_STATUSES = [
   FactoryProductionLineStatus.IDLE,
@@ -55,6 +55,18 @@ const DEFAULT_TIER_CAPS: Record<ProductTier, { min: number; max: number }> = {
   PREMIUM: { min: 100, max: 5_000 },
   LUXURY: { min: 50, max: 2_000 },
 };
+// These are safety ceilings, not target quantities. Route capacity remains the target source.
+const GLOBAL_TIER_QUANTITY_CAPS: Record<ProductTier, number> = {
+  BASIC: 100_000,
+  STANDARD: 100_000,
+  PREMIUM: 50_000,
+  LUXURY: 10_000,
+};
+const SCALABLE_VOLUME_CLASS_KEYS = new Set([
+  "regular",
+  "large_retail",
+  "mass_distribution",
+]);
 const DAY_BPS = 10_000;
 const TARGET_LOAD_RANGES: Record<
   MarketOrderOfferType,
@@ -228,6 +240,7 @@ type PlannedOfferItem = {
   estimatedLoadDaysBps: number;
   colors: Array<OrderProductCandidateColor & { quantity: number }>;
   tierCap: { min: number; max: number };
+  quantityPolicy: PlannedItemQuantity;
 };
 
 type OfferLoadProfile = {
@@ -246,6 +259,58 @@ type DepartmentLoad = {
   ownLoadBps: number;
   loadAfterAcceptBps: number;
   queueAfterAcceptDays: number;
+};
+
+export type FactoryScaleBand =
+  | "COMPACT"
+  | "GROWING"
+  | "INDUSTRIAL"
+  | "ENTERPRISE";
+
+export type PlannedItemQuantity = {
+  allocatedRawQuantity: number;
+  baseTierCapMax: number;
+  capacityTargetQuantity: number;
+  dynamicTierCapMax: number;
+  effectiveTierCapMax: number;
+  globalTierCapMax: number;
+  quantity: number;
+};
+
+const CUSTOMER_VOLUME_SCALE_BPS: Record<
+  FactoryScaleBand,
+  Record<string, number>
+> = {
+  // High trust requirements make bulk buyers extremely rare in the base weights.
+  // Factory scale changes that customer mix without multiplying product capacity.
+  COMPACT: {
+    capsule_collection: 8_000,
+    large_retail: 5_000,
+    mass_distribution: 1_000,
+    regular: 11_000,
+    small_batch: 12_000,
+  },
+  GROWING: {
+    capsule_collection: 7_000,
+    large_retail: 14_000,
+    mass_distribution: 40_000,
+    regular: 10_000,
+    small_batch: 7_000,
+  },
+  INDUSTRIAL: {
+    capsule_collection: 5_000,
+    large_retail: 30_000,
+    mass_distribution: 1_500_000,
+    regular: 7_500,
+    small_batch: 4_000,
+  },
+  ENTERPRISE: {
+    capsule_collection: 3_000,
+    large_retail: 40_000,
+    mass_distribution: 4_000_000,
+    regular: 5_000,
+    small_batch: 2_500,
+  },
 };
 
 export async function ensureMarketOfferForFactory(
@@ -395,6 +460,13 @@ export async function ensureMarketOfferForFactory(
       capacity,
     ]),
   );
+  const activeProductionLineCount = candidateResult.departmentCapacities.reduce(
+    (total, capacity) => total + capacity.lineCount,
+    0,
+  );
+  const factoryScaleBand = resolveFactoryScaleBand(
+    activeProductionLineCount,
+  );
   const existingWorkPointsByDepartmentId = calculateExistingWorkPoints(queueRows);
   const productRecentCounts = countRecentProducts(recentOffers);
   const tierRecentCounts = countRecentTiers(recentOffers);
@@ -447,6 +519,7 @@ export async function ensureMarketOfferForFactory(
       customerRelationshipById,
       customers: tierCustomers,
       customerRecentCounts,
+      factoryScaleBand,
       offerType: offerTypeRule.offerType,
       repeatCustomerIds: tierRepeatCustomerIds,
       seed: `${seedBase}:customer`,
@@ -458,6 +531,7 @@ export async function ensureMarketOfferForFactory(
     const products = pickProductsForOffer({
       candidates: candidateResult.candidates,
       customer,
+      factoryScaleBand,
       productRecentCounts,
       seed: `${seedBase}:products`,
       tierRecentCounts,
@@ -474,8 +548,10 @@ export async function ensureMarketOfferForFactory(
         customerRelationshipById.get(customer.id) ?? null,
       departmentCapacityById,
       existingWorkPointsByDepartmentId,
+      factoryScaleBand,
       factoryExpenseBreakdown,
       factoryId,
+      activeProductionLineCount,
       monthlyWorkDays,
       offerNo: `MO-${String(sequence).padStart(4, "0")}`,
       offerTypeRule,
@@ -1156,6 +1232,7 @@ function pickCustomerForOffer(input: {
   customerRelationshipById: CustomerRelationshipById;
   customers: VirtualCustomerForOffer[];
   customerRecentCounts: Map<string, number>;
+  factoryScaleBand: FactoryScaleBand;
   offerType: MarketOrderOfferType;
   repeatCustomerIds: Set<string>;
   seed: string;
@@ -1179,9 +1256,14 @@ function pickCustomerForOffer(input: {
         100 /
         (1 + recentPenalty * 0.75 + batchPenalty * 3),
     );
+    const factoryScaledWeight = calculateFactoryScaledCustomerWeight({
+      baseWeight,
+      factoryScaleBand: input.factoryScaleBand,
+      volumeClassKey: customer.customerVolumeClass.key,
+    });
 
     return calculateCustomerSelectionWeight({
-      baseWeight,
+      baseWeight: factoryScaledWeight,
       offerType: input.offerType,
       relationship,
     });
@@ -1225,6 +1307,7 @@ export function pickProductTierForOffer(input: {
 function pickProductsForOffer(input: {
   candidates: OrderProductCandidate[];
   customer: VirtualCustomerForOffer;
+  factoryScaleBand: FactoryScaleBand;
   productRecentCounts: Map<string, number>;
   seed: string;
   tierRecentCounts: Map<ProductTier, number>;
@@ -1234,15 +1317,18 @@ function pickProductsForOffer(input: {
   const tierCandidates = input.candidates.filter(
     (candidate) => candidate.tier === input.customer.productTier,
   );
+  const itemCountRange = resolveOfferItemCountRange({
+    configuredMax: input.customer.customerVolumeClass.itemCountMax,
+    configuredMin: input.customer.customerVolumeClass.itemCountMin,
+    factoryScaleBand: input.factoryScaleBand,
+    volumeClassKey: input.customer.customerVolumeClass.key,
+  });
   const requestedItemCount = seededInt({
-    min: input.customer.customerVolumeClass.targetProductionDayMin > 0
-      ? input.customer.customerVolumeClass.itemCountMin
-      : 1,
-    max: input.customer.customerVolumeClass.itemCountMax,
+    min: itemCountRange.min,
+    max: itemCountRange.max,
     seed: `${input.seed}:item-count`,
   });
-  const minimumItemCount =
-    input.customer.customerVolumeClass.key === "capsule_collection" ? 2 : 1;
+  const minimumItemCount = itemCountRange.min;
   const targetItemCount = Math.max(minimumItemCount, requestedItemCount);
   const selectedProducts: OrderProductCandidate[] = [];
   const selectedProductIds = new Set<string>();
@@ -1352,11 +1438,13 @@ function pickProductForOffer(input: {
 }
 
 function buildPlannedOffer(input: {
+  activeProductionLineCount: number;
   currentDay: number;
   customer: VirtualCustomerForOffer;
   customerRelationship: CustomerRelationshipSummary | null;
   departmentCapacityById: Map<string, DepartmentDailyCapacity>;
   existingWorkPointsByDepartmentId: Map<string, number>;
+  factoryScaleBand: FactoryScaleBand;
   factoryExpenseBreakdown: ReturnType<typeof calculateFactoryMonthlyExpenseCents>;
   factoryId: string;
   monthlyWorkDays: number;
@@ -1508,7 +1596,9 @@ function buildPlannedOffer(input: {
       targetDeliveryDays,
     }),
     metadata: {
-      generator: "product_tier_market_v4",
+      generator: "product_tier_market_v5",
+      activeProductionLineCount: input.activeProductionLineCount,
+      factoryScaleBand: input.factoryScaleBand,
       marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
       isCollection,
       isLargeBasicBlock: targetLoadProfile.isLargeBasicBlock,
@@ -1566,6 +1656,18 @@ function buildPlannedOffer(input: {
           referenceMonthlyQuantity:
             item.plannedCostBreakdown.referenceMonthlyQuantity,
           factoryMonthlyExpenseCents: input.factoryExpenseBreakdown.totalCents,
+          allocatedRawQuantity:
+            item.quantityPolicy.allocatedRawQuantity,
+          baseTierQuantityCapMax:
+            item.quantityPolicy.baseTierCapMax,
+          capacityTargetQuantity:
+            item.quantityPolicy.capacityTargetQuantity,
+          dynamicTierQuantityCapMax:
+            item.quantityPolicy.dynamicTierCapMax,
+          effectiveTierQuantityCapMax:
+            item.quantityPolicy.effectiveTierCapMax,
+          globalTierQuantityCapMax:
+            item.quantityPolicy.globalTierCapMax,
           marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
           monthlyWorkDays: input.monthlyWorkDays,
           offerType: input.offerTypeRule.offerType,
@@ -1581,7 +1683,8 @@ function buildPlannedOffer(input: {
           tierQuantityCapMin: item.tierCap.min,
         },
         metadata: {
-          generator: "product_tier_market_v4",
+          generator: "product_tier_market_v5",
+          factoryScaleBand: input.factoryScaleBand,
           marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
           requiresOutsource: item.product.requiresOutsource,
           estimatedOutsourceLeadDays: item.product.estimatedOutsourceLeadDays,
@@ -1614,10 +1717,22 @@ export function resolveOfferLoadProfile(input: {
   volumeClassKey: string;
 }): OfferLoadProfile {
   const baseRange = getTargetLoadRange(input.offerType, input.primaryTier);
+  const configuredRange = {
+    maxBps:
+      Math.max(input.targetProductionDayMin, input.targetProductionDayMax) *
+      DAY_BPS,
+    minBps: Math.max(1, input.targetProductionDayMin) * DAY_BPS,
+  };
+  const usesScalableCustomerRange =
+    (input.offerType === MarketOrderOfferType.NORMAL ||
+      input.offerType === MarketOrderOfferType.REPEAT) &&
+    SCALABLE_VOLUME_CLASS_KEYS.has(input.volumeClassKey);
   const isLargeBasicBlock = shouldCreateBasicLargeBlock(input);
   const selectedRange = isLargeBasicBlock
     ? BASIC_LARGE_BLOCK_LOAD_RANGE
-    : baseRange;
+    : usesScalableCustomerRange
+      ? configuredRange
+      : baseRange;
   const volumeReferenceDays = seededInt({
     max: Math.max(input.targetProductionDayMin, input.targetProductionDayMax),
     min: Math.max(1, input.targetProductionDayMin),
@@ -1867,20 +1982,19 @@ function buildItemPlans(input: {
     const allocatedPoints = Math.floor(
       (capacityBudgetPoints * weight) / Math.max(1, totalShareWeight),
     );
-    const maxLoadQuantity = calculateCapacityTargetQuantity({
-      bottleneckDailyQuantity: product.bottleneckDailyQuantity,
-      targetLoadDaysBps: input.targetLoadDaysBps,
-    });
     const rawQuantity = Math.floor(
       allocatedPoints / Math.max(1, product.requiredPointsPerUnit),
     );
-    const cappedMaxQuantity = Math.max(1, Math.min(maxLoadQuantity, tierCap.max));
-    const cappedMinQuantity = Math.max(1, Math.min(tierCap.min, cappedMaxQuantity));
-    const quantity = clamp(
-      roundOrderQuantity(rawQuantity),
-      cappedMinQuantity,
-      cappedMaxQuantity,
-    );
+    const quantityPolicy = calculatePlannedItemQuantity({
+      allocatedRawQuantity: rawQuantity,
+      baseTierCapMax: tierCap.max,
+      bottleneckDailyQuantity: product.bottleneckDailyQuantity,
+      productTier: product.tier,
+      targetLoadDaysBps: input.targetLoadDaysBps,
+      tierCapMin: tierCap.min,
+      volumeClassKey: input.customer.customerVolumeClass.key,
+    });
+    const quantity = quantityPolicy.quantity;
 
     if (quantity <= 0) return [];
 
@@ -1933,9 +2047,84 @@ function buildItemPlans(input: {
         estimatedLoadDaysBps,
         colors,
         tierCap,
+        quantityPolicy,
       },
     ];
   });
+}
+
+export function calculatePlannedItemQuantity(input: {
+  allocatedRawQuantity: number;
+  baseTierCapMax: number;
+  bottleneckDailyQuantity: number;
+  productTier: ProductTier;
+  targetLoadDaysBps: number;
+  tierCapMin: number;
+  volumeClassKey: string;
+}): PlannedItemQuantity {
+  const maxLoadQuantity = calculateCapacityTargetQuantity({
+    bottleneckDailyQuantity: input.bottleneckDailyQuantity,
+    targetLoadDaysBps: input.targetLoadDaysBps,
+  });
+  const capacityTargetQuantity = Math.max(
+    1,
+    Math.min(maxLoadQuantity, Math.max(1, input.allocatedRawQuantity)),
+  );
+  const quantityCaps = calculateDynamicTierQuantityCap({
+    baseTierCapMax: input.baseTierCapMax,
+    capacityTargetQuantity,
+    productTier: input.productTier,
+    volumeClassKey: input.volumeClassKey,
+  });
+  const cappedMaxQuantity = Math.max(
+    1,
+    Math.min(capacityTargetQuantity, quantityCaps.effectiveTierCapMax),
+  );
+  const roundedMaxQuantity = roundOrderQuantityDown(cappedMaxQuantity);
+  const cappedMinQuantity = Math.max(
+    1,
+    Math.min(input.tierCapMin, roundedMaxQuantity),
+  );
+
+  return {
+    allocatedRawQuantity: Math.max(1, input.allocatedRawQuantity),
+    baseTierCapMax: Math.max(1, input.baseTierCapMax),
+    capacityTargetQuantity,
+    ...quantityCaps,
+    quantity: clamp(
+      roundOrderQuantity(capacityTargetQuantity),
+      cappedMinQuantity,
+      roundedMaxQuantity,
+    ),
+  };
+}
+
+export function calculateDynamicTierQuantityCap(input: {
+  baseTierCapMax: number;
+  capacityTargetQuantity: number;
+  productTier: ProductTier;
+  volumeClassKey: string;
+}) {
+  const baseTierCapMax = Math.max(1, input.baseTierCapMax);
+  const capacityTargetQuantity = Math.max(1, input.capacityTargetQuantity);
+  const globalTierCapMax = GLOBAL_TIER_QUANTITY_CAPS[input.productTier];
+  const dynamicTierCapMax = SCALABLE_VOLUME_CLASS_KEYS.has(
+    input.volumeClassKey,
+  )
+    // Geometric growth lets large factories move beyond catalog caps gradually.
+    ? roundOrderQuantityDown(
+        Math.floor(Math.sqrt(baseTierCapMax * capacityTargetQuantity)),
+      )
+    : baseTierCapMax;
+
+  return {
+    dynamicTierCapMax,
+    effectiveTierCapMax: Math.min(
+      globalTierCapMax,
+      Math.max(baseTierCapMax, dynamicTierCapMax),
+    ),
+    globalTierCapMax,
+  };
 }
 
 export function calculateCapacityTargetQuantity(input: {
@@ -2306,6 +2495,64 @@ function countOfferTiers(offers: Array<{ productTier: ProductTier }>) {
   return counts;
 }
 
+export function resolveFactoryScaleBand(
+  activeProductionLineCount: number,
+): FactoryScaleBand {
+  if (activeProductionLineCount <= 12) return "COMPACT";
+  if (activeProductionLineCount <= 30) return "GROWING";
+  if (activeProductionLineCount <= 60) return "INDUSTRIAL";
+
+  return "ENTERPRISE";
+}
+
+export function calculateFactoryScaledCustomerWeight(input: {
+  baseWeight: number;
+  factoryScaleBand: FactoryScaleBand;
+  volumeClassKey: string;
+}) {
+  const scaleBps =
+    CUSTOMER_VOLUME_SCALE_BPS[input.factoryScaleBand][input.volumeClassKey] ??
+    DAY_BPS;
+
+  return Math.max(
+    1,
+    Math.round((Math.max(1, input.baseWeight) * scaleBps) / DAY_BPS),
+  );
+}
+
+export function resolveOfferItemCountRange(input: {
+  configuredMax: number;
+  configuredMin: number;
+  factoryScaleBand: FactoryScaleBand;
+  volumeClassKey: string;
+}) {
+  const configuredMin = Math.max(1, Math.round(input.configuredMin));
+  const configuredMax = Math.max(
+    configuredMin,
+    Math.round(input.configuredMax),
+  );
+
+  if (input.volumeClassKey === "capsule_collection") {
+    return {
+      min: Math.max(2, configuredMin),
+      max: Math.max(2, configuredMax),
+    };
+  }
+
+  const isLargeFactory =
+    input.factoryScaleBand === "INDUSTRIAL" ||
+    input.factoryScaleBand === "ENTERPRISE";
+
+  if (
+    isLargeFactory &&
+    SCALABLE_VOLUME_CLASS_KEYS.has(input.volumeClassKey)
+  ) {
+    return { min: 1, max: Math.min(2, configuredMax) };
+  }
+
+  return { min: configuredMin, max: configuredMax };
+}
+
 function getTierQuantityCap(value: unknown, tier: ProductTier) {
   const caps = isRecord(value) ? value : {};
   const tierCap = caps[tier];
@@ -2361,6 +2608,14 @@ function roundOrderQuantity(value: number) {
   if (value >= 100) return Math.round(value / 50) * 50;
 
   return Math.max(1, Math.round(value));
+}
+
+function roundOrderQuantityDown(value: number) {
+  if (value >= 10_000) return Math.floor(value / 500) * 500;
+  if (value >= 1_000) return Math.floor(value / 100) * 100;
+  if (value >= 100) return Math.floor(value / 50) * 50;
+
+  return Math.max(1, Math.floor(value));
 }
 
 function pickWeighted<T>(

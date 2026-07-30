@@ -6,13 +6,18 @@ import { MarketOrderOfferType } from "@/generated/prisma/enums";
 import {
   areCollectionTiersCompatible,
   calculateDepartmentCostProfiles,
+  calculateDynamicTierQuantityCap,
+  calculateFactoryScaledCustomerWeight,
   calculateMarketOfferCreationCount,
   calculateCapacityTargetQuantity,
   calculateOfferUnitPriceCents,
+  calculatePlannedItemQuantity,
   calculatePlannedUnitCostCents,
   calculateSharedFactoryMonthlyCostCents,
   filterCollectionCompatibleCandidates,
   pickProductTierForOffer,
+  resolveFactoryScaleBand,
+  resolveOfferItemCountRange,
   resolveOfferDeliveryRange,
   resolveOfferLoadProfile,
   resolveOfferPriceBand,
@@ -207,7 +212,7 @@ test("planlanan maliyet rota, setup, ortak gider, leasing ve fasonu bir kez topl
   });
 });
 
-test("normal standard sipariş hedef yükü 4-6 planlanan üretim gününde kalır", () => {
+test("normal standard sipariş müşteri sınıfındaki 4-7 üretim gününü kullanır", () => {
   const profile = resolveOfferLoadProfile({
     maxOfferLoadBps: 7000,
     offerType: MarketOrderOfferType.NORMAL,
@@ -221,7 +226,35 @@ test("normal standard sipariş hedef yükü 4-6 planlanan üretim gününde kal�
 
   assert.equal(profile.isLargeBasicBlock, false);
   assert.ok(profile.targetLoadDaysBps >= 40_000);
-  assert.ok(profile.targetLoadDaysBps <= 60_000);
+  assert.ok(profile.targetLoadDaysBps <= 70_000);
+});
+
+test("yüksek hacimli normal siparişlerde 6-10 ve 8-12 günlük müşteri bantları korunur", () => {
+  const largeRetail = resolveOfferLoadProfile({
+    maxOfferLoadBps: 8000,
+    offerType: MarketOrderOfferType.NORMAL,
+    primaryTier: "STANDARD",
+    quantityMultiplierBps: 17000,
+    seed: "large-retail-standard",
+    targetProductionDayMax: 10,
+    targetProductionDayMin: 6,
+    volumeClassKey: "large_retail",
+  });
+  const massDistribution = resolveOfferLoadProfile({
+    maxOfferLoadBps: 8500,
+    offerType: MarketOrderOfferType.NORMAL,
+    primaryTier: "STANDARD",
+    quantityMultiplierBps: 25000,
+    seed: "mass-standard",
+    targetProductionDayMax: 12,
+    targetProductionDayMin: 8,
+    volumeClassKey: "mass_distribution",
+  });
+
+  assert.ok(largeRetail.targetLoadDaysBps >= 60_000);
+  assert.ok(largeRetail.targetLoadDaysBps <= 100_000);
+  assert.ok(massDistribution.targetLoadDaysBps >= 80_000);
+  assert.ok(massDistribution.targetLoadDaysBps <= 120_000);
 });
 
 test("express 7-10, fırsat 12-15 günlük ayrı terminlere normalize olur", () => {
@@ -257,6 +290,129 @@ test("sipariş adedi hat kapasitesi 10 kat büyüyünce 10 kat ölçeklenir", ()
 
   assert.equal(twoLineQuantity, 800);
   assert.equal(twentyLineQuantity, 8000);
+});
+
+test("dinamik adet tavanı büyürken segment mutlak sınırlarını aşmaz", () => {
+  assert.deepEqual(
+    calculateDynamicTierQuantityCap({
+      baseTierCapMax: 30_000,
+      capacityTargetQuantity: 509_000,
+      productTier: "BASIC",
+      volumeClassKey: "large_retail",
+    }),
+    {
+      dynamicTierCapMax: 123_500,
+      effectiveTierCapMax: 100_000,
+      globalTierCapMax: 100_000,
+    },
+  );
+  assert.deepEqual(
+    calculateDynamicTierQuantityCap({
+      baseTierCapMax: 10_000,
+      capacityTargetQuantity: 237_480,
+      productTier: "PREMIUM",
+      volumeClassKey: "large_retail",
+    }),
+    {
+      dynamicTierCapMax: 48_500,
+      effectiveTierCapMax: 48_500,
+      globalTierCapMax: 50_000,
+    },
+  );
+  assert.equal(
+    calculateDynamicTierQuantityCap({
+      baseTierCapMax: 8_000,
+      capacityTargetQuantity: 100_000,
+      productTier: "LUXURY",
+      volumeClassKey: "mass_distribution",
+    }).effectiveTierCapMax,
+    10_000,
+  );
+});
+
+test("küçük parti sabit kalır, büyük sipariş ürün darboğazına göre ölçeklenir", () => {
+  const smallBatch = calculatePlannedItemQuantity({
+    allocatedRawQuantity: 200_000,
+    baseTierCapMax: 3_000,
+    bottleneckDailyQuantity: 50_000,
+    productTier: "BASIC",
+    targetLoadDaysBps: 40_000,
+    tierCapMin: 300,
+    volumeClassKey: "small_batch",
+  });
+  const enterpriseBasic = calculatePlannedItemQuantity({
+    allocatedRawQuantity: 509_000,
+    baseTierCapMax: 30_000,
+    bottleneckDailyQuantity: 50_890,
+    productTier: "BASIC",
+    targetLoadDaysBps: 100_000,
+    tierCapMin: 5_000,
+    volumeClassKey: "large_retail",
+  });
+  const routeLimitedStandard = calculatePlannedItemQuantity({
+    allocatedRawQuantity: 100_000,
+    baseTierCapMax: 40_000,
+    bottleneckDailyQuantity: 2_115,
+    productTier: "STANDARD",
+    targetLoadDaysBps: 120_000,
+    tierCapMin: 8_000,
+    volumeClassKey: "mass_distribution",
+  });
+
+  assert.equal(smallBatch.quantity, 3_000);
+  assert.equal(enterpriseBasic.quantity, 100_000);
+  assert.equal(routeLimitedStandard.capacityTargetQuantity, 25_380);
+  assert.equal(routeLimitedStandard.quantity, 25_000);
+});
+
+test("fabrika ölçeği yüksek hacimli müşteriyi görünür kılar", () => {
+  assert.equal(resolveFactoryScaleBand(12), "COMPACT");
+  assert.equal(resolveFactoryScaleBand(32), "INDUSTRIAL");
+  assert.equal(resolveFactoryScaleBand(83), "ENTERPRISE");
+
+  const enterpriseRegularWeight = calculateFactoryScaledCustomerWeight({
+    baseWeight: 6_300,
+    factoryScaleBand: "ENTERPRISE",
+    volumeClassKey: "regular",
+  });
+  const enterpriseMassWeight = calculateFactoryScaledCustomerWeight({
+    baseWeight: 8,
+    factoryScaleBand: "ENTERPRISE",
+    volumeClassKey: "mass_distribution",
+  });
+
+  assert.equal(enterpriseRegularWeight, 3_150);
+  assert.equal(enterpriseMassWeight, 3_200);
+});
+
+test("büyük fabrikada hacimli siparişler 1-2 üründe kalır, kapsül koleksiyon korunur", () => {
+  assert.deepEqual(
+    resolveOfferItemCountRange({
+      configuredMax: 4,
+      configuredMin: 2,
+      factoryScaleBand: "ENTERPRISE",
+      volumeClassKey: "large_retail",
+    }),
+    { min: 1, max: 2 },
+  );
+  assert.deepEqual(
+    resolveOfferItemCountRange({
+      configuredMax: 3,
+      configuredMin: 1,
+      factoryScaleBand: "INDUSTRIAL",
+      volumeClassKey: "regular",
+    }),
+    { min: 1, max: 2 },
+  );
+  assert.deepEqual(
+    resolveOfferItemCountRange({
+      configuredMax: 6,
+      configuredMin: 3,
+      factoryScaleBand: "ENTERPRISE",
+      volumeClassKey: "capsule_collection",
+    }),
+    { min: 3, max: 6 },
+  );
 });
 
 test("basic büyük blok siparişler seyrek oluşur ama yük ve termin bandı ayrıdır", () => {
