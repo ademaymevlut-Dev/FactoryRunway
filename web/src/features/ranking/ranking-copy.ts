@@ -27,7 +27,7 @@ export const rankingCopy = {
       eyebrow: "PLAYER RANKING",
       title: "Factory Runway liderleri",
       playerCount: (count: string) => `${count} oyuncu`,
-      totalXp: "Total XP",
+      totalXp: "Toplam XP",
       retry: "Yeniden dene",
       emptyTitle: "Ranking henüz oluşmadı",
       emptyBody: "Aktif fabrikası bulunan oyuncular burada listelenecek.",
@@ -40,12 +40,13 @@ export const rankingCopy = {
         gameDay: "Oyun Günü",
         player: "Oyuncu",
         rank: "Sıra",
-        totalXp: "Total XP",
+        totalTurnover: "Toplam Ciro",
+        totalXp: "Toplam XP",
         visit: "Ziyaret",
         showcaseFactory: "Vitrin Fabrikası",
       },
       you: "Sen",
-      visitFactory: "Fabrikayı ziyaret et",
+      visitFactory: "Ziyaret Et",
       yourRank: "Senin sıran",
     },
     visit: {
@@ -125,12 +126,13 @@ export const rankingCopy = {
         gameDay: "Game Day",
         player: "Player",
         rank: "Rank",
+        totalTurnover: "Total Turnover",
         totalXp: "Total XP",
         visit: "Visit",
         showcaseFactory: "Showcase Factory",
       },
       you: "You",
-      visitFactory: "Visit factory",
+      visitFactory: "Visit",
       yourRank: "Your rank",
     },
     visit: {
@@ -201,6 +203,7 @@ export const rankingCopy = {
         gameDay: string;
         player: string;
         rank: string;
+        totalTurnover: string;
         totalXp: string;
         visit: string;
         showcaseFactory: string;

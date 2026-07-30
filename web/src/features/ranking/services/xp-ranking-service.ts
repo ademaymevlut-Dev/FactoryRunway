@@ -2,6 +2,9 @@ import {
   DepartmentKind,
   FactoryProductionLineStatus,
   FactoryStatus,
+  FinanceCategory,
+  FinanceDirection,
+  FinanceDueStatus,
   OnboardingStatus,
   Prisma,
 } from "@/generated/prisma/client";
@@ -53,6 +56,7 @@ const rankingProfileSelect = {
           },
         },
       },
+      currencyCode: true,
       currentDay: true,
       currentLevel: true,
       currentXp: true,
@@ -116,6 +120,12 @@ export async function getXpRankingView(input: {
       },
     }),
   ]);
+  const turnoverByFactoryId = await getTurnoverByFactoryId(
+    prisma,
+    [...profiles, ...(viewerProfile ? [viewerProfile] : [])].flatMap(
+      (profile) => profile.factories.map((factory) => factory.id),
+    ),
+  );
 
   const firstXp = profiles[0]?.totalXp;
   const [playersAboveFirstXp, playersAtFirstXp] =
@@ -147,6 +157,7 @@ export async function getXpRankingView(input: {
       profile,
       locale,
       rankPosition: pageRanks[index] ?? skip + index + 1,
+      turnoverByFactoryId,
       viewerUserId: input.viewerUserId,
     }),
   );
@@ -172,6 +183,7 @@ export async function getXpRankingView(input: {
       profile: viewerProfile,
       locale,
       rankPosition: playersAboveViewer + 1,
+      turnoverByFactoryId,
       viewerUserId: input.viewerUserId,
     });
   }
@@ -224,12 +236,14 @@ function toRankingEntry(input: {
   locale: SupportedLocale;
   profile: RankingProfileRecord;
   rankPosition: number;
+  turnoverByFactoryId: ReadonlyMap<string, bigint>;
   viewerUserId: string;
 }): XpRankingEntry {
   return {
     displayName: input.profile.displayName,
     factories: input.profile.factories
       .map((factory) => ({
+        currencyCode: factory.currencyCode,
         currentDay: factory.currentDay,
         currentLevel: factory.currentLevel,
         currentXp: factory.currentXp,
@@ -243,6 +257,9 @@ function toRankingEntry(input: {
           input.locale,
         ),
         sectorSortOrder: factory.sector.sortOrder,
+        totalTurnoverCents: (
+          input.turnoverByFactoryId.get(factory.id) ?? BigInt(0)
+        ).toString(),
       }))
       .sort(
         (first, second) =>
@@ -254,6 +271,41 @@ function toRankingEntry(input: {
     rankPosition: input.rankPosition,
     totalXp: input.profile.totalXp.toString(),
   };
+}
+
+async function getTurnoverByFactoryId(
+  prisma: ReturnType<typeof getPrisma>,
+  factoryIds: string[],
+) {
+  const uniqueFactoryIds = Array.from(new Set(factoryIds));
+
+  if (uniqueFactoryIds.length === 0) {
+    return new Map<string, bigint>();
+  }
+
+  const totals = await prisma.factoryFinanceDue.groupBy({
+    _sum: {
+      amountCents: true,
+    },
+    by: ["factoryId"],
+    where: {
+      category: FinanceCategory.ORDER_REVENUE,
+      direction: FinanceDirection.INCOME,
+      factoryId: {
+        in: uniqueFactoryIds,
+      },
+      status: {
+        not: FinanceDueStatus.CANCELLED,
+      },
+    },
+  });
+
+  return new Map(
+    totals.map((row) => [
+      row.factoryId,
+      row._sum.amountCents ?? BigInt(0),
+    ]),
+  );
 }
 
 function pickTranslation(

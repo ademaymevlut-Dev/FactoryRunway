@@ -324,10 +324,10 @@ function RankingListView({
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <Table>
+            <Table className="text-xs [&_td]:px-2 [&_td]:py-2 [&_th]:h-9 [&_th]:px-2">
               <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <TableRow>
-                  <TableHead className="w-20">{copy.panel.table.rank}</TableHead>
+                  <TableHead className="w-16">{copy.panel.table.rank}</TableHead>
                   <TableHead>{copy.panel.table.player}</TableHead>
                   <TableHead>{copy.panel.table.showcaseFactory}</TableHead>
                   <TableHead className="text-center">
@@ -336,7 +336,10 @@ function RankingListView({
                   <TableHead className="text-right">
                     {copy.panel.table.totalXp}
                   </TableHead>
-                  <TableHead className="w-44 text-right">
+                  <TableHead className="text-right">
+                    {copy.panel.table.totalTurnover}
+                  </TableHead>
+                  <TableHead className="w-28 text-right">
                     {copy.panel.table.visit}
                   </TableHead>
                 </TableRow>
@@ -425,15 +428,15 @@ function RankingRow({
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
-          <div className="grid size-8 shrink-0 place-items-center rounded-full border border-primary/20 bg-primary/10 text-xs font-bold text-primary">
+          <div className="grid size-7 shrink-0 place-items-center rounded-full border border-primary/20 bg-primary/10 text-[11px] font-bold text-primary">
             {getInitials(entry.displayName, locale)}
           </div>
           <div>
-            <strong className="block max-w-48 truncate text-sm text-white">
+            <strong className="block max-w-48 truncate text-xs text-white">
               {entry.displayName}
             </strong>
             {entry.isCurrentPlayer ? (
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-primary">
+              <span className="text-[9px] font-semibold uppercase tracking-wider text-primary">
                 {copy.panel.you}
               </span>
             ) : null}
@@ -443,10 +446,10 @@ function RankingRow({
       <TableCell>
         {showcaseFactory ? (
           <div>
-            <strong className="block max-w-56 truncate text-sm text-white">
+            <strong className="block max-w-56 truncate text-xs text-white">
               {showcaseFactory.name}
             </strong>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-[10px] text-muted-foreground">
               {showcaseFactory.sectorName} ·{" "}
               {copy.visit.levelShort(showcaseFactory.currentLevel)} ·{" "}
               {copy.visit.productionLineCount(
@@ -459,14 +462,34 @@ function RankingRow({
         )}
       </TableCell>
       <TableCell className="text-center">
-        <Badge variant="outline">
+        <Badge className="text-[10px]" variant="outline">
           {showcaseFactory
             ? formatNumber(showcaseFactory.currentDay, numberLocale)
             : "—"}
         </Badge>
       </TableCell>
-      <TableCell className="text-right font-mono font-semibold tabular-nums text-amber-200">
+      <TableCell className="text-right font-mono text-[11px] font-semibold tabular-nums text-amber-200">
         {formatXp(entry.totalXp, numberLocale)}
+      </TableCell>
+      <TableCell
+        className="text-right font-mono text-[11px] font-semibold tabular-nums text-emerald-200"
+        title={
+          showcaseFactory
+            ? formatMoney(
+                showcaseFactory.totalTurnoverCents,
+                showcaseFactory.currencyCode,
+                numberLocale,
+              )
+            : undefined
+        }
+      >
+        {showcaseFactory
+          ? formatCompactMoney(
+              showcaseFactory.totalTurnoverCents,
+              showcaseFactory.currencyCode,
+              numberLocale,
+            )
+          : "—"}
       </TableCell>
       <TableCell className="text-right">
         <Button
@@ -476,7 +499,7 @@ function RankingRow({
               onVisit(entry, showcaseFactory);
             }
           }}
-          size="sm"
+          size="xs"
           type="button"
           variant={entry.isCurrentPlayer ? "secondary" : "outline"}
         >
@@ -524,7 +547,7 @@ function RankPosition({
     return (
       <span
         className={cn(
-          "inline-flex min-w-9 items-center justify-center gap-1 rounded-full border px-2 py-1 font-mono text-xs font-bold",
+          "inline-flex min-w-8 items-center justify-center gap-1 rounded-full border px-1.5 py-0.5 font-mono text-[11px] font-bold",
           rank === 1 && "border-amber-300/35 bg-amber-300/10 text-amber-200",
           rank === 2 && "border-slate-200/25 bg-slate-200/8 text-slate-200",
           rank === 3 && "border-orange-400/25 bg-orange-400/8 text-orange-300",
@@ -536,7 +559,7 @@ function RankPosition({
   }
 
   return (
-    <span className="font-mono text-xs font-semibold text-muted-foreground">
+    <span className="font-mono text-[11px] font-semibold text-muted-foreground">
       #{formatNumber(rank, numberLocale)}
     </span>
   );
@@ -745,6 +768,33 @@ function getShowcaseFactory(entry: XpRankingEntry) {
 
 function formatXp(value: string, numberLocale: NumberLocale) {
   return `${new Intl.NumberFormat(numberLocale).format(BigInt(value))} XP`;
+}
+
+function formatCompactMoney(
+  valueCents: string,
+  currencyCode: RankingFactorySummary["currencyCode"],
+  numberLocale: NumberLocale,
+) {
+  return new Intl.NumberFormat(numberLocale, {
+    compactDisplay: "short",
+    currency: currencyCode,
+    currencyDisplay: "narrowSymbol",
+    maximumFractionDigits: 1,
+    notation: "compact",
+    style: "currency",
+  }).format(Number(BigInt(valueCents)) / 100);
+}
+
+function formatMoney(
+  valueCents: string,
+  currencyCode: RankingFactorySummary["currencyCode"],
+  numberLocale: NumberLocale,
+) {
+  return new Intl.NumberFormat(numberLocale, {
+    currency: currencyCode,
+    currencyDisplay: "narrowSymbol",
+    style: "currency",
+  }).format(Number(BigInt(valueCents)) / 100);
 }
 
 function formatNumber(value: number, numberLocale: NumberLocale) {

@@ -1,6 +1,10 @@
-import type { ProductionGrade } from "@/generated/prisma/enums";
+import type {
+  CurrencyCode,
+  ProductionGrade,
+} from "@/generated/prisma/enums";
 
 export type RankingFactorySummary = {
+  currencyCode: CurrencyCode;
   id: string;
   name: string;
   currentDay: number;
@@ -10,6 +14,7 @@ export type RankingFactorySummary = {
   sectorKey: string;
   sectorName: string;
   sectorSortOrder: number;
+  totalTurnoverCents: string;
 };
 
 export type XpRankingEntry = {

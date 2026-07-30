@@ -38,7 +38,15 @@ test("Ranking paneli kompakt başlık ve liste düzenini kullanır", () => {
   assert.match(copy, /eyebrow: "PLAYER RANKING"/);
   assert.match(copy, /gameDay: "Oyun Günü"/);
   assert.match(copy, /gameDay: "Game Day"/);
+  assert.match(copy, /totalTurnover: "Toplam Ciro"/);
+  assert.match(copy, /totalTurnover: "Total Turnover"/);
+  assert.match(copy, /visitFactory: "Ziyaret Et"/);
+  assert.match(copy, /visitFactory: "Visit"/);
   assert.match(panel, /showcaseFactory\.currentDay/);
+  assert.match(panel, /showcaseFactory\.totalTurnoverCents/);
+  assert.match(panel, /formatCompactMoney/);
+  assert.match(panel, /<Table className="text-xs/);
+  assert.match(panel, /size="xs"/);
   assert.doesNotMatch(panel, /entry\.factories\.length/);
   assert.doesNotMatch(panel, /Factory Runway liderleri|Factory Runway leaders/);
   assert.doesNotMatch(panel, /CurrentPlayerRankCard|PodiumCard/);
@@ -66,6 +74,12 @@ test("Ranking oyuncu Total XP değerini kullanır ve fabrika hatlarını liste s
   assert.match(service, /const locale = normalizeLocale\(input\.locale\)/);
   assert.match(service, /preferredTranslation\(translations, locale\)\?\.name/);
   assert.match(service, /currentDay: true/);
+  assert.match(service, /currencyCode: true/);
+  assert.match(service, /factoryFinanceDue\.groupBy/);
+  assert.match(service, /FinanceCategory\.ORDER_REVENUE/);
+  assert.match(service, /FinanceDirection\.INCOME/);
+  assert.match(service, /FinanceDueStatus\.CANCELLED/);
+  assert.match(service, /totalTurnoverCents/);
   assert.match(actions, /getXpRankingView\(\{[\s\S]*?locale,/);
   assert.match(schema, /@@index\(\[totalXp, id\]\)/);
   assert.doesNotMatch(service, /productionLineTemplate/);
