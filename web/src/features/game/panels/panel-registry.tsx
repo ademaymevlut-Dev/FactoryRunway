@@ -36,7 +36,7 @@ type PanelLayout = "center" | "dock" | "rightDrawer" | "side";
 type PanelDefinition = {
   backdrop?: boolean;
   layout?: PanelLayout;
-  size?: "adaptive" | "compact" | "investment" | "wide";
+  size?: "adaptive" | "compact" | "investment" | "orders" | "wide";
   titleKey: GamePanelKey;
   render: (context: PanelContext) => ReactNode;
 };
@@ -44,6 +44,7 @@ type PanelDefinition = {
 export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
   orders: {
     layout: "center",
+    size: "orders",
     titleKey: "orders",
     render: ({ snapshot }) => (
       <OrdersPanel locale={snapshot.locale} orderMarket={snapshot.orders} />
@@ -293,7 +294,7 @@ export function PanelChrome({
   layout?: PanelLayout;
   locale: SupportedLocale;
   onClose: () => void;
-  size?: "adaptive" | "compact" | "investment" | "wide";
+  size?: "adaptive" | "compact" | "investment" | "orders" | "wide";
   title: string;
 }) {
   return (
@@ -305,6 +306,9 @@ export function PanelChrome({
         layout === "center" &&
           size === "wide" &&
           "h-[min(780px,calc(100dvh-8rem))] w-[min(1380px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(1380px,calc(100vw-7rem))]",
+        layout === "center" &&
+          size === "orders" &&
+          "h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] bg-background p-2 sm:h-[min(780px,calc(100dvh-8rem))] sm:w-[min(1380px,calc(100vw-5rem))] sm:p-3 lg:w-[min(1380px,calc(100vw-7rem))] lg:p-4",
         layout === "center" &&
           size === "adaptive" &&
           "h-[min(720px,calc(100dvh-13rem))] w-[min(1080px,calc(100vw-2rem))] bg-background p-3 sm:w-[min(1080px,calc(100vw-5rem))]",
@@ -326,7 +330,9 @@ export function PanelChrome({
         <div
           className={cn(
             "flex shrink-0 items-center justify-between gap-4",
-            size === "investment" ? "mb-2" : "mb-3",
+            size === "investment" || size === "orders"
+              ? "mb-2 sm:mb-3"
+              : "mb-3",
           )}
         >
           <h2 className="text-sm font-semibold tracking-widest text-muted-foreground">

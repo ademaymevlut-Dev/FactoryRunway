@@ -3,8 +3,15 @@ import Image from "next/image";
 import type { ReactNode } from "react";
 
 import { ArtCard } from "@/components/ui/art-card";
+import { cn } from "@/lib/utils";
 
 import { OrderMetricCard } from "./order-metric-card";
+
+const COMPACT_MOBILE_METRIC_KEYS = new Set([
+  "delivery",
+  "quantity",
+  "route",
+]);
 
 export type ProductShowcaseCardColors = {
   gradientFrom: string;
@@ -24,6 +31,7 @@ export type ProductShowcaseMetric = {
 export type ProductShowcaseCardProps = {
   backgroundLayer?: ReactNode;
   cardColors: ProductShowcaseCardColors;
+  compactMobile?: boolean;
   imageUrl: string | null;
   metaLabel?: string;
   metrics: readonly ProductShowcaseMetric[];
@@ -33,6 +41,7 @@ export type ProductShowcaseCardProps = {
 export function ProductShowcaseCard({
   backgroundLayer,
   cardColors,
+  compactMobile = false,
   imageUrl,
   metaLabel,
   metrics,
@@ -40,12 +49,23 @@ export function ProductShowcaseCard({
 }: ProductShowcaseCardProps) {
   return (
     <div
-      className="grid min-h-[330px] grid-cols-1 gap-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
+      className={cn(
+        "grid grid-cols-1 gap-2",
+        compactMobile
+          ? "min-[900px]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
+          : "lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]",
+        compactMobile ? "min-h-[230px] sm:min-h-[330px]" : "min-h-[330px]",
+      )}
       data-product-showcase-card
     >
       <div className="flex min-w-0 flex-col justify-between gap-2 rounded-lg border border-border bg-background/60 p-2.5">
         <div>
-          <h3 className="text-2xl font-semibold leading-tight text-foreground">
+          <h3
+            className={cn(
+              "text-lg font-semibold leading-tight text-foreground",
+              compactMobile ? "xl:text-2xl" : "sm:text-2xl",
+            )}
+          >
             {name}
           </h3>
           {metaLabel ? (
@@ -54,18 +74,38 @@ export function ProductShowcaseCard({
         </div>
 
         <div className="grid gap-1.5">
-          {metrics.map((metric) => (
-            <OrderMetricCard
-              icon={metric.icon}
-              key={metric.key}
-              label={metric.label}
-              value={metric.value}
-            />
-          ))}
+          {metrics.map((metric) => {
+            const hideOnCompactMobile =
+              compactMobile &&
+              !COMPACT_MOBILE_METRIC_KEYS.has(metric.key);
+
+            return (
+              <div
+                className={cn(
+                  "contents",
+                  hideOnCompactMobile && "hidden xl:contents",
+                )}
+                key={metric.key}
+              >
+                <OrderMetricCard
+                  icon={metric.icon}
+                  label={metric.label}
+                  value={metric.value}
+                />
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      <div className="relative isolate min-h-[300px] overflow-hidden rounded-lg lg:min-h-0">
+      <div
+        className={cn(
+          "relative isolate overflow-hidden rounded-lg",
+          compactMobile
+            ? "min-h-[200px] sm:min-h-[300px] min-[900px]:min-h-0"
+            : "min-h-[300px] lg:min-h-0",
+        )}
+      >
         <div
           className="absolute inset-0 z-0 overflow-hidden rounded-lg border border-white/10 bg-[#15141d]"
           data-product-art-layer="true"

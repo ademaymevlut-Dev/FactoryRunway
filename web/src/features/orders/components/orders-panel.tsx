@@ -21,6 +21,7 @@ import {
   LockKeyhole,
   PackageCheck,
   Palette,
+  ReceiptText,
   Repeat2,
   Route,
   Shirt,
@@ -202,7 +203,7 @@ export function OrdersPanel({ locale, orderMarket }: OrdersPanelProps) {
   return (
     <OrdersUiContext.Provider value={uiContext}>
       <div className="flex h-full min-h-0 flex-col gap-2">
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 xl:grid-cols-[330px_minmax(0,1fr)_340px]">
+        <div className="grid min-h-0 flex-1 grid-cols-[68px_minmax(0,1fr)] gap-2 sm:grid-cols-[210px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)]">
           <OrderSidebarPanel
             currentLevel={orderMarket.currentLevel}
             offers={filteredOffers}
@@ -243,22 +244,98 @@ function SelectedOrderPanels({
   offer: OrderOfferView;
 }) {
   const [activeItemIndex, setActiveItemIndex] = useState(0);
+  const [activeDetailPanel, setActiveDetailPanel] = useState<
+    "ORDER" | "PLAN"
+  >("ORDER");
   const activeItem = offer.items[activeItemIndex] ?? offer.items[0];
 
   return (
-    <>
-      <SelectedOrderDetail
-        activeItem={activeItem}
-        activeItemIndex={activeItemIndex}
-        offer={offer}
-        onActiveItemChange={setActiveItemIndex}
+    <div className="flex min-h-0 min-w-0 flex-col gap-2 xl:grid xl:grid-cols-[minmax(0,1fr)_340px]">
+      <ResponsiveDetailSwitcher
+        activePanel={activeDetailPanel}
+        onSelect={setActiveDetailPanel}
       />
-      <OrderCostPanel
-        activeItem={activeItem}
-        activeOrders={activeOrders}
-        offer={offer}
-      />
-    </>
+      <div
+        className={cn(
+          "min-h-0 flex-1 xl:block",
+          activeDetailPanel !== "ORDER" && "hidden",
+        )}
+      >
+        <SelectedOrderDetail
+          activeItem={activeItem}
+          activeItemIndex={activeItemIndex}
+          offer={offer}
+          onActiveItemChange={setActiveItemIndex}
+        />
+      </div>
+      <div
+        className={cn(
+          "min-h-0 flex-1 xl:block",
+          activeDetailPanel !== "PLAN" && "hidden",
+        )}
+      >
+        <OrderCostPanel
+          activeItem={activeItem}
+          activeOrders={activeOrders}
+          offer={offer}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ResponsiveDetailSwitcher({
+  activePanel,
+  onSelect,
+}: {
+  activePanel: "ORDER" | "PLAN";
+  onSelect: (panel: "ORDER" | "PLAN") => void;
+}) {
+  const { copy } = useOrdersUi();
+  const tabs = [
+    {
+      icon: PackageCheck,
+      label: copy.detail.selectedOrder,
+      value: "ORDER",
+    },
+    {
+      icon: ReceiptText,
+      label: copy.cost.planTitle,
+      value: "PLAN",
+    },
+  ] as const;
+
+  return (
+    <div
+      aria-label={`${copy.detail.selectedOrder} / ${copy.cost.planTitle}`}
+      className="grid shrink-0 grid-cols-2 gap-1 rounded-lg border border-border bg-card/70 p-1 xl:hidden"
+      role="group"
+    >
+      {tabs.map((tab) => {
+        const Icon = tab.icon;
+        const selected = activePanel === tab.value;
+
+        return (
+          <button
+            aria-pressed={selected}
+            className={cn(
+              "flex min-w-0 items-center justify-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold transition-colors",
+              selected
+                ? "bg-primary/15 text-primary ring-1 ring-primary/35"
+                : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+            )}
+            key={tab.value}
+            onClick={() => onSelect(tab.value)}
+            type="button"
+          >
+            <Icon aria-hidden="true" size={15} />
+            <span className="hidden truncate min-[440px]:inline">
+              {tab.label}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -266,7 +343,7 @@ function OrdersEmptyState({ availableCount }: { availableCount: number }) {
   const { copy } = useOrdersUi();
 
   return (
-    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center xl:col-span-2">
+    <div className="grid h-full min-h-0 place-items-center rounded-lg border border-border bg-card/70 p-3 text-center sm:p-8">
       <div className="max-w-md">
         <span className="mx-auto grid size-12 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
           <PackageCheck size={24} />
@@ -274,10 +351,10 @@ function OrdersEmptyState({ availableCount }: { availableCount: number }) {
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
           {copy.empty.market}
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-foreground">
+        <h2 className="mt-2 text-lg font-semibold text-foreground sm:text-2xl">
           {copy.empty.selectTier}
         </h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 hidden text-sm leading-6 text-muted-foreground sm:block">
           {availableCount > 0
             ? copy.empty.offersAvailable(availableCount)
             : copy.empty.noOffers}
@@ -299,7 +376,7 @@ function LockedProductTierState({
   const tierLabel = ordersCopy[locale].filters[tier].label;
 
   return (
-    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-amber-400/25 bg-card/70 p-8 text-center xl:col-span-2">
+    <div className="grid h-full min-h-0 place-items-center rounded-lg border border-amber-400/25 bg-card/70 p-3 text-center sm:p-8">
       <div className="max-w-lg">
         <span className="mx-auto grid size-12 place-items-center rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-200">
           <LockKeyhole size={23} />
@@ -307,10 +384,10 @@ function LockedProductTierState({
         <p className="mt-5 text-xs font-semibold uppercase tracking-[0.24em] text-amber-200">
           {copy.locked.eyebrow}
         </p>
-        <h2 className="mt-2 text-2xl font-semibold text-foreground">
+        <h2 className="mt-2 text-lg font-semibold text-foreground sm:text-2xl">
           {copy.locked.title(tierLabel, minimumLevel)}
         </h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 hidden text-sm leading-6 text-muted-foreground sm:block">
           {copy.locked.body(currentLevel)}
         </p>
       </div>
@@ -323,15 +400,15 @@ function ProductTierEmptyState({ tier }: { tier: ProductTier }) {
   const tierLabel = ordersCopy[locale].filters[tier].label;
 
   return (
-    <div className="grid h-full min-h-[420px] place-items-center rounded-lg border border-border bg-card/70 p-8 text-center xl:col-span-2">
+    <div className="grid h-full min-h-0 place-items-center rounded-lg border border-border bg-card/70 p-3 text-center sm:p-8">
       <div className="max-w-lg">
         <span className="mx-auto grid size-12 place-items-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
           <PackageCheck size={24} />
         </span>
-        <h2 className="mt-5 text-2xl font-semibold text-foreground">
+        <h2 className="mt-5 text-lg font-semibold text-foreground sm:text-2xl">
           {copy.tierEmpty.title(tierLabel)}
         </h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-3 hidden text-sm leading-6 text-muted-foreground sm:block">
           {copy.tierEmpty.body}
         </p>
       </div>
@@ -368,13 +445,13 @@ function OrderSidebarPanel({
     selectedFilter === null ? sourceOffers.length : offers.length;
 
   return (
-    <aside className="flex min-h-0 flex-col rounded-lg border border-border bg-card/70 p-3">
-      <div className="mb-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+    <aside className="flex min-h-0 flex-col rounded-lg border border-border bg-card/70 p-1.5 sm:p-3">
+      <div className="mb-2 sm:mb-3">
+        <p className="hidden text-xs font-semibold uppercase tracking-[0.24em] text-primary sm:block">
           {copy.marketTitle}
         </p>
         {selectedMarketFilter ? (
-          <div className="mt-3 flex items-center gap-2">
+          <div className="flex items-center justify-center gap-2 sm:mt-3 sm:justify-start">
             <Button
               aria-label={copy.sidebar.changeFilterAria}
               className="shrink-0"
@@ -384,19 +461,19 @@ function OrderSidebarPanel({
             >
               <ArrowLeft size={16} />
             </Button>
-            <h2 className="min-w-0 truncate text-2xl font-semibold leading-tight text-foreground">
+            <h2 className="hidden min-w-0 truncate text-xl font-semibold leading-tight text-foreground sm:block xl:text-2xl">
               {selectedMarketFilter.label}
             </h2>
           </div>
         ) : null}
-        <p className="mt-2 text-sm text-muted-foreground">
+        <p className="mt-1 text-center text-[10px] text-muted-foreground sm:mt-2 sm:text-left sm:text-sm">
           {copy.sidebar.openOffers(visibleOfferCount)}
         </p>
       </div>
 
       {selectedFilter === null ? (
         <>
-          <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+          <div className="min-h-0 flex-1 space-y-1 overflow-y-auto sm:space-y-1.5 sm:pr-1">
             {marketFilters.map((filter) => (
               <MarketFilterButton
                 count={getMarketFilterCount(sourceOffers, filter.value)}
@@ -442,12 +519,12 @@ function OrderSidebarRouteHint() {
   const { copy } = useOrdersUi();
 
   return (
-    <div className="mt-3 shrink-0 rounded-lg border border-primary/20 bg-primary/10 p-3 text-primary">
-      <div className="flex items-start gap-2">
+    <div className="mt-2 shrink-0 rounded-lg border border-primary/20 bg-primary/10 p-1.5 text-primary sm:mt-3 sm:p-2 lg:p-3">
+      <div className="flex items-start justify-center gap-2 xl:justify-start">
         <span className="grid size-8 shrink-0 place-items-center rounded-md border border-primary/25 bg-background/45">
           <Route size={15} />
         </span>
-        <span className="min-w-0">
+        <span className="hidden min-w-0 xl:block">
           <span className="block text-xs font-semibold text-foreground">
             {copy.sidebar.routeXpHintTitle}
           </span>
@@ -477,8 +554,9 @@ function MarketFilterButton({
 
   return (
     <button
+      aria-label={filter.label}
       className={cn(
-        "group flex w-full items-center gap-2 rounded-lg border border-border border-l-[3px] bg-background/55 p-2 text-left transition-all duration-200 hover:bg-secondary/60",
+        "group flex w-full items-center justify-center gap-1 rounded-lg border border-border border-l-[3px] bg-background/55 p-1.5 text-left transition-all duration-200 hover:bg-secondary/60 sm:justify-start sm:gap-2 sm:p-2",
         accent.border,
       )}
       onClick={() => onSelect(filter.value)}
@@ -487,22 +565,24 @@ function MarketFilterButton({
       <span className="grid size-8 shrink-0 place-items-center rounded-md border border-white/10 bg-card/80 text-foreground group-hover:text-primary">
         <Icon size={15} />
       </span>
-      <span className="min-w-0 flex-1">
+      <span className="hidden min-w-0 flex-1 sm:block">
         <span className="block truncate text-sm font-semibold text-foreground">
           {filter.label}
         </span>
-        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+        <span className="mt-0.5 hidden truncate text-[11px] text-muted-foreground xl:block">
           {filter.hint}
         </span>
       </span>
       {unlocked ? (
-        <span className={cn("shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold", accent.badge)}>
+        <span className={cn("shrink-0 rounded border px-1 py-0.5 text-[10px] font-semibold sm:px-1.5", accent.badge)}>
           {count}
         </span>
       ) : (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-400/35 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded border border-amber-400/35 bg-amber-400/10 px-1 py-0.5 text-[10px] font-semibold text-amber-200 sm:px-1.5">
           <LockKeyhole size={10} />
-          Lv. {PRODUCT_TIER_MIN_LEVEL[filter.value]}
+          <span className="hidden sm:inline">
+            Lv. {PRODUCT_TIER_MIN_LEVEL[filter.value]}
+          </span>
         </span>
       )}
     </button>
@@ -518,7 +598,7 @@ function MarketFilterBrief({
   const accent = marketFilterAccentClasses[filter.value];
 
   return (
-    <div className={cn("mb-3 rounded-lg border border-border border-l-[3px] bg-background/60 p-2.5", accent.border)}>
+    <div className={cn("mb-3 hidden rounded-lg border border-border border-l-[3px] bg-background/60 p-2.5 xl:block", accent.border)}>
       <div className="flex items-center gap-2">
         <span className="grid size-8 place-items-center rounded-md border border-white/10 bg-card/70 text-foreground">
           <Icon size={15} />
@@ -554,23 +634,24 @@ function OrderListCard({
 
   return (
     <button
+      aria-label={`${offer.customerName} · ${primaryItem?.productName ?? offer.offerNo}`}
       aria-pressed={selected}
       className={cn(
-        "group w-full rounded-lg border border-border border-l-[3px] bg-background/55 p-2.5 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary/60",
+        "group w-full rounded-lg border border-border border-l-[3px] bg-background/55 p-1 text-left transition-all duration-200 hover:-translate-y-0.5 hover:bg-secondary/60 sm:p-2.5",
         accent.border,
         selected && "bg-secondary ring-1 ring-primary/50 shadow-[0_0_24px_hsl(var(--primary)/0.16)]",
       )}
       onClick={() => onSelect(offer.id)}
       type="button"
     >
-      <div className="flex items-start gap-2">
+      <div className="flex items-start justify-center gap-2 sm:justify-start">
         <span
           className="grid size-10 shrink-0 place-items-center rounded-lg border text-sm font-semibold"
           style={badgeStyle(primaryColor, selected)}
         >
           {String(index + 1).padStart(2, "0")}
         </span>
-        <span className="min-w-0 flex-1">
+        <span className="hidden min-w-0 flex-1 sm:block">
           <span className="block truncate text-sm font-semibold text-foreground">
             {offer.customerName}
           </span>
@@ -613,14 +694,14 @@ function SelectedOrderDetail({
   const { copy } = useOrdersUi();
 
   return (
-    <section className={cn("flex min-h-0 flex-col overflow-hidden rounded-lg border border-border border-t-2 bg-card/70", offerAccentClasses[offer.offerType].border.replace("border-l", "border-t"))}>
-      <div className="border-b border-border p-3">
+    <section className={cn("flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border border-t-2 bg-card/70", offerAccentClasses[offer.offerType].border.replace("border-l", "border-t"))}>
+      <div className="border-b border-border p-2 sm:p-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
               {copy.detail.selectedOrder}
             </p>
-            <h2 className="mt-2 truncate text-2xl font-semibold text-foreground">
+            <h2 className="mt-1 truncate text-lg font-semibold text-foreground sm:mt-2 sm:text-2xl">
               {offer.customerName}
             </h2>
           </div>
@@ -628,15 +709,17 @@ function SelectedOrderDetail({
             {offer.offerNo}
           </Badge>
         </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+        <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3">
           <InfoPill icon={PackageCheck} label={offer.totalQuantityLabel} />
-          <InfoPill icon={Clock} label={copy.detail.expires(offer.expiresDay)} />
-          <InfoPill icon={Factory} label={offer.segmentLabel} />
           <OfferTypeBadge offer={offer} />
+          <span className="hidden xl:contents">
+            <InfoPill icon={Clock} label={copy.detail.expires(offer.expiresDay)} />
+            <InfoPill icon={Factory} label={offer.segmentLabel} />
+          </span>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
         {activeItem ? (
           <>
             {offer.items.length > 1 ? (
@@ -651,14 +734,18 @@ function SelectedOrderDetail({
               key={activeItem.id}
             >
               <ProductShowcase offer={offer} item={activeItem} />
-              <ColorDetails item={activeItem} />
+              <div className="hidden sm:block">
+                <ColorDetails item={activeItem} />
+              </div>
             </div>
             {offer.isCollection ? (
-              <CollectionItems
-                activeItemId={activeItem.id}
-                items={offer.items}
-                onSelect={onActiveItemChange}
-              />
+              <div className="hidden sm:block">
+                <CollectionItems
+                  activeItemId={activeItem.id}
+                  items={offer.items}
+                  onSelect={onActiveItemChange}
+                />
+              </div>
             ) : null}
           </>
         ) : (
@@ -812,6 +899,7 @@ function ProductShowcase({
         <ProductLightRaysBackground color={item.cardPrimaryColor} />
       }
       cardColors={cardColors}
+      compactMobile
       imageUrl={item.imageUrl}
       metrics={metrics}
       name={item.productName}
@@ -891,8 +979,8 @@ function OrderCostPanel({
   ) >= 0;
 
   return (
-    <aside className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card/70">
-      <div className="border-b border-border p-3">
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-card/70">
+      <div className="border-b border-border p-2 sm:p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
           {copy.cost.planTitle}
         </p>
@@ -913,7 +1001,7 @@ function OrderCostPanel({
           {activeItem?.plannedMarginLabel ?? offer.plannedMarginLabel}
         </h2>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
         <div className="grid gap-2">
           <CostPairMetric
             firstLabel={copy.cost.unitPrice}
@@ -955,7 +1043,9 @@ function OrderCostPanel({
 
         <CustomerRelationshipCard offer={offer} />
         <CapacityPlanCard offer={offer} />
-        <ActiveOrdersSnapshot activeOrders={activeOrders} />
+        <div className="hidden xl:block">
+          <ActiveOrdersSnapshot activeOrders={activeOrders} />
+        </div>
         <OrderAcceptPlan offer={offer} />
       </div>
     </aside>

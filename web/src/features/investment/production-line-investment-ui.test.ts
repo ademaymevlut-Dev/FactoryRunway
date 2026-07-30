@@ -43,7 +43,10 @@ test("yatırım paneli kompakt iç scroll ve sabit CTA düzeni kullanır", () =>
   const registry = readSource("../game/panels/panel-registry.tsx");
 
   assert.match(registry, /investment:\s*\{[\s\S]*?size: "investment"/);
-  assert.match(registry, /size\?: "adaptive" \| "compact" \| "investment" \| "wide"/);
+  assert.match(
+    registry,
+    /size\?: "adaptive" \| "compact" \| "investment" \| "orders" \| "wide"/,
+  );
   assert.match(panel, /flex h-full min-h-0 flex-col gap-2 overflow-hidden/);
   assert.doesNotMatch(panel, /departmentSubtitle/);
   assert.doesNotMatch(panel, /planningOpen/);

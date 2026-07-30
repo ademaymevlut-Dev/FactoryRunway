@@ -111,6 +111,30 @@ test("koleksiyon siparişlerinde tüm ürün detayları carousel ile gezilebilir
   assert.match(panel, /copy\.cost\.itemProfit/);
 });
 
+test("sipariş paneli dar masaüstünde sol filtre rayını ve mobil detay geçişini korur", () => {
+  const panel = read("./components/orders-panel.tsx");
+  const panelRegistry = read("../game/panels/panel-registry.tsx");
+  const overlay = read("../game/components/overlay-layer-manager.tsx");
+  const showcase = read(
+    "../../components/game-presentation/product-showcase-card.tsx",
+  );
+
+  assert.match(
+    panel,
+    /grid-cols-\[68px_minmax\(0,1fr\)\][\s\S]*?sm:grid-cols-\[210px_minmax\(0,1fr\)\]/,
+  );
+  assert.match(panel, /ResponsiveDetailSwitcher/);
+  assert.match(panel, /activeDetailPanel/);
+  assert.match(panel, /xl:grid-cols-\[minmax\(0,1fr\)_340px\]/);
+  assert.match(panel, /aria-pressed=\{selected\}/);
+  assert.match(panel, /hidden truncate min-\[440px\]:inline/);
+  assert.match(panel, /compactMobile/);
+  assert.match(showcase, /COMPACT_MOBILE_METRIC_KEYS/);
+  assert.match(showcase, /hidden xl:contents/);
+  assert.match(panelRegistry, /size: "orders"/);
+  assert.match(overlay, /panel\.size === "orders"/);
+});
+
 test("priority list bileşeni mevcut Sortable ile çalışmaya devam eder", () => {
   const priority = read("./components/order-priority-list.tsx");
 
