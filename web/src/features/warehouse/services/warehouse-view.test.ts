@@ -215,7 +215,7 @@ test("shipmentArea bütün product satırlarından aggregate edilir ve Warehouse
   assert.equal(shipmentArea.readyProductCount, 7);
   assert.equal(shipmentArea.readyQuantity, 7_000);
   assert.equal(shipmentArea.estimatedPalletCount, 10);
-  assert.equal(shipmentArea.sceneLevel, 2);
+  assert.equal(shipmentArea.sceneLevel, 1);
   assert.match(source, /shipmentArea:\s*createShipmentMapView\(productItems\)/);
   assert.equal(source.match(/prisma\.\w+\.findMany/g)?.length, 3);
 });

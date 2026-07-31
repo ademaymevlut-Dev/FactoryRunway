@@ -130,7 +130,7 @@ test("gerçek level 7 header ve level 7 asset ile render edilir", () => {
   const markup = render(
     createView({
       estimatedPalletCount: 61,
-      readyQuantity: 45_001,
+      readyQuantity: 85_001,
       sceneLevel: 7,
     }),
   );

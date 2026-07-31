@@ -78,10 +78,7 @@ const leftDockIconPaths: Record<LeftDockKey, LeftDockIconPath[]> = {
 export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   const {
     activePanel,
-    closePanel,
-    openPanel,
-    selectLine,
-    setSelectedDockDepartmentIds,
+    activatePrimaryPanel,
   } = useGameUiStore();
   const copy = gameCopy[snapshot.locale].leftDock;
 
@@ -121,16 +118,7 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
                       "h-11 w-11 -translate-y-0.5 scale-[1.03] border-[#006d8f]/70 bg-gradient-to-b from-[#006d8f]/35 via-[#006d8f]/18 to-[#232429]/90 text-primary shadow-[0_0_28px_rgba(0,180,235,0.48),0_12px_26px_rgba(0,0,0,0.4),inset_0_0_24px_hsl(var(--primary)/0.32)] xl:h-[78px] xl:w-[88px] xl:-translate-y-1 xl:scale-[1.04] xl:shadow-[0_0_38px_rgba(0,180,235,0.52),0_16px_34px_rgba(0,0,0,0.42),inset_0_0_30px_hsl(var(--primary)/0.36)]",
                   )}
                   data-map-control="true"
-                  onClick={() => {
-                    if (isActive) {
-                      closePanel();
-                      return;
-                    }
-
-                    selectLine(null);
-                    setSelectedDockDepartmentIds([]);
-                    openPanel(item.key);
-                  }}
+                  onClick={() => activatePrimaryPanel(item.key)}
                   type="button"
                 >
                   <span

@@ -52,6 +52,11 @@ export const gameCopy = {
     },
     map: {
       ariaLabel: "Fabrika haritası",
+      officeArea: {
+        ariaLabel: (stageName: string) =>
+          `${stageName} ofis ve yönetim alanı. Finansı aç.`,
+        title: "Office",
+      },
       lineCount: (count: number) => `${count} hat`,
       lineDetailAria: (title: string) => `${title} detay`,
       workloadTitle: "İş Yükü",
@@ -271,6 +276,11 @@ export const gameCopy = {
     },
     map: {
       ariaLabel: "Factory map",
+      officeArea: {
+        ariaLabel: (stageName: string) =>
+          `${stageName} office and management area. Open finance.`,
+        title: "Office",
+      },
       lineCount: (count: number) => `${count} lines`,
       lineDetailAria: (title: string) => `${title} details`,
       workloadTitle: "Workload",
@@ -492,6 +502,10 @@ export const gameCopy = {
     };
     map: {
       ariaLabel: string;
+      officeArea: {
+        ariaLabel: (stageName: string) => string;
+        title: string;
+      };
       lineCount: (count: number) => string;
       lineDetailAria: (title: string) => string;
       workloadTitle: string;

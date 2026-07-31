@@ -3,15 +3,25 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
+  FACTORY_MAP_BASE_SCALE,
   FACTORY_MAP_CANVAS_HEIGHT,
+  FACTORY_MAP_DEPARTMENT_AREA_HEIGHT,
+  FACTORY_MAP_OFFICE_AREA_WIDTH,
+  FACTORY_MAP_OFFICE_CONNECTOR_GAP,
+  FACTORY_MAP_OFFICE_TOP_PADDING,
+  FACTORY_MAP_PRODUCTION_LAYOUT_HEIGHT,
+  FACTORY_MAP_PRODUCTION_LAYOUT_TOP,
   FACTORY_MAP_SHIPMENT_AREA_HEIGHT,
   FACTORY_MAP_SHIPMENT_AREA_WIDTH,
   FACTORY_MAP_SHIPMENT_CONNECTOR_GAP,
   getFactoryMapBoundedOffset,
+  getFactoryMapCanvasHeight,
   getFactoryMapCanvasWidth,
   getFactoryMapHorizontalPanBounds,
+  getFactoryMapOfficeVerticalRise,
   getFactoryMapSectionWidth,
 } from "./factory-map-layout";
+import { OFFICE_MANAGEMENT_AREA_WIDTH } from "./office-management-scene";
 
 test("Shipment scene canonical 360x330 ölçüsünü ve 416 px canvas artışını kullanır", () => {
   assert.equal(FACTORY_MAP_SHIPMENT_AREA_HEIGHT, 330);
@@ -19,6 +29,73 @@ test("Shipment scene canonical 360x330 ölçüsünü ve 416 px canvas artışın
   assert.equal(
     FACTORY_MAP_SHIPMENT_CONNECTOR_GAP + FACTORY_MAP_SHIPMENT_AREA_WIDTH,
     416,
+  );
+});
+
+test("Office Management sahnesi Sevkiyat ile aynı 416 px canvas payını kullanır", () => {
+  const sectionWidths = [1_000, 1_200];
+  const currentWidth = getFactoryMapCanvasWidth({
+    includeShipmentArea: true,
+    sectionWidths,
+  });
+  const officeWidth = getFactoryMapCanvasWidth({
+    includeOfficeArea: true,
+    includeShipmentArea: true,
+    sectionWidths,
+  });
+
+  assert.equal(
+    officeWidth - currentWidth,
+    FACTORY_MAP_OFFICE_AREA_WIDTH + FACTORY_MAP_OFFICE_CONNECTOR_GAP,
+  );
+  assert.equal(FACTORY_MAP_OFFICE_AREA_WIDTH, FACTORY_MAP_SHIPMENT_AREA_WIDTH);
+  assert.equal(OFFICE_MANAGEMENT_AREA_WIDTH, FACTORY_MAP_OFFICE_AREA_WIDTH);
+  assert.equal(officeWidth - currentWidth, 416);
+});
+
+test("Office bölüm çerçevesi production hattında taşmadan ortak merkezde kalır", () => {
+  assert.equal(FACTORY_MAP_DEPARTMENT_AREA_HEIGHT, 638);
+  assert.equal(
+    getFactoryMapOfficeVerticalRise(FACTORY_MAP_DEPARTMENT_AREA_HEIGHT),
+    0,
+  );
+  assert.equal(
+    getFactoryMapCanvasHeight(FACTORY_MAP_DEPARTMENT_AREA_HEIGHT),
+    FACTORY_MAP_CANVAS_HEIGHT,
+  );
+});
+
+test("Office yüksekliği canvası yukarı büyütür ve üretim tabanını korur", () => {
+  const officeHeight = 1_432;
+  const expectedRise = Math.ceil(
+    officeHeight +
+      FACTORY_MAP_OFFICE_TOP_PADDING -
+      (FACTORY_MAP_PRODUCTION_LAYOUT_TOP +
+        FACTORY_MAP_PRODUCTION_LAYOUT_HEIGHT),
+  );
+
+  assert.equal(getFactoryMapOfficeVerticalRise(officeHeight), expectedRise);
+  assert.equal(
+    getFactoryMapCanvasHeight(officeHeight),
+    FACTORY_MAP_CANVAS_HEIGHT + expectedRise,
+  );
+});
+
+test("dinamik Office canvas yüksekliği dikey pan sınırına katılır", () => {
+  const officeHeight = 1_432;
+  const canvasHeight = getFactoryMapCanvasHeight(officeHeight);
+  const boundedOffset = getFactoryMapBoundedOffset({
+    canvasHeight,
+    canvasWidth: 3_500,
+    proposedOffset: { x: -10_000, y: -10_000 },
+    scale: FACTORY_MAP_BASE_SCALE,
+    viewportHeight: 900,
+    viewportWidth: 1_440,
+  });
+
+  assert.equal(
+    boundedOffset.y,
+    900 - canvasHeight * FACTORY_MAP_BASE_SCALE,
   );
 });
 
@@ -266,6 +343,7 @@ test("FactoryMap canonical layout hesabını Shipment açık kullanır", () => {
   );
 
   assert.match(source, /includeShipmentArea: true/);
+  assert.match(source, /includeOfficeArea: true/);
   assert.match(source, /getFactoryMapSectionWidth\(section\.items\.length\)/);
   assert.match(source, /getFactoryMapBoundedOffset\(\{/);
   assert.match(source, /FACTORY_MAP_SHIPMENT_AREA_HEIGHT/);

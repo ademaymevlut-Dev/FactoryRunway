@@ -858,6 +858,8 @@ export async function getGameSnapshot(input: {
       currentXp: factory.currentXp,
       runwayTokenBalance: tokenWallet?.balance ?? 0,
       levelProgress,
+      operatingStageKey:
+        factory.operatingStageState?.currentStage.key ?? "mass_factory",
       operatingStageName,
     },
     metrics: buildMetrics({

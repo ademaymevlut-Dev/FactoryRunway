@@ -8,9 +8,18 @@ export const FACTORY_MAP_CANVAS_MIN_WIDTH = 2_400;
 export const FACTORY_MAP_CANVAS_HORIZONTAL_PADDING = 184;
 export const FACTORY_MAP_CANVAS_HEIGHT = 1_120;
 export const FACTORY_MAP_BASE_SCALE = 0.82;
+export const FACTORY_MAP_PRODUCTION_LAYOUT_TOP = 156.8;
+export const FACTORY_MAP_PRODUCTION_LAYOUT_HEIGHT = 816;
+export const FACTORY_MAP_DEPARTMENT_AREA_HEIGHT = 638;
+export const FACTORY_MAP_OFFICE_TOP_PADDING = 80;
+
+export const FACTORY_MAP_OFFICE_CONNECTOR_GAP =
+  FACTORY_MAP_CONNECTOR_WIDTH;
 
 export const FACTORY_MAP_SHIPMENT_AREA_HEIGHT = 330;
 export const FACTORY_MAP_SHIPMENT_AREA_WIDTH = 360;
+export const FACTORY_MAP_OFFICE_AREA_WIDTH =
+  FACTORY_MAP_SHIPMENT_AREA_WIDTH;
 export const FACTORY_MAP_SHIPMENT_CONNECTOR_GAP =
   FACTORY_MAP_CONNECTOR_WIDTH;
 
@@ -40,9 +49,11 @@ export function getFactoryMapSectionWidth(itemCount: number) {
 }
 
 export function getFactoryMapCanvasWidth({
+  includeOfficeArea = false,
   includeShipmentArea,
   sectionWidths,
 }: {
+  includeOfficeArea?: boolean;
   includeShipmentArea: boolean;
   sectionWidths: readonly number[];
 }) {
@@ -61,14 +72,35 @@ export function getFactoryMapCanvasWidth({
       connectorWidth,
   );
 
-  if (!includeShipmentArea) {
-    return currentCanvasWidth;
-  }
+  const officeAreaWidth = includeOfficeArea
+    ? FACTORY_MAP_OFFICE_CONNECTOR_GAP + FACTORY_MAP_OFFICE_AREA_WIDTH
+    : 0;
+  const shipmentAreaWidth = includeShipmentArea
+    ? FACTORY_MAP_SHIPMENT_CONNECTOR_GAP +
+      FACTORY_MAP_SHIPMENT_AREA_WIDTH
+    : 0;
 
+  return currentCanvasWidth + officeAreaWidth + shipmentAreaWidth;
+}
+
+export function getFactoryMapOfficeVerticalRise(officeAreaHeight: number) {
+  const normalizedHeight = normalizeDimension(officeAreaHeight);
+  const officeBaseline =
+    FACTORY_MAP_PRODUCTION_LAYOUT_TOP +
+    FACTORY_MAP_PRODUCTION_LAYOUT_HEIGHT;
+
+  return Math.max(
+    0,
+    Math.ceil(
+      normalizedHeight + FACTORY_MAP_OFFICE_TOP_PADDING - officeBaseline,
+    ),
+  );
+}
+
+export function getFactoryMapCanvasHeight(officeAreaHeight: number) {
   return (
-    currentCanvasWidth +
-    FACTORY_MAP_SHIPMENT_CONNECTOR_GAP +
-    FACTORY_MAP_SHIPMENT_AREA_WIDTH
+    FACTORY_MAP_CANVAS_HEIGHT +
+    getFactoryMapOfficeVerticalRise(officeAreaHeight)
   );
 }
 
@@ -85,12 +117,14 @@ export function getFactoryMapHorizontalPanBounds({
 }
 
 export function getFactoryMapBoundedOffset({
+  canvasHeight = FACTORY_MAP_CANVAS_HEIGHT,
   canvasWidth,
   proposedOffset,
   scale,
   viewportHeight,
   viewportWidth,
 }: {
+  canvasHeight?: number;
   canvasWidth: number;
   proposedOffset: FactoryMapOffset;
   scale: number;
@@ -103,7 +137,7 @@ export function getFactoryMapBoundedOffset({
     viewportWidth,
   });
   const verticalBounds = getAxisPanBounds(
-    FACTORY_MAP_CANVAS_HEIGHT * scale,
+    canvasHeight * scale,
     viewportHeight,
   );
 
@@ -119,6 +153,14 @@ function normalizeItemCount(itemCount: number) {
   }
 
   return Math.max(0, Math.floor(itemCount));
+}
+
+function normalizeDimension(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, value);
 }
 
 function isValidSectionWidth(width: number) {

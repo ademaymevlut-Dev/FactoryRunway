@@ -11,18 +11,28 @@ import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 import { useGameUiStore } from "../store/game-ui-store";
 import { gameCopy, type GameCopy } from "../game-copy";
 import {
+  OFFICE_MANAGEMENT_AREA_WIDTH,
+  getOfficeManagementSceneAsset,
+} from "../office-management-scene";
+import {
   FACTORY_MAP_BASE_SCALE,
-  FACTORY_MAP_CANVAS_HEIGHT,
   FACTORY_MAP_CANVAS_HORIZONTAL_PADDING,
+  FACTORY_MAP_DEPARTMENT_AREA_HEIGHT,
+  FACTORY_MAP_OFFICE_CONNECTOR_GAP,
+  FACTORY_MAP_PRODUCTION_LAYOUT_HEIGHT,
+  FACTORY_MAP_PRODUCTION_LAYOUT_TOP,
   FACTORY_MAP_SHIPMENT_AREA_HEIGHT,
   FACTORY_MAP_SHIPMENT_AREA_WIDTH,
   FACTORY_MAP_SLOT_WIDTH,
   getFactoryMapBoundedOffset,
+  getFactoryMapCanvasHeight,
   getFactoryMapCanvasWidth,
+  getFactoryMapOfficeVerticalRise,
   getFactoryMapSectionWidth,
   type FactoryMapOffset,
 } from "../factory-map-layout";
 import type { FactoryMapItem, FactoryMapSection, GameSnapshot } from "../types";
+import { OfficeManagementMapArea } from "./office-management-map-area";
 
 const DRAG_THRESHOLD = 6;
 
@@ -73,6 +83,7 @@ const floorProps: FloorProp[] = [
 
 export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   const {
+    activatePrimaryPanel,
     hoveredDepartmentId,
     mapPan,
     mapZoom,
@@ -85,6 +96,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     setMapPan,
   } = useGameUiStore();
   const viewportRef = useRef<HTMLElement | null>(null);
+  const previousVerticalRiseRef = useRef(0);
   const suppressClickRef = useRef(false);
   const dragState = useRef({
     active: false,
@@ -96,9 +108,17 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   });
   const scale = FACTORY_MAP_BASE_SCALE * mapZoom;
   const copy = gameCopy[snapshot.locale].map;
+  const officeAsset = useMemo(
+    () => getOfficeManagementSceneAsset(snapshot.factory.operatingStageKey),
+    [snapshot.factory.operatingStageKey],
+  );
+  const officeAreaHeight = FACTORY_MAP_DEPARTMENT_AREA_HEIGHT;
+  const officeVerticalRise = getFactoryMapOfficeVerticalRise(officeAreaHeight);
+  const canvasHeight = getFactoryMapCanvasHeight(officeAreaHeight);
   const canvasWidth = useMemo(
     () =>
       getFactoryMapCanvasWidth({
+        includeOfficeArea: true,
         includeShipmentArea: true,
         sectionWidths: snapshot.map.sections.map((section) =>
           getFactoryMapSectionWidth(section.items.length),
@@ -117,6 +137,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
       if (!rect) return nextOffset;
 
       return getFactoryMapBoundedOffset({
+        canvasHeight,
         canvasWidth,
         proposedOffset: nextOffset,
         scale,
@@ -124,12 +145,18 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
         viewportWidth: rect.width,
       });
     },
-    [canvasWidth, scale],
+    [canvasHeight, canvasWidth, scale],
   );
 
   useEffect(() => {
     const syncCameraBounds = () => {
-      const boundedOffset = boundOffsetToViewport(mapPan);
+      const verticalRiseDelta =
+        officeVerticalRise - previousVerticalRiseRef.current;
+      previousVerticalRiseRef.current = officeVerticalRise;
+      const boundedOffset = boundOffsetToViewport({
+        x: mapPan.x,
+        y: mapPan.y - verticalRiseDelta * scale,
+      });
 
       if (boundedOffset.x !== mapPan.x || boundedOffset.y !== mapPan.y) {
         setMapPan(boundedOffset);
@@ -142,7 +169,13 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     return () => {
       window.removeEventListener("resize", syncCameraBounds);
     };
-  }, [boundOffsetToViewport, mapPan, setMapPan]);
+  }, [
+    boundOffsetToViewport,
+    mapPan,
+    officeVerticalRise,
+    scale,
+    setMapPan,
+  ]);
 
   const releaseMapDrag = useCallback((target?: HTMLElement, pointerId?: number) => {
     const hadMoved = dragState.current.moved;
@@ -173,6 +206,13 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
 
     openPanel("warehouse");
   };
+  const handleOfficeActivate = () => {
+    if (suppressClickRef.current) return;
+
+    activatePrimaryPanel("finance");
+  };
+  const officeConnectorTone =
+    snapshot.map.sections[0]?.tone ?? "blue";
   const shipmentConnectorTone =
     snapshot.map.sections.at(-1)?.tone ?? "amber";
 
@@ -235,17 +275,50 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
       <div
         className="factory-map-canvas"
         style={{
-          height: FACTORY_MAP_CANVAS_HEIGHT,
+          height: canvasHeight,
           transform: `translate3d(${mapPan.x}px, ${mapPan.y}px, 0) scale(${scale})`,
           width: canvasWidth,
         }}
       >
         <div className="factory-map-landscape" />
-        <FactoryFloorDetails />
+        <FactoryFloorDetails
+          offsetX={
+            OFFICE_MANAGEMENT_AREA_WIDTH +
+            FACTORY_MAP_OFFICE_CONNECTOR_GAP
+          }
+          offsetY={officeVerticalRise}
+        />
         <div
           className="factory-production-layout"
-          style={{ left: FACTORY_MAP_CANVAS_HORIZONTAL_PADDING }}
+          style={{
+            left: FACTORY_MAP_CANVAS_HORIZONTAL_PADDING,
+            minHeight: FACTORY_MAP_PRODUCTION_LAYOUT_HEIGHT,
+            top: FACTORY_MAP_PRODUCTION_LAYOUT_TOP + officeVerticalRise,
+          }}
         >
+          <div
+            className="factory-production-stage"
+            data-factory-map-office-stage
+            style={{
+              flex: "0 0 auto",
+              width:
+                OFFICE_MANAGEMENT_AREA_WIDTH +
+                FACTORY_MAP_OFFICE_CONNECTOR_GAP,
+            }}
+          >
+            <OfficeManagementMapArea
+              ariaLabel={copy.officeArea.ariaLabel(
+                snapshot.factory.operatingStageName,
+              )}
+              asset={officeAsset}
+              onActivate={handleOfficeActivate}
+              operatingStageKey={snapshot.factory.operatingStageKey}
+              title={copy.officeArea.title}
+            />
+            <div
+              className={`factory-stage-connector ${officeConnectorTone}`}
+            />
+          </div>
           {snapshot.map.sections.map((section, index) => (
             <div className="factory-production-stage" key={section.id}>
               <FactoryMapSectionView
@@ -313,9 +386,19 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   );
 }
 
-function FactoryFloorDetails() {
+function FactoryFloorDetails({
+  offsetX,
+  offsetY,
+}: {
+  offsetX: number;
+  offsetY: number;
+}) {
   return (
-    <div aria-hidden="true" className="factory-floor-details">
+    <div
+      aria-hidden="true"
+      className="factory-floor-details"
+      style={{ transform: `translate3d(${offsetX}px, ${offsetY}px, 0)` }}
+    >
       {floorProps.map((prop) => (
         <div
           className={`factory-floor-prop ${prop.kind}`}

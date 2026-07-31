@@ -32,6 +32,10 @@ type MapPan = {
 };
 
 type TasksView = "active" | "history";
+type PrimaryPanelKey = Extract<
+  GamePanelKey,
+  "orders" | "tasks" | "finance" | "reports"
+>;
 
 export type RankingVisitState = {
   factoryId: string;
@@ -50,6 +54,7 @@ type GameUiStore = {
   shiftPlaybackNowMs: number;
   tasksView: TasksView;
   rankingVisit: RankingVisitState | null;
+  activatePrimaryPanel: (key: PrimaryPanelKey) => void;
   closePanel: () => void;
   openPanel: (
     key: GamePanelKey,
@@ -148,6 +153,22 @@ export function GameUiProvider({
     setRankingVisit(null);
     setSelectedDockDepartmentIds([]);
   }, []);
+  const activatePrimaryPanel = useCallback<GameUiStore["activatePrimaryPanel"]>(
+    (key) => {
+      if (activePanel?.key === key) {
+        setActivePanel(null);
+        setRankingVisit(null);
+        setSelectedDockDepartmentIds([]);
+        return;
+      }
+
+      setRankingVisit(null);
+      setSelectedLineId(null);
+      setSelectedDockDepartmentIds([]);
+      setActivePanel({ key });
+    },
+    [activePanel?.key],
+  );
 
   const selectLine = useCallback((lineId: string | null) => {
     setSelectedLineId(lineId);
@@ -167,6 +188,7 @@ export function GameUiProvider({
 
   const value = useMemo<GameUiStore>(
     () => ({
+      activatePrimaryPanel,
       activePanel,
       activeShiftPlayback: visibleShiftPlayback,
       closePanel,
@@ -191,6 +213,7 @@ export function GameUiProvider({
       tasksView,
     }),
     [
+      activatePrimaryPanel,
       activePanel,
       closePanel,
       finishActiveShiftPlayback,

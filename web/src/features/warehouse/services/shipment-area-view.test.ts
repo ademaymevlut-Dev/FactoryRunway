@@ -78,28 +78,28 @@ test("bütün pozitif Warehouse satırları altı ürün limiti olmadan aggregat
 
 test("scene eşikleri onaylanan 1-7 sınırlarında çalışır", () => {
   assert.deepEqual(DEFAULT_SHIPMENT_SCENE_THRESHOLDS, {
-    level2Min: 4_001,
-    level3Min: 9_001,
-    level4Min: 15_001,
-    level5Min: 20_001,
-    level6Min: 30_001,
-    level7Min: 45_001,
+    level2Min: 9_001,
+    level3Min: 17_001,
+    level4Min: 34_001,
+    level5Min: 50_001,
+    level6Min: 70_001,
+    level7Min: 85_001,
   });
 
   const cases = [
     [1, 1],
-    [4_000, 1],
-    [4_001, 2],
-    [9_000, 2],
-    [9_001, 3],
-    [15_000, 3],
-    [15_001, 4],
-    [20_000, 4],
-    [20_001, 5],
-    [30_000, 5],
-    [30_001, 6],
-    [45_000, 6],
-    [45_001, 7],
+    [9_000, 1],
+    [9_001, 2],
+    [17_000, 2],
+    [17_001, 3],
+    [34_000, 3],
+    [34_001, 4],
+    [50_000, 4],
+    [50_001, 5],
+    [70_000, 5],
+    [70_001, 6],
+    [85_000, 6],
+    [85_001, 7],
     [90_000, 7],
   ] as const;
 
@@ -123,7 +123,7 @@ test("sceneLevel asset mevcudiyetinden bağımsız gerçek level 7 değerini kor
   const view = createShipmentMapView([
     createWarehouseItem({
       orderedQuantity: 60_000,
-      warehouseReadyQuantity: 45_001,
+      warehouseReadyQuantity: 85_001,
     }),
   ]);
 

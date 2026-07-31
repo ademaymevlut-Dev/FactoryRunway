@@ -6,12 +6,12 @@ import type {
 export const SHIPMENT_UNITS_PER_PALLET = 750;
 
 export const DEFAULT_SHIPMENT_SCENE_THRESHOLDS = {
-  level2Min: 4_001,
-  level3Min: 9_001,
-  level4Min: 15_001,
-  level5Min: 20_001,
-  level6Min: 30_001,
-  level7Min: 45_001,
+  level2Min: 9_001,
+  level3Min: 17_001,
+  level4Min: 34_001,
+  level5Min: 50_001,
+  level6Min: 70_001,
+  level7Min: 85_001,
 } satisfies ShipmentSceneThresholds;
 
 export const SHIPMENT_MAXIMUM_AVAILABLE_ASSET_LEVEL = 7;

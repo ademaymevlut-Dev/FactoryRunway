@@ -284,6 +284,7 @@ export type GameSnapshot = {
       xpIntoCurrentLevel: number;
       xpRemainingForNextLevel: number | null;
     };
+    operatingStageKey: string;
     operatingStageName: string;
   };
   metrics: GameMetric[];
