@@ -11,6 +11,7 @@ import type {
   WarehouseProductDepotItem,
   WarehouseTabKey,
 } from "../types";
+import { createShipmentMapView } from "./shipment-area-view";
 
 const locale = "tr";
 const materialReadyOffsetDays = 1;
@@ -114,6 +115,7 @@ export async function getWarehouseView(input: {
               CustomerOrderStatus.IN_PRODUCTION,
               CustomerOrderStatus.READY_TO_SHIP,
               CustomerOrderStatus.PARTIALLY_SHIPPED,
+              CustomerOrderStatus.LATE,
             ],
           },
         },
@@ -148,7 +150,7 @@ export async function getWarehouseView(input: {
           select: {
             id: true,
             orderNo: true,
-            shippedQuantity: true,
+            status: true,
             targetDeliveryDay: true,
             virtualCustomer: {
               select: { name: true },
@@ -157,6 +159,7 @@ export async function getWarehouseView(input: {
         },
         customerOrderItem: {
           select: {
+            id: true,
             product: {
               select: {
                 code: true,
@@ -235,7 +238,7 @@ export async function getWarehouseView(input: {
     .filter((item): item is WarehouseProductDepotItem => item !== null)
     .sort(sortProductDepotItems);
   const productReadyQuantity = productItems.reduce(
-    (total, item) => total + item.quantityInDepot,
+    (total, item) => total + item.warehouseReadyQuantity,
     0,
   );
 
@@ -256,6 +259,7 @@ export async function getWarehouseView(input: {
       key: "product_warehouse",
       label: departmentLabels.get("product_warehouse") ?? "Ürün Depo",
     },
+    shipmentArea: createShipmentMapView(productItems),
     summary: {
       inboundTotal: fabricItems.length + accessoryItems.length,
       nextDeliveryLabel: getFirstLabel(productItems, "deliveryLabel"),
@@ -342,18 +346,19 @@ function buildInboundItems({
     .sort(sortInboundItems);
 }
 
-function toProductDepotItem(
+export function toProductDepotItem(
   order: {
     completedDay: number | null;
     completedQuantity: number;
     customerOrder: {
       id: string;
       orderNo: string;
-      shippedQuantity: number;
+      status: CustomerOrderStatus;
       targetDeliveryDay: number;
       virtualCustomer: { name: string } | null;
     };
     customerOrderItem: {
+      id: string;
       product: {
         code: string | null;
         images: Array<{
@@ -387,13 +392,13 @@ function toProductDepotItem(
     order.completedQuantity,
     order.routeProgress[0]?.completedQuantity ?? 0,
   );
-  const shippedQuantity = Math.max(
-    order.customerOrder.shippedQuantity,
-    order.customerOrderItem.shippedQuantity,
-  );
-  const quantityInDepot = Math.max(0, packedQuantity - shippedQuantity);
+  const warehouseReadyQuantity = calculateWarehouseReadyQuantity({
+    itemShippedQuantity: order.customerOrderItem.shippedQuantity,
+    orderedQuantity: order.customerOrderItem.quantity,
+    packedQuantity,
+  });
 
-  if (quantityInDepot <= 0) {
+  if (warehouseReadyQuantity <= 0) {
     return null;
   }
 
@@ -403,6 +408,8 @@ function toProductDepotItem(
 
   return {
     customerName: order.customerOrder.virtualCustomer?.name ?? "Müşteri",
+    customerOrderItemId: order.customerOrderItem.id,
+    customerOrderStatus: order.customerOrder.status,
     daysUntilDelivery,
     deliveryLabel: formatDeliveryLabel(daysUntilDelivery),
     finishedLabel: formatFinishedLabel(finishedDay, currentDay),
@@ -411,6 +418,7 @@ function toProductDepotItem(
     lastProducedQuantityLabel: lastResult
       ? `${formatNumber(lastResult.producedQuantity)} adet`
       : "-",
+    orderedQuantity: order.customerOrderItem.quantity,
     orderId: order.customerOrder.id,
     orderNo: order.customerOrder.orderNo,
     plannedQuantityLabel: `${formatNumber(order.plannedQuantity)} adet`,
@@ -419,8 +427,7 @@ function toProductDepotItem(
     productName: getProductName(order.customerOrderItem),
     productionNo: order.productionNo,
     productionOrderId: order.id,
-    quantityInDepot,
-    quantityInDepotLabel: `${formatNumber(quantityInDepot)} adet`,
+    quantityInDepotLabel: `${formatNumber(warehouseReadyQuantity)} adet`,
     statusLabel: "Teslime hazır",
     tone:
       daysUntilDelivery < 0
@@ -428,7 +435,23 @@ function toProductDepotItem(
         : daysUntilDelivery <= 1
           ? "warning"
           : "success",
+    warehouseReadyQuantity,
   };
+}
+
+export function calculateWarehouseReadyQuantity(input: {
+  itemShippedQuantity: number;
+  orderedQuantity: number;
+  packedQuantity: number;
+}) {
+  const orderedQuantity = Math.max(0, input.orderedQuantity);
+  const packedQuantity = Math.max(0, input.packedQuantity);
+  const itemShippedQuantity = Math.max(0, input.itemShippedQuantity);
+
+  return Math.min(
+    orderedQuantity,
+    Math.max(0, packedQuantity - itemShippedQuantity),
+  );
 }
 
 function getMaterialReadyDay(

@@ -77,7 +77,7 @@ function WarehouseContent({
   return (
     <ScrollArea className="min-h-0 flex-1">
       <div className="p-3">
-        <div className="hidden grid-cols-[minmax(190px,1.3fr)_0.8fr_0.75fr_0.75fr_0.75fr_0.8fr] gap-2 border-b border-border px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground lg:grid">
+        <div className="hidden grid-cols-[minmax(190px,1.3fr)_0.8fr_0.75fr_0.75fr_0.75fr_0.8fr] gap-2 border-b border-border px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground lg:grid">
           <span>Sipariş</span>
           <span>Müşteri</span>
           <span>Depodaki</span>
@@ -109,10 +109,10 @@ function ProductDepotRow({ item }: { item: WarehouseProductDepotItem }) {
       <div className="flex min-w-0 items-center gap-2.5">
         <ProductThumb imageUrl={item.productImageUrl} name={item.productName} />
         <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold text-foreground">
+          <h3 className="truncate text-xs font-semibold text-foreground">
             {item.orderNo}
           </h3>
-          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
             {item.productName}
           </p>
         </div>
@@ -126,7 +126,7 @@ function ProductDepotRow({ item }: { item: WarehouseProductDepotItem }) {
       <TableValue label="Sipariş Adedi" value={item.plannedQuantityLabel} />
       <TableValue label="Ütü/Paket" value={item.finishedLabel} />
       <div className="flex min-w-0 items-center justify-between gap-2 lg:justify-start">
-        <span className="text-[11px] font-medium text-muted-foreground lg:hidden">
+        <span className="text-[10px] font-medium text-muted-foreground lg:hidden">
           Teslim
         </span>
         <WarningTimeBadge label={item.deliveryLabel} tone={item.tone} />
@@ -159,12 +159,12 @@ function TableValue({
 }) {
   return (
     <div className="flex min-w-0 items-center justify-between gap-2 lg:block">
-      <span className="text-[11px] font-medium text-muted-foreground lg:hidden">
+      <span className="text-[10px] font-medium text-muted-foreground lg:hidden">
         {label}
       </span>
       <span
         className={cn(
-          "truncate text-xs text-foreground/85 lg:block",
+          "truncate text-[11px] text-foreground/85 lg:block",
           emphasis && "font-semibold text-primary",
         )}
       >
@@ -210,7 +210,7 @@ function WarningTimeBadge({
   return (
     <span
       className={cn(
-        "inline-flex h-7 shrink-0 items-center rounded-md border px-2.5 text-xs font-bold shadow-lg",
+        "inline-flex h-6 min-w-0 max-w-full items-center truncate whitespace-nowrap rounded-md border px-2 text-[10px] font-bold leading-none shadow-lg",
         "border-emerald-300/55 bg-emerald-400/15 text-emerald-100 shadow-[0_0_18px_rgba(52,211,153,0.22)]",
         tone === "warning" &&
           "border-amber-200/65 bg-amber-400 text-amber-950 shadow-[0_0_18px_rgba(251,191,36,0.42)]",

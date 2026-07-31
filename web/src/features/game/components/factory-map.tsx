@@ -4,28 +4,27 @@ import Image from "next/image";
 import { Factory, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 
+import { ShipmentMapArea } from "@/features/warehouse/components/shipment-map-area";
 import { cn } from "@/lib/utils";
 import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 
 import { useGameUiStore } from "../store/game-ui-store";
 import { gameCopy, type GameCopy } from "../game-copy";
+import {
+  FACTORY_MAP_BASE_SCALE,
+  FACTORY_MAP_CANVAS_HEIGHT,
+  FACTORY_MAP_CANVAS_HORIZONTAL_PADDING,
+  FACTORY_MAP_SHIPMENT_AREA_HEIGHT,
+  FACTORY_MAP_SHIPMENT_AREA_WIDTH,
+  FACTORY_MAP_SLOT_WIDTH,
+  getFactoryMapBoundedOffset,
+  getFactoryMapCanvasWidth,
+  getFactoryMapSectionWidth,
+  type FactoryMapOffset,
+} from "../factory-map-layout";
 import type { FactoryMapItem, FactoryMapSection, GameSnapshot } from "../types";
 
-const SLOT_ROWS = 3;
-const SLOT_WIDTH = 147;
-const SLOT_GAP = 7;
-const DEPARTMENT_PADDING_X = 14;
-const DEPARTMENT_MIN_WIDTH = 328;
-const DEPARTMENT_GAP = 56;
-const CANVAS_PADDING_X = 184;
-const CANVAS_HEIGHT = 1120;
-const MAP_SCALE = 0.82;
 const DRAG_THRESHOLD = 6;
-
-type CameraOffset = {
-  x: number;
-  y: number;
-};
 
 type VisualSlotStatus =
   | "active"
@@ -95,10 +94,16 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     startX: 0,
     startY: 0,
   });
-  const scale = MAP_SCALE * mapZoom;
+  const scale = FACTORY_MAP_BASE_SCALE * mapZoom;
   const copy = gameCopy[snapshot.locale].map;
   const canvasWidth = useMemo(
-    () => getCanvasWidth(snapshot.map.sections),
+    () =>
+      getFactoryMapCanvasWidth({
+        includeShipmentArea: true,
+        sectionWidths: snapshot.map.sections.map((section) =>
+          getFactoryMapSectionWidth(section.items.length),
+        ),
+      }),
     [snapshot.map.sections],
   );
   const highlightedDepartmentIds = useMemo(
@@ -107,11 +112,17 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   );
 
   const boundOffsetToViewport = useCallback(
-    (nextOffset: CameraOffset, viewportRect?: DOMRect) => {
+    (nextOffset: FactoryMapOffset, viewportRect?: DOMRect) => {
       const rect = viewportRect ?? viewportRef.current?.getBoundingClientRect();
       if (!rect) return nextOffset;
 
-      return getBoundedMapOffset(nextOffset, canvasWidth, rect.width, rect.height, scale);
+      return getFactoryMapBoundedOffset({
+        canvasWidth,
+        proposedOffset: nextOffset,
+        scale,
+        viewportHeight: rect.height,
+        viewportWidth: rect.width,
+      });
     },
     [canvasWidth, scale],
   );
@@ -157,6 +168,13 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     selectLine(lineId);
     openPanel("lineDetail", { lineId });
   };
+  const handleShipmentActivate = () => {
+    if (suppressClickRef.current) return;
+
+    openPanel("warehouse");
+  };
+  const shipmentConnectorTone =
+    snapshot.map.sections.at(-1)?.tone ?? "amber";
 
   return (
     <section
@@ -217,14 +235,17 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
       <div
         className="factory-map-canvas"
         style={{
-          height: CANVAS_HEIGHT,
+          height: FACTORY_MAP_CANVAS_HEIGHT,
           transform: `translate3d(${mapPan.x}px, ${mapPan.y}px, 0) scale(${scale})`,
           width: canvasWidth,
         }}
       >
         <div className="factory-map-landscape" />
         <FactoryFloorDetails />
-        <div className="factory-production-layout" style={{ left: CANVAS_PADDING_X }}>
+        <div
+          className="factory-production-layout"
+          style={{ left: FACTORY_MAP_CANVAS_HORIZONTAL_PADDING }}
+        >
           {snapshot.map.sections.map((section, index) => (
             <div className="factory-production-stage" key={section.id}>
               <FactoryMapSectionView
@@ -260,6 +281,32 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
               ) : null}
             </div>
           ))}
+          <div
+            className="factory-production-stage"
+            data-factory-map-shipment-stage
+          >
+            <div
+              className={`factory-stage-connector ${shipmentConnectorTone}`}
+            />
+            <div
+              className="shrink-0"
+              style={{
+                height: FACTORY_MAP_SHIPMENT_AREA_HEIGHT,
+                width: FACTORY_MAP_SHIPMENT_AREA_WIDTH,
+              }}
+            >
+              <ShipmentMapArea
+                ariaLabel={copy.shipmentArea.ariaLabel}
+                emptyStateLabel={copy.shipmentArea.emptyStateLabel}
+                levelLabel={copy.shipmentArea.levelLabel}
+                onActivate={handleShipmentActivate}
+                statusLabels={copy.shipmentArea.statusLabels}
+                summaryLabel={copy.shipmentArea.summaryLabel}
+                title={copy.shipmentArea.title}
+                view={snapshot.warehouse.shipmentArea}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -315,7 +362,7 @@ function FactoryMapSectionView({
         isHighlighted &&
           "!border-[#006d8f]/55 ring-1 ring-primary/20 !shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_0_18px_rgba(0,109,143,0.10)]",
       )}
-      style={{ width: getDepartmentWidth(section.items.length) }}
+      style={{ width: getFactoryMapSectionWidth(section.items.length) }}
     >
       <div className="relative flex min-h-12 items-start justify-center px-3 pb-1.5 pt-3">
         <div
@@ -446,7 +493,7 @@ function ProductionLineCard({
             )}
             draggable={false}
             fill
-            sizes={`${SLOT_WIDTH}px`}
+            sizes={`${FACTORY_MAP_SLOT_WIDTH}px`}
             src={item.imageUrl}
           />
         ) : (
@@ -586,54 +633,6 @@ function ProductionGradeBadge({
       </svg>
     </span>
   );
-}
-
-function getSlotColumns(itemCount: number) {
-  return Math.max(1, Math.ceil(itemCount / SLOT_ROWS));
-}
-
-function getDepartmentWidth(itemCount: number) {
-  const columns = getSlotColumns(itemCount);
-
-  return Math.max(
-    DEPARTMENT_MIN_WIDTH,
-    DEPARTMENT_PADDING_X * 2 + columns * SLOT_WIDTH + Math.max(0, columns - 1) * SLOT_GAP,
-  );
-}
-
-function getCanvasWidth(sections: FactoryMapSection[]) {
-  const departmentWidth = sections.reduce(
-    (total, section) => total + getDepartmentWidth(section.items.length),
-    0,
-  );
-  const gaps = Math.max(0, sections.length - 1) * DEPARTMENT_GAP;
-
-  return Math.max(2400, CANVAS_PADDING_X * 2 + departmentWidth + gaps);
-}
-
-function getBoundedMapOffset(
-  proposedOffset: CameraOffset,
-  canvasWidth: number,
-  viewportWidth: number,
-  viewportHeight: number,
-  scale: number,
-) {
-  return {
-    x: getBoundedAxisOffset(canvasWidth * scale, viewportWidth, proposedOffset.x),
-    y: getBoundedAxisOffset(CANVAS_HEIGHT * scale, viewportHeight, proposedOffset.y),
-  };
-}
-
-function getBoundedAxisOffset(contentSize: number, viewportSize: number, proposedOffset: number) {
-  if (contentSize <= viewportSize) {
-    return Math.round((viewportSize - contentSize) / 2);
-  }
-
-  return clamp(proposedOffset, viewportSize - contentSize, 0);
-}
-
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function DepartmentHeaderIcon({ iconKey }: { iconKey: string }) {

@@ -1,7 +1,16 @@
 import type { ProductionGrade } from "@/generated/prisma/enums";
-import type { SupportedLocale } from "@/lib/i18n/locales";
+import type { ShipmentSceneLevel } from "@/features/warehouse/types";
+import {
+  numberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 import type { FactoryLineWorkloadState, GamePanelKey } from "./types";
+
+const shipmentNumberFormatters = {
+  en: new Intl.NumberFormat(numberLocale("en"), { maximumFractionDigits: 0 }),
+  tr: new Intl.NumberFormat(numberLocale("tr"), { maximumFractionDigits: 0 }),
+} satisfies Record<SupportedLocale, Intl.NumberFormat>;
 
 export const gameCopy = {
   tr: {
@@ -28,6 +37,19 @@ export const gameCopy = {
       noCapacity: "kapasite yok.",
       days: (days: number) => `${days} gün.`,
       investmentLabelFallback: "Yeni Hat",
+      shipmentArea: {
+        ariaLabel: "Sevkiyat hazır ürün alanı",
+        emptyStateLabel: "Sevkiyata hazır ürün bulunmuyor.",
+        levelLabel: (level: ShipmentSceneLevel) => `Seviye ${level}`,
+        summaryLabel: (readyQuantity: number, palletCount: number) =>
+          `${shipmentNumberFormatters.tr.format(readyQuantity)} adet · ${shipmentNumberFormatters.tr.format(palletCount)} palet`,
+        title: "Sevkiyat Deposu",
+        statusLabels: {
+          completed: "Tamamlanan sevkiyat",
+          delayed: "Geciken sevkiyat",
+          inProgress: "Hazırlanmakta olan sevkiyat",
+        },
+      },
       installation: {
         title: "Kurulum Aşaması",
         remainingDays: (days: number) => `Kalan ${days} Gün`,
@@ -234,6 +256,21 @@ export const gameCopy = {
       noCapacity: "no capacity.",
       days: (days: number) => `${days} days.`,
       investmentLabelFallback: "New Line",
+      shipmentArea: {
+        ariaLabel: "Shipment ready area",
+        emptyStateLabel: "No products are ready for shipment.",
+        levelLabel: (level: ShipmentSceneLevel) => `Level ${level}`,
+        summaryLabel: (readyQuantity: number, palletCount: number) =>
+          `${shipmentNumberFormatters.en.format(readyQuantity)} pcs · ${shipmentNumberFormatters.en.format(palletCount)} ${
+            palletCount === 1 ? "pallet" : "pallets"
+          }`,
+        title: "Shipment Warehouse",
+        statusLabels: {
+          completed: "Completed shipment",
+          delayed: "Delayed shipment",
+          inProgress: "Shipment in progress",
+        },
+      },
       installation: {
         title: "Installation",
         remainingDays: (days: number) => `${days} Days Left`,
@@ -440,6 +477,18 @@ export const gameCopy = {
       noCapacity: string;
       days: (days: number) => string;
       investmentLabelFallback: string;
+      shipmentArea: {
+        ariaLabel: string;
+        emptyStateLabel: string;
+        levelLabel: (level: ShipmentSceneLevel) => string;
+        summaryLabel: (readyQuantity: number, palletCount: number) => string;
+        title: string;
+        statusLabels: {
+          completed: string;
+          delayed: string;
+          inProgress: string;
+        };
+      };
       installation: {
         title: string;
         remainingDays: (days: number) => string;
