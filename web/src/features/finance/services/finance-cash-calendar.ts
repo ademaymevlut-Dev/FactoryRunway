@@ -14,6 +14,8 @@ import type {
   FinanceCashCalendar,
   FinanceCashCalendarEntry,
 } from "../types";
+import { financeCopy } from "../finance-copy";
+import { normalizeLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
 const FINANCE_PERIOD_DAYS = 22;
 const CASH_CALENDAR_HORIZON_DAYS = 7;
@@ -41,8 +43,10 @@ export async function getFinanceCashCalendar(input: {
   cashBalanceCents: bigint;
   currentDay: number;
   factoryId: string;
+  locale?: SupportedLocale | string;
   prisma: FinanceCashCalendarClient;
 }): Promise<FinanceCashCalendar> {
+  const locale = normalizeLocale(input.locale);
   const [dues, activeOrders, activeOutsourceJobs, costProfile] =
     await Promise.all([
     input.prisma.factoryFinanceDue.findMany({
@@ -171,13 +175,14 @@ export async function getFinanceCashCalendar(input: {
       category: due.category,
       certainty: "CONFIRMED",
       day: due.dueDay,
-      description:
-        due.description && !due.description.startsWith("finance.")
-          ? due.description
-          : categoryLabel(due.category),
+      description: localizeFinanceDescription(
+        due.description,
+        due.category,
+        locale,
+      ),
       direction: due.direction,
       id: `due:${due.id}`,
-      label: categoryLabel(due.category),
+      label: categoryLabel(due.category, locale),
     });
   }
 
@@ -188,6 +193,7 @@ export async function getFinanceCashCalendar(input: {
     ...buildPeriodicExpenseForecastSources({
       costConfig: costProfile.sector.operatingCostConfig,
       currentDay: input.currentDay,
+      locale,
       productionLines: costProfile.productionLines.map((line) => ({
         areaM2: line.productionLineTemplate.areaM2,
         monthlyElectricityBaseCents:
@@ -217,7 +223,7 @@ export async function getFinanceCashCalendar(input: {
       description: order.orderNo,
       direction: FinanceDirection.INCOME,
       id: `order-forecast:${order.id}`,
-      label: "Sipariş tahsilatı",
+      label: financeCopy[locale].categories.ORDER_REVENUE,
     });
   }
 
@@ -234,7 +240,7 @@ export async function getFinanceCashCalendar(input: {
       description: job.productionOrder.productionNo,
       direction: FinanceDirection.EXPENSE,
       id: `outsource-forecast:${job.id}`,
-      label: "Fason üretim",
+      label: financeCopy[locale].categories.OUTSOURCE_COST,
     });
   }
 
@@ -252,6 +258,7 @@ export function buildPeriodicExpenseForecastSources(input: {
     rentPerM2Cents: number;
   } | null;
   currentDay: number;
+  locale?: SupportedLocale | string;
   productionLines: Array<{
     areaM2: number;
     monthlyElectricityBaseCents: number;
@@ -262,6 +269,7 @@ export function buildPeriodicExpenseForecastSources(input: {
     quantity: number;
   }>;
 }) {
+  const locale = normalizeLocale(input.locale);
   const payrollDay = getNextPayrollDay(input.currentDay);
   const payrollCents = input.staffAssignments.reduce(
     (total, assignment) =>
@@ -278,7 +286,8 @@ export function buildPeriodicExpenseForecastSources(input: {
         amountCents: payrollCents,
         category: FinanceCategory.PAYROLL,
         day: payrollDay,
-        label: "Maaş",
+        label: financeCopy[locale].categories.PAYROLL,
+        locale,
       }),
     );
   }
@@ -308,7 +317,7 @@ export function buildPeriodicExpenseForecastSources(input: {
         BigInt(0),
       ),
       category: FinanceCategory.ELECTRICITY,
-      label: "Elektrik",
+      label: financeCopy[locale].categories.ELECTRICITY,
     },
     {
       amountCents: input.productionLines.reduce(
@@ -318,7 +327,7 @@ export function buildPeriodicExpenseForecastSources(input: {
         BigInt(0),
       ),
       category: FinanceCategory.RENT,
-      label: "Kira",
+      label: financeCopy[locale].categories.RENT,
     },
     {
       amountCents:
@@ -326,7 +335,7 @@ export function buildPeriodicExpenseForecastSources(input: {
         BigInt(costConfig.dailyMealPerDirectStaffCents) *
         BigInt(FINANCE_PERIOD_DAYS),
       category: FinanceCategory.MEAL,
-      label: "Yemek",
+      label: financeCopy[locale].categories.MEAL,
     },
     {
       amountCents:
@@ -334,7 +343,7 @@ export function buildPeriodicExpenseForecastSources(input: {
         BigInt(costConfig.directStaffOverheadPerStaffCents) *
         BigInt(FINANCE_PERIOD_DAYS),
       category: FinanceCategory.OVERHEAD,
-      label: "Genel gider",
+      label: financeCopy[locale].categories.OVERHEAD,
     },
   ];
 
@@ -345,6 +354,7 @@ export function buildPeriodicExpenseForecastSources(input: {
       periodicExpenseSource({
         ...expense,
         day: operatingExpenseDay,
+        locale,
       }),
     );
   }
@@ -368,11 +378,15 @@ function periodicExpenseSource(input: {
   category: FinanceCategory;
   day: number;
   label: string;
+  locale: SupportedLocale;
 }): FinanceCashCalendarSource {
   return {
     ...input,
     certainty: "PROJECTED",
-    description: `${input.day}. gün dönemsel gider`,
+    description:
+      input.locale === "tr"
+        ? `${input.day}. gün dönemsel gider`
+        : `Day ${input.day} periodic expense`,
     direction: FinanceDirection.EXPENSE,
     id: `periodic-forecast:${input.category}:${input.day}`,
   };
@@ -569,24 +583,32 @@ function sumDirection(
     );
 }
 
-function categoryLabel(category: FinanceCategory) {
-  const labels: Record<FinanceCategory, string> = {
-    BONUS: "Bonus",
-    CAPITAL_INJECTION: "Sermaye",
-    ELECTRICITY: "Elektrik",
-    LEASING_DOWN_PAYMENT: "Leasing peşinat",
-    LEASING_PAYMENT: "Leasing taksit",
-    MACHINE_PURCHASE: "Makine yatırımı",
-    MAINTENANCE: "Bakım",
-    MEAL: "Yemek",
-    ORDER_REVENUE: "Sipariş tahsilatı",
-    OTHER: "Diğer",
-    OUTSOURCE_COST: "Fason üretim",
-    OVERHEAD: "Genel gider",
-    PAYROLL: "İşçilik",
-    PENALTY: "Ceza",
-    RENT: "Kira",
-  };
+function categoryLabel(category: FinanceCategory, locale: SupportedLocale) {
+  return financeCopy[locale].categories[category];
+}
 
-  return labels[category];
+function localizeFinanceDescription(
+  description: string | null,
+  category: FinanceCategory,
+  locale: SupportedLocale,
+) {
+  if (!description || description.startsWith("finance.")) {
+    return categoryLabel(category, locale);
+  }
+
+  if (locale === "en") {
+    const translations = [
+      ["Fason ödeme", "Outsource payment"],
+      ["Görev ödülü", "Task reward"],
+      ["Kira ödemesi", "Rent payment"],
+      ["Sipariş tahsilatı", "Order collection"],
+    ] as const;
+    const match = translations.find(
+      ([source]) => description === source || description.startsWith(`${source} `),
+    );
+
+    if (match) return description.replace(match[0], match[1]);
+  }
+
+  return description;
 }

@@ -298,7 +298,7 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
               <ShipmentMapArea
                 ariaLabel={copy.shipmentArea.ariaLabel}
                 emptyStateLabel={copy.shipmentArea.emptyStateLabel}
-                levelLabel={copy.shipmentArea.levelLabel}
+                fillLabel={copy.shipmentArea.fillLabel}
                 onActivate={handleShipmentActivate}
                 statusLabels={copy.shipmentArea.statusLabels}
                 summaryLabel={copy.shipmentArea.summaryLabel}

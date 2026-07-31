@@ -22,8 +22,14 @@ import {
   type FinanceTransactionItem,
   type FinanceTone,
 } from "../types";
+import { financeCopy } from "../finance-copy";
 import { getFinanceCashCalendar } from "./finance-cash-calendar";
 import { getFinancePeriod } from "./finance-period";
+import {
+  normalizeLocale,
+  numberLocale,
+  type SupportedLocale,
+} from "@/lib/i18n/locales";
 
 const operatingExpenseCategories = [
   FinanceCategory.PAYROLL,
@@ -62,10 +68,12 @@ type FinanceReportClient = PrismaClient | Prisma.TransactionClient;
 
 export async function getFinanceReport(input: {
   factoryId: string;
+  locale?: SupportedLocale | string;
   periodIndex?: number | null;
   prisma: FinanceReportClient;
   tab: FinanceReportTab;
 }): Promise<FinanceReport | null> {
+  const locale = normalizeLocale(input.locale);
   const factory = await input.prisma.factory.findUnique({
     where: { id: input.factoryId },
     select: {
@@ -92,6 +100,7 @@ export async function getFinanceReport(input: {
     cashBalanceCents: factory.cashBalanceCents.toString(),
     currencyCode: factory.currencyCode,
     factoryId: factory.id,
+    locale,
     period,
   };
 
@@ -115,6 +124,7 @@ export async function getFinanceReport(input: {
 }
 
 async function buildOverviewReport(input: ReportBuilderInput): Promise<FinanceOverviewReport> {
+  const copy = financeCopy[input.locale];
   const [
     productionValue,
     operatingExpenses,
@@ -125,16 +135,17 @@ async function buildOverviewReport(input: ReportBuilderInput): Promise<FinanceOv
   ] =
     await Promise.all([
       getCompletedProductionValue(input),
-      getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, operatingExpenseCategories),
-      getCashTotals(input.prisma, input.factoryId, input.period),
+      getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, operatingExpenseCategories, input.locale),
+      getCashTotals(input.prisma, input.factoryId, input.period, input.locale),
       getDueSummary(input.prisma, input.factoryId, input.period.currentDay),
       getTransactions(input.prisma, input.factoryId, {
         limit: 5,
-      }),
+      }, input.locale),
       getFinanceCashCalendar({
         cashBalanceCents: BigInt(input.cashBalanceCents),
         currentDay: input.period.currentDay,
         factoryId: input.factoryId,
+        locale: input.locale,
         prisma: input.prisma,
       }),
     ]);
@@ -149,30 +160,34 @@ async function buildOverviewReport(input: ReportBuilderInput): Promise<FinanceOv
     cards: [
       {
         amountCents: input.cashBalanceCents,
-        caption: "Canlı fabrika kasası",
+        caption: copy.header.cash,
         id: "cash",
-        label: "Kasa",
+        label: copy.header.cash,
         tone: "info",
       },
       {
         amountCents: operationalProfitCents.toString(),
-        caption: `${productionValue.completedQuantity} adet final üretim`,
+        caption: copy.profit.finalProduction(
+          new Intl.NumberFormat(numberLocale(input.locale)).format(
+            productionValue.completedQuantity,
+          ),
+        ),
         id: "operational-profit",
-        label: "Operasyonel sonuç",
+        label: copy.profit.operatingProfit,
         tone: moneyTone(operationalProfitCents),
       },
       {
         amountCents: cashTotals.netCashCents.toString(),
-        caption: "Bu ay gerçekleşen kasa hareketi",
+        caption: copy.cash.cashMovements,
         id: "net-cash",
-        label: "Net nakit",
+        label: copy.cash.netCash,
         tone: moneyTone(cashTotals.netCashCents),
       },
       {
         amountCents: dueSummary.next7ReceivableCents.toString(),
-        caption: "Önümüzdeki 7 gün",
+        caption: copy.overview.next7Receivable,
         id: "receivable",
-        label: "Beklenen tahsilat",
+        label: copy.overview.next7Receivable,
         tone: "positive",
       },
     ],
@@ -190,7 +205,7 @@ async function buildProfitReport(input: ReportBuilderInput): Promise<FinanceProf
   const [productionValue, operatingExpenses, shippedRevenueCents] =
     await Promise.all([
       getCompletedProductionValue(input),
-      getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, operatingExpenseCategories),
+      getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, operatingExpenseCategories, input.locale),
       getShippedRevenueCents(input.prisma, input.factoryId, input.period),
     ]);
   const operationalExpenseCents = sumBreakdown(operatingExpenses);
@@ -226,12 +241,13 @@ async function buildCashReport(input: ReportBuilderInput): Promise<FinanceCashRe
     getTransactions(input.prisma, input.factoryId, {
       endDay: input.period.endDay,
       startDay: input.period.startDay,
-    }),
-    getOpenDues(input.prisma, input.factoryId, openDueUntilDay),
+    }, input.locale),
+    getOpenDues(input.prisma, input.factoryId, openDueUntilDay, input.locale),
     getFinanceCashCalendar({
       cashBalanceCents: BigInt(input.cashBalanceCents),
       currentDay: input.period.currentDay,
       factoryId: input.factoryId,
+      locale: input.locale,
       prisma: input.prisma,
     }),
   ]);
@@ -259,11 +275,11 @@ async function buildInvestmentReport(input: ReportBuilderInput): Promise<Finance
   const [allTransactions, recentTransactions, contracts] = await Promise.all([
     getTransactions(input.prisma, input.factoryId, {
       categories: investmentCategories,
-    }),
+    }, input.locale),
     getTransactions(input.prisma, input.factoryId, {
       categories: investmentCategories,
       limit: 12,
-    }),
+    }, input.locale),
     input.prisma.factoryLeasingContract.findMany({
       where: {
         factoryId: input.factoryId,
@@ -320,7 +336,7 @@ async function buildInvestmentReport(input: ReportBuilderInput): Promise<Finance
       id: contract.id,
       lineName:
         contract.productionLine.customName ??
-        `${departmentLabel(contract.productionLine.productionLineTemplate.department.key)} ${contract.productionLine.lineNumber}`,
+        `${departmentLabel(contract.productionLine.productionLineTemplate.department.key, input.locale)} ${contract.productionLine.lineNumber}`,
       monthlyPaymentCents: contract.monthlyPaymentCents.toString(),
       nextDueDay: contract.nextDueDay,
       remainingAmountCents: remainingAmountCents.toString(),
@@ -355,13 +371,13 @@ async function buildInvestmentReport(input: ReportBuilderInput): Promise<Finance
 
 async function buildExpensesReport(input: ReportBuilderInput): Promise<FinanceExpensesReport> {
   const [breakdown, recentExpenses] = await Promise.all([
-    getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, expenseCategories),
+    getExpenseObligationBreakdown(input.prisma, input.factoryId, input.period, expenseCategories, input.locale),
     getTransactions(input.prisma, input.factoryId, {
       direction: FinanceDirection.EXPENSE,
       endDay: input.period.endDay,
       limit: 12,
       startDay: input.period.startDay,
-    }),
+    }, input.locale),
   ]);
   const totalExpenseCents = sumBreakdown(breakdown);
   const operatingExpenseCents = sumBreakdown(
@@ -539,6 +555,7 @@ async function getExpenseObligationBreakdown(
   factoryId: string,
   period: FinancePeriodView,
   categories: readonly FinanceCategory[],
+  locale: SupportedLocale,
 ) {
   const [dues, transactions] = await Promise.all([
     prisma.factoryFinanceDue.findMany({
@@ -605,18 +622,19 @@ async function getExpenseObligationBreakdown(
     );
   }
 
-  return toBreakdown(totals);
+  return toBreakdown(totals, locale);
 }
 
 async function getCashTotals(
   prisma: FinanceReportClient,
   factoryId: string,
   period: FinancePeriodView,
+  locale: SupportedLocale,
 ) {
   const transactions = await getTransactions(prisma, factoryId, {
     endDay: period.endDay,
     startDay: period.startDay,
-  });
+  }, locale);
   const incomeCents = sumTransactions(transactions, "INCOME");
   const expenseCents = sumTransactions(transactions, "EXPENSE");
 
@@ -683,6 +701,7 @@ async function getTransactions(
     limit?: number;
     startDay?: number;
   },
+  locale: SupportedLocale,
 ): Promise<FinanceTransactionItem[]> {
   const transactions = await prisma.factoryFinanceTransaction.findMany({
     where: {
@@ -715,11 +734,15 @@ async function getTransactions(
     amountCents: transaction.amountCents.toString(),
     balanceAfterCents: transaction.balanceAfterCents.toString(),
     category: transaction.category,
-    description: transaction.description ?? categoryLabel(transaction.category),
+    description: localizeFinanceDescription(
+      transaction.description,
+      transaction.category,
+      locale,
+    ),
     direction: transaction.direction,
     gameDay: transaction.gameDay,
     id: transaction.id,
-    label: categoryLabel(transaction.category),
+    label: categoryLabel(transaction.category, locale),
   }));
 }
 
@@ -727,6 +750,7 @@ async function getOpenDues(
   prisma: FinanceReportClient,
   factoryId: string,
   untilDay: number,
+  locale: SupportedLocale,
 ): Promise<FinanceDueItem[]> {
   const dues = await prisma.factoryFinanceDue.findMany({
     where: {
@@ -751,11 +775,11 @@ async function getOpenDues(
   return dues.map((due) => ({
     amountCents: due.amountCents.toString(),
     category: due.category,
-    description: due.description ?? categoryLabel(due.category),
+    description: localizeFinanceDescription(due.description, due.category, locale),
     direction: due.direction,
     dueDay: due.dueDay,
     id: due.id,
-    label: categoryLabel(due.category),
+    label: categoryLabel(due.category, locale),
     settledAmountCents: due.settledAmountCents.toString(),
     status: due.status,
   }));
@@ -791,7 +815,10 @@ function buildDailyNet(
   }));
 }
 
-function toBreakdown(totals: Map<FinanceCategory, bigint>): FinanceCategoryBreakdown[] {
+function toBreakdown(
+  totals: Map<FinanceCategory, bigint>,
+  locale: SupportedLocale,
+): FinanceCategoryBreakdown[] {
   const totalCents = [...totals.values()].reduce(
     (total, amount) => total + amount,
     BigInt(0),
@@ -802,7 +829,7 @@ function toBreakdown(totals: Map<FinanceCategory, bigint>): FinanceCategoryBreak
     .map(([category, amount]) => ({
       amountCents: amount.toString(),
       category,
-      label: categoryLabel(category),
+      label: categoryLabel(category, locale),
       shareBps: ratioBps(amount, totalCents),
       tone: expenseTone(category),
     }))
@@ -871,47 +898,50 @@ function expenseTone(category: FinanceCategory): FinanceTone {
   return "neutral";
 }
 
-function categoryLabel(category: FinanceCategory) {
-  const labels: Record<FinanceCategory, string> = {
-    BONUS: "Bonus",
-    CAPITAL_INJECTION: "Sermaye",
-    ELECTRICITY: "Elektrik",
-    LEASING_DOWN_PAYMENT: "Leasing peşinat",
-    LEASING_PAYMENT: "Leasing taksit",
-    MACHINE_PURCHASE: "Makine yatırımı",
-    MAINTENANCE: "Bakım",
-    MEAL: "Yemek",
-    ORDER_REVENUE: "Sipariş geliri",
-    OTHER: "Diğer",
-    OUTSOURCE_COST: "Fason üretim",
-    OVERHEAD: "Genel gider",
-    PAYROLL: "İşçilik",
-    PENALTY: "Ceza",
-    RENT: "Kira",
-  };
-
-  return labels[category];
+function categoryLabel(category: FinanceCategory, locale: SupportedLocale) {
+  return financeCopy[locale].categories[category];
 }
 
-function departmentLabel(key: string) {
-  const labels: Record<string, string> = {
-    cutting: "Kesim",
-    dyeing: "Boya",
-    embroidery: "Nakış",
-    fabric_production: "Kumaş",
-    ironing_packing: "Ütü-Paket",
-    printing: "Baskı",
-    sewing: "Dikim",
-    washing: "Yıkama",
-  };
+function departmentLabel(key: string, locale: SupportedLocale) {
+  const labels = financeCopy[locale].departments as Record<string, string>;
 
   return labels[key] ?? key;
+}
+
+function localizeFinanceDescription(
+  description: string | null,
+  category: FinanceCategory,
+  locale: SupportedLocale,
+) {
+  if (!description || description.startsWith("finance.")) {
+    return categoryLabel(category, locale);
+  }
+
+  const exactTranslations: Record<string, string> =
+    locale === "en"
+      ? {
+          "Fason ödeme": "Outsource payment",
+          "Görev ödülü": "Task reward",
+          "Kira ödemesi": "Rent payment",
+          "Sipariş tahsilatı": "Order collection",
+        }
+      : {};
+  const translated = Object.entries(exactTranslations).find(
+    ([turkish]) => description === turkish || description.startsWith(`${turkish} `),
+  );
+
+  if (translated) {
+    return description.replace(translated[0], translated[1]);
+  }
+
+  return description;
 }
 
 type ReportBuilderInput = {
   cashBalanceCents: string;
   currencyCode: FinanceReport["currencyCode"];
   factoryId: string;
+  locale: SupportedLocale;
   period: FinancePeriodView;
   prisma: FinanceReportClient;
 };

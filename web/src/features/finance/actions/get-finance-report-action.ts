@@ -8,6 +8,7 @@ import type {
 import { USER_ROLES } from "@/lib/auth/roles";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getPrisma } from "@/lib/db";
+import { normalizeLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
 const tabs = new Set<FinanceReportTab>([
   "overview",
@@ -19,6 +20,7 @@ const tabs = new Set<FinanceReportTab>([
 
 export async function getFinanceReportAction(input: {
   factoryId: string;
+  locale?: SupportedLocale | string;
   periodIndex?: number | null;
   tab: FinanceReportTab;
 }): Promise<FinanceReportActionResult> {
@@ -52,6 +54,7 @@ export async function getFinanceReportAction(input: {
 
     const report = await getFinanceReport({
       factoryId: factory.id,
+      locale: normalizeLocale(input.locale),
       periodIndex: normalizePeriodIndex(input.periodIndex),
       prisma,
       tab: input.tab,

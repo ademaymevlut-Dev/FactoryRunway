@@ -1,23 +1,28 @@
 import { CalendarDays } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { financeCopy } from "@/features/finance/finance-copy";
 import type {
   FinanceCashCalendar,
   FinanceTone,
 } from "@/features/finance/types";
 import type { CurrencyCode } from "@/generated/prisma/enums";
 import { cn } from "@/lib/utils";
+import { numberLocale, type SupportedLocale } from "@/lib/i18n/locales";
 
-const moneyFormatters = new Map<CurrencyCode, Intl.NumberFormat>();
+const moneyFormatters = new Map<string, Intl.NumberFormat>();
 
 export function FinanceCashCalendar({
   calendar,
   currencyCode,
+  locale,
 }: {
   calendar: FinanceCashCalendar;
   currencyCode: CurrencyCode;
+  locale: SupportedLocale;
 }) {
-  const riskPresentation = getRiskPresentation(calendar, currencyCode);
+  const copy = financeCopy[locale];
+  const riskPresentation = getRiskPresentation(calendar, currencyCode, locale);
 
   return (
     <section className="rounded-lg border border-border bg-card/70 p-2.5">
@@ -28,15 +33,15 @@ export function FinanceCashCalendar({
           </span>
           <div className="min-w-0">
             <h3 className="truncate text-xs font-semibold text-foreground">
-              Nakit takvimi
+              {copy.calendar.title}
             </h3>
             <p className="truncate text-[10px] text-muted-foreground">
-              Bugün–{calendar.endDay}. gün · kesin vadeler ve planlanan siparişler
+              {copy.calendar.range(calendar.endDay)}
             </p>
           </div>
         </div>
         <Badge className="h-5 px-1.5 text-[10px]" variant="outline">
-          7 gün görünümü
+          {copy.calendar.horizon}
         </Badge>
       </div>
 
@@ -45,44 +50,46 @@ export function FinanceCashCalendar({
           caption={
             calendar.firstIncome
               ? `${formatMoney(
-                  calendar.firstIncome.amountCents,
+                calendar.firstIncome.amountCents,
                   currencyCode,
+                  locale,
                 )} · ${
                   calendar.firstIncome.certainty === "CONFIRMED"
-                    ? "kesin"
-                    : "plan"
+                    ? copy.calendar.confirmed
+                    : copy.calendar.planned
                 }`
-              : "Beklenen kayıt yok"
+              : copy.calendar.noExpectedEntries
           }
-          label="İlk para"
+          label={copy.calendar.firstIncome}
           tone={calendar.firstIncome ? "positive" : "neutral"}
           value={
             calendar.firstIncome
               ? calendar.firstIncome.day === calendar.currentDay
-                ? "Bugün"
-                : `${calendar.firstIncome.day}. gün`
+                ? copy.calendar.today
+                : copy.cash.day(calendar.firstIncome.day)
               : "—"
           }
         />
         <CashCalendarMetric
-          caption="Yakın dönem giriş"
-          label="7 gün tahsilat"
+          caption={copy.calendar.nearIncome}
+          label={copy.overview.next7Receivable}
           tone="positive"
-          value={formatMoney(calendar.incomingCents, currencyCode)}
+          value={formatMoney(calendar.incomingCents, currencyCode, locale)}
         />
         <CashCalendarMetric
-          caption="Borç + planlanan gider"
-          label="7 gün ödeme"
+          caption={copy.calendar.debtAndPlannedExpense}
+          label={copy.overview.next7Payable}
           tone="warning"
-          value={formatMoney(calendar.outgoingCents, currencyCode)}
+          value={formatMoney(calendar.outgoingCents, currencyCode, locale)}
         />
         <CashCalendarMetric
-          caption={formatSignedMoney(calendar.netCents, currencyCode)}
-          label="Tahmini kasa"
+          caption={formatSignedMoney(calendar.netCents, currencyCode, locale)}
+          label={copy.calendar.estimatedCash}
           tone={balanceTone(calendar)}
           value={formatMoney(
             calendar.estimatedEndBalanceCents,
             currencyCode,
+            locale,
           )}
         />
       </div>
@@ -116,18 +123,18 @@ export function FinanceCashCalendar({
             >
               <p className="truncate text-[9px] font-semibold text-muted-foreground">
                 {day.day === calendar.currentDay
-                  ? "BUGÜN"
-                  : `${day.day}. GÜN`}
+                  ? copy.calendar.today
+                  : copy.calendar.day(day.day)}
               </p>
               <div className="mt-1 min-h-7 space-y-0.5 font-mono text-[9px] leading-3">
                 {incomeCents > BigInt(0) ? (
                   <p className="truncate text-emerald-300">
-                    +{formatMoney(day.incomeCents, currencyCode)}
+                    +{formatMoney(day.incomeCents, currencyCode, locale)}
                   </p>
                 ) : null}
                 {expenseCents > BigInt(0) ? (
                   <p className="truncate text-amber-300">
-                    -{formatMoney(day.expenseCents, currencyCode)}
+                    -{formatMoney(day.expenseCents, currencyCode, locale)}
                   </p>
                 ) : null}
                 {!hasMovement ? (
@@ -139,12 +146,13 @@ export function FinanceCashCalendar({
                   "mt-1 truncate border-t border-border/60 pt-1 font-mono text-[9px]",
                   toneTextClass(moneyTone(day.projectedBalanceCents)),
                 )}
-                title={`Tahmini kasa: ${formatMoney(
+                title={`${copy.calendar.estimatedCash}: ${formatMoney(
                   day.projectedBalanceCents,
                   currencyCode,
+                  locale,
                 )}`}
               >
-                {formatMoney(day.projectedBalanceCents, currencyCode)}
+                {formatMoney(day.projectedBalanceCents, currencyCode, locale)}
               </p>
             </div>
           );
@@ -154,10 +162,10 @@ export function FinanceCashCalendar({
       <div className="mt-2">
         <div className="mb-1.5 flex items-center justify-between gap-2">
           <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Yaklaşan hareketler
+            {copy.calendar.upcomingMovements}
           </p>
           <span className="text-[10px] text-muted-foreground">
-            Kesin / plan
+            {copy.calendar.confirmedShort} / {copy.calendar.plannedShort}
           </span>
         </div>
         {calendar.upcomingEntries.length > 0 ? (
@@ -183,12 +191,14 @@ export function FinanceCashCalendar({
                   </p>
                   <p className="truncate text-[9px] text-muted-foreground">
                     {entry.timing === "OVERDUE"
-                      ? `${entry.day}. günden gecikmiş`
+                      ? copy.calendar.overdue(entry.day)
                       : entry.timing === "TODAY"
-                        ? "Bugün"
-                        : `${entry.day}. gün`}
+                        ? copy.calendar.today
+                        : copy.cash.day(entry.day)}
                     {" · "}
-                    {entry.certainty === "CONFIRMED" ? "Kesin" : "Planlanan"}
+                    {entry.certainty === "CONFIRMED"
+                      ? copy.calendar.confirmedShort
+                      : copy.calendar.plannedShort}
                   </p>
                 </div>
                 <strong
@@ -200,14 +210,14 @@ export function FinanceCashCalendar({
                   )}
                 >
                   {entry.direction === "INCOME" ? "+" : "−"}
-                  {formatMoney(entry.amountCents, currencyCode)}
+                  {formatMoney(entry.amountCents, currencyCode, locale)}
                 </strong>
               </div>
             ))}
           </div>
         ) : (
           <p className="rounded-md border border-dashed border-border bg-background/30 px-2 py-2 text-center text-[10px] text-muted-foreground">
-            Planlanan tahsilat veya ödeme bulunmuyor.
+            {copy.calendar.noUpcoming}
           </p>
         )}
       </div>
@@ -265,61 +275,70 @@ function balanceTone(calendar: FinanceCashCalendar): FinanceTone {
 function getRiskPresentation(
   calendar: FinanceCashCalendar,
   currencyCode: CurrencyCode,
+  locale: SupportedLocale,
 ) {
+  const copy = financeCopy[locale];
+
   if (calendar.risk === "SHORTFALL") {
     return {
       className:
         "border-rose-400/25 bg-rose-400/8 text-rose-300",
-      text: `${calendar.shortfallDay ?? calendar.currentDay}. gün nakit açığı riski · en düşük kasa ${formatMoney(
-        calendar.lowestProjectedBalanceCents,
-        currencyCode,
-      )}.`,
+      text: copy.calendar.shortfall(
+        calendar.shortfallDay ?? calendar.currentDay,
+        formatMoney(calendar.lowestProjectedBalanceCents, currencyCode, locale),
+      ),
     };
   }
   if (calendar.risk === "TIGHT") {
     return {
       className:
         "border-amber-400/25 bg-amber-400/8 text-amber-300",
-      text: "Yakın dönem ödemeleri tahsilatlardan yüksek.",
+      text: copy.calendar.tight,
     };
   }
   if (calendar.risk === "POSITIVE") {
     return {
       className:
         "border-emerald-400/25 bg-emerald-400/8 text-emerald-300",
-      text: "Yakın dönem nakit akışı mevcut planla dengeli.",
+      text: copy.calendar.positive,
     };
   }
 
   return {
     className: "border-border bg-background/35 text-muted-foreground",
-    text: "7 gün içinde kesinleşmiş veya planlanmış hareket yok.",
+    text: copy.calendar.neutral,
   };
 }
 
 function formatMoney(
   valueCents: bigint | number | string,
   currencyCode: CurrencyCode,
+  locale: SupportedLocale,
 ) {
-  let formatter = moneyFormatters.get(currencyCode);
+  const formatterKey = `${locale}:${currencyCode}`;
+  let formatter = moneyFormatters.get(formatterKey);
 
   if (!formatter) {
-    formatter = new Intl.NumberFormat("tr-TR", {
+    formatter = new Intl.NumberFormat(numberLocale(locale), {
       currency: currencyCode,
       maximumFractionDigits: 0,
       style: "currency",
     });
-    moneyFormatters.set(currencyCode, formatter);
+    moneyFormatters.set(formatterKey, formatter);
   }
 
   return formatter.format(Number(BigInt(valueCents)) / 100);
 }
 
-function formatSignedMoney(valueCents: string, currencyCode: CurrencyCode) {
+function formatSignedMoney(
+  valueCents: string,
+  currencyCode: CurrencyCode,
+  locale: SupportedLocale,
+) {
   const value = BigInt(valueCents);
   const prefix = value > BigInt(0) ? "+" : "";
 
-  return `${prefix}${formatMoney(value, currencyCode)}`;
+  return `${prefix}${formatMoney(value, currencyCode, locale)}`;
 }
 
 function moneyTone(valueCents: string): FinanceTone {

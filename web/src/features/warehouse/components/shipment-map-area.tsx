@@ -34,7 +34,7 @@ export type ShipmentMapAreaProps = {
   ariaLabel: string;
   className?: string;
   emptyStateLabel: string;
-  levelLabel: (level: ShipmentSceneLevel) => string;
+  fillLabel: (level: ShipmentSceneLevel) => string;
   onActivate?: () => void;
   statusLabels: ShipmentMapAreaStatusLabels;
   summaryLabel: (readyQuantity: number, palletCount: number) => string;
@@ -67,7 +67,7 @@ export function ShipmentMapArea({
   ariaLabel,
   className,
   emptyStateLabel,
-  levelLabel,
+  fillLabel,
   onActivate,
   statusLabels,
   summaryLabel,
@@ -105,7 +105,7 @@ export function ShipmentMapArea({
           ) : null}
           {view.sceneLevel ? (
             <span className={styles.level}>
-              {levelLabel(view.sceneLevel)}
+              {fillLabel(view.sceneLevel)}
             </span>
           ) : null}
         </div>

@@ -258,19 +258,40 @@ test("kesinleşmiş fason borcu planlanan fason çıkışıyla iki kez sayılmaz
   });
 });
 
-test("nakit takvimi UI sözleşmesi kompakt tipografi ve aralıkları korur", () => {
+test("nakit takvimi UI sözleşmesi kompakt tipografi ve locale copy kullanır", () => {
   const source = readFileSync(
     new URL("../components/finance-cash-calendar.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /Nakit takvimi/);
-  assert.match(source, /İlk para/);
-  assert.match(source, /Kesin \/ plan/);
+  assert.match(source, /financeCopy/);
+  assert.match(source, /locale: SupportedLocale/);
+  assert.match(source, /copy\.calendar\.title/);
+  assert.match(source, /copy\.calendar\.firstIncome/);
+  assert.match(source, /copy\.calendar\.confirmedShort/);
+  assert.doesNotMatch(source, /Nakit takvimi/);
   assert.match(source, /p-2\.5/);
   assert.match(source, /text-\[9px\]/);
   assert.doesNotMatch(source, /text-(?:2xl|3xl|4xl)/);
   assert.doesNotMatch(source, /\bp-(?:6|8|10|12)\b/);
+});
+
+test("finans paneli seçilen locale'i tüm rapor sekmelerine taşır", () => {
+  const panel = readFileSync(
+    new URL("../components/finance-panel.tsx", import.meta.url),
+    "utf8",
+  );
+  const action = readFileSync(
+    new URL("../actions/get-finance-report-action.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(panel, /locale: SupportedLocale/);
+  assert.match(panel, /const copy = financeCopy\[locale\]/);
+  assert.match(panel, /copy\.tabs\[tab\.value\]/);
+  assert.match(panel, /locale,/);
+  assert.match(action, /locale: normalizeLocale\(input\.locale\)/);
+  assert.doesNotMatch(panel, /Finans Kontrol|Fabrika performansı|Nakit takvimi/);
 });
 
 function source(

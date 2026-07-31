@@ -103,6 +103,7 @@ export const panelRegistry: Record<GamePanelKey, PanelDefinition> = {
         currencyCode={snapshot.factory.currencyCode}
         currentDay={snapshot.factory.currentDay}
         factoryId={snapshot.factory.id}
+        locale={snapshot.locale}
       />
     ),
   },

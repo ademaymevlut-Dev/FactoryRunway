@@ -61,7 +61,7 @@ test("ShipmentMapArea production section döngüsünden sonra bağımsız render
   );
   assert.match(
     factoryMapSource,
-    /levelLabel=\{copy\.shipmentArea\.levelLabel\}/,
+    /fillLabel=\{copy\.shipmentArea\.fillLabel\}/,
   );
   assert.match(
     factoryMapSource,
@@ -203,7 +203,9 @@ test("TR ve EN Shipment scene copy sözleşmesi eksiksizdir", () => {
   assert.equal(trCopy.ariaLabel, "Sevkiyat hazır ürün alanı");
   assert.equal(trCopy.title, "Sevkiyat Deposu");
   assert.equal(trCopy.emptyStateLabel, "Sevkiyata hazır ürün bulunmuyor.");
-  assert.equal(trCopy.levelLabel(7), "Seviye 7");
+  assert.equal(trCopy.fillLabel(1), "Düşük");
+  assert.equal(trCopy.fillLabel(4), "Doluyor");
+  assert.equal(trCopy.fillLabel(7), "Çok Dolu");
   assert.equal(trCopy.summaryLabel(4_280, 6), "4.280 adet · 6 palet");
   assert.equal(trCopy.summaryLabel(0, 0), "0 adet · 0 palet");
   assert.deepEqual(trCopy.statusLabels, {
@@ -215,7 +217,9 @@ test("TR ve EN Shipment scene copy sözleşmesi eksiksizdir", () => {
   assert.equal(enCopy.ariaLabel, "Shipment ready area");
   assert.equal(enCopy.title, "Shipment Warehouse");
   assert.equal(enCopy.emptyStateLabel, "No products are ready for shipment.");
-  assert.equal(enCopy.levelLabel(7), "Level 7");
+  assert.equal(enCopy.fillLabel(1), "Low");
+  assert.equal(enCopy.fillLabel(4), "Filling");
+  assert.equal(enCopy.fillLabel(7), "Very Full");
   assert.equal(enCopy.summaryLabel(4_280, 6), "4,280 pcs · 6 pallets");
   assert.equal(enCopy.summaryLabel(750, 1), "750 pcs · 1 pallet");
   assert.deepEqual(enCopy.statusLabels, {

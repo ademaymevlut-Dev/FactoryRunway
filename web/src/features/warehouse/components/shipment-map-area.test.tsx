@@ -58,7 +58,7 @@ function render(view: ShipmentMapView, onActivate?: () => void) {
     createElement(ShipmentMapArea, {
       ariaLabel: "Shipment area",
       emptyStateLabel: "No products are ready for shipment.",
-      levelLabel: (level) => `Level ${level}`,
+      fillLabel: (level) => `Fill ${level}`,
       onActivate,
       statusLabels,
       summaryLabel: (readyQuantity, palletCount) =>
@@ -108,7 +108,7 @@ test("level 1 doğru asset, scale ve gerçek header level'ı ile render edilir",
   assert.match(markup, /width="1536"/);
   assert.match(markup, /height="1024"/);
   assert.match(markup, /alt="" aria-hidden="true"/);
-  assert.match(markup, />Level 1</);
+  assert.match(markup, />Fill 1</);
   assert.match(markup, /1,200 pcs · 2 pallets/);
 });
 
@@ -135,7 +135,7 @@ test("gerçek level 7 header ve level 7 asset ile render edilir", () => {
     }),
   );
 
-  assert.match(markup, />Level 7</);
+  assert.match(markup, />Fill 7</);
   assert.match(markup, /data-shipment-scene-asset-level="7"/);
   assert.match(markup, /shipment-level-7\.webp/);
 });
@@ -159,7 +159,7 @@ test("başlık ve özet dışında order veya product detay metni üretilmez", (
   const visibleText = getVisibleText(markup);
 
   assert.match(visibleText, /Shipment Warehouse/);
-  assert.match(visibleText, /Level 1/);
+  assert.match(visibleText, /Fill 1/);
   assert.match(visibleText, /1,200 pcs · 2 pallets/);
   assert.doesNotMatch(
     markup,
@@ -172,7 +172,7 @@ test("onActivate tek tam-alan native button üzerinden çağrılır", () => {
   const element = ShipmentMapArea({
     ariaLabel: "Shipment area",
     emptyStateLabel: "No products are ready for shipment.",
-    levelLabel: (level) => `Level ${level}`,
+    fillLabel: (level) => `Fill ${level}`,
     onActivate: () => {
       activationCount += 1;
     },

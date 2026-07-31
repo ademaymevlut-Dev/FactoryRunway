@@ -12,6 +12,27 @@ const shipmentNumberFormatters = {
   tr: new Intl.NumberFormat(numberLocale("tr"), { maximumFractionDigits: 0 }),
 } satisfies Record<SupportedLocale, Intl.NumberFormat>;
 
+const shipmentFillLabels = {
+  en: {
+    1: "Low",
+    2: "Light",
+    3: "Medium",
+    4: "Filling",
+    5: "High",
+    6: "Full",
+    7: "Very Full",
+  },
+  tr: {
+    1: "Düşük",
+    2: "Az Dolu",
+    3: "Orta",
+    4: "Doluyor",
+    5: "Yüksek",
+    6: "Dolu",
+    7: "Çok Dolu",
+  },
+} satisfies Record<SupportedLocale, Record<ShipmentSceneLevel, string>>;
+
 export const gameCopy = {
   tr: {
     dock: {
@@ -40,7 +61,7 @@ export const gameCopy = {
       shipmentArea: {
         ariaLabel: "Sevkiyat hazır ürün alanı",
         emptyStateLabel: "Sevkiyata hazır ürün bulunmuyor.",
-        levelLabel: (level: ShipmentSceneLevel) => `Seviye ${level}`,
+        fillLabel: (level: ShipmentSceneLevel) => shipmentFillLabels.tr[level],
         summaryLabel: (readyQuantity: number, palletCount: number) =>
           `${shipmentNumberFormatters.tr.format(readyQuantity)} adet · ${shipmentNumberFormatters.tr.format(palletCount)} palet`,
         title: "Sevkiyat Deposu",
@@ -259,7 +280,7 @@ export const gameCopy = {
       shipmentArea: {
         ariaLabel: "Shipment ready area",
         emptyStateLabel: "No products are ready for shipment.",
-        levelLabel: (level: ShipmentSceneLevel) => `Level ${level}`,
+        fillLabel: (level: ShipmentSceneLevel) => shipmentFillLabels.en[level],
         summaryLabel: (readyQuantity: number, palletCount: number) =>
           `${shipmentNumberFormatters.en.format(readyQuantity)} pcs · ${shipmentNumberFormatters.en.format(palletCount)} ${
             palletCount === 1 ? "pallet" : "pallets"
@@ -480,7 +501,7 @@ export const gameCopy = {
       shipmentArea: {
         ariaLabel: string;
         emptyStateLabel: string;
-        levelLabel: (level: ShipmentSceneLevel) => string;
+        fillLabel: (level: ShipmentSceneLevel) => string;
         summaryLabel: (readyQuantity: number, palletCount: number) => string;
         title: string;
         statusLabels: {
