@@ -46,16 +46,36 @@ export type OrderOfferView = {
     cuttingStartLabel: string;
     productionOrderLabel: string;
   };
+  acceptanceSummary: OrderOfferAcceptanceSummaryView;
   plannedCostCents: string;
   plannedCostLabel: string;
   plannedProfitCents: string;
   plannedProfitLabel: string;
   plannedMarginBps: number;
   plannedMarginLabel: string;
+  decisionRisk: OrderOfferDecisionRiskView;
   capacityRiskLabel: string;
   deliveryRiskLabel: string;
   capacityPlan: OrderOfferCapacityPlanView;
   items: OrderOfferItemView[];
+};
+
+export type OrderOfferAcceptanceSummaryView = {
+  cuttingStartLabel: string;
+  materialReadyLabel: string;
+  plannedMarginLabel: string;
+  productionImpactLabel: string;
+  productionOrderLabel: string;
+  riskSummaryLabel: string;
+  totalQuantityLabel: string;
+  totalRevenueLabel: string;
+};
+
+export type OrderOfferDecisionRiskView = {
+  dominantFactor: "CAPACITY" | "DELIVERY" | null;
+  scoreBps: number;
+  scoreLabel: string;
+  summaryLabel: string;
 };
 
 export type OrderOfferCustomerRelationshipView = {
@@ -114,6 +134,7 @@ export type OrderOfferItemView = {
   cardTextColor: string;
   productName: string;
   productCode: string;
+  productTypeKey: string;
   productTier: ProductTier;
   productTierLabel: string;
   quantity: number;

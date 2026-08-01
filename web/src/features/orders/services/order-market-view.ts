@@ -19,6 +19,7 @@ import {
   isProductTierUnlocked,
 } from "../product-tier-rules";
 import { ordersCopy } from "../orders-copy";
+import { getOrderDecisionRiskValues } from "./order-decision-risk";
 
 import type {
   OrderMarketView,
@@ -329,10 +330,17 @@ async function fetchMarketOffers(
               images: {
                 where: {
                   variant: {
-                    in: [ProductImageVariant.CARD, ProductImageVariant.THUMBNAIL],
+                    in: [
+                      ProductImageVariant.DETAIL,
+                      ProductImageVariant.CARD,
+                      ProductImageVariant.THUMBNAIL,
+                    ],
                   },
                 },
                 orderBy: [{ variant: "asc" }, { sortOrder: "asc" }],
+              },
+              productType: {
+                select: { key: true },
               },
               routeSteps: {
                 orderBy: { sequence: "asc" },
@@ -465,6 +473,37 @@ function toOrderOfferView({
     plannedProfitCents,
     totalRevenueCents,
   );
+  const decisionRiskValues = getOrderDecisionRiskValues(
+    offer.capacityRiskBps,
+    offer.deliveryRiskBps,
+  );
+  const decisionRiskScoreLabel = formatBpsPercent(
+    decisionRiskValues.scoreBps,
+    locale,
+  );
+  const decisionRiskSummaryLabel =
+    decisionRiskValues.dominantFactor === "CAPACITY"
+      ? copy.decisionRisk.capacity(decisionRiskScoreLabel)
+      : decisionRiskValues.dominantFactor === "DELIVERY"
+        ? copy.decisionRisk.delivery(decisionRiskScoreLabel)
+        : copy.decisionRisk.equal(decisionRiskScoreLabel);
+  const materialReadyLabel = copy.acceptPlan.materialReady(currentDay + 1);
+  const cuttingStartLabel = copy.acceptPlan.cuttingStart(currentDay + 1);
+  const productionOrderLabel = copy.acceptPlan.productionOrder(
+    offer.items.length,
+  );
+  const productionImpactLabel = copy.acceptPlan.productionImpact(
+    offer.items.length,
+  );
+  const totalQuantityLabel = copy.pieces(
+    formatNumber(offer.totalQuantity, locale),
+  );
+  const totalRevenueLabel = formatMoney(
+    totalRevenueCents,
+    currencyCode,
+    locale,
+  );
+  const plannedMarginLabel = formatMarginPercent(plannedMarginBps, locale);
 
   return {
     id: offer.id,
@@ -491,20 +530,35 @@ function toOrderOfferView({
     targetDeliveryDay: offer.targetDeliveryDay,
     deliveryLabel: copy.days(formatNumber(offer.targetDeliveryDays, locale)),
     totalQuantity: offer.totalQuantity,
-    totalQuantityLabel: copy.pieces(formatNumber(offer.totalQuantity, locale)),
+    totalQuantityLabel,
     totalRevenueCents: offer.totalRevenueCents.toString(),
-    totalRevenueLabel: formatMoney(totalRevenueCents, currencyCode, locale),
+    totalRevenueLabel,
     acceptPlan: {
-      cuttingStartLabel: copy.acceptPlan.cuttingStart(currentDay + 1),
-      materialReadyLabel: copy.acceptPlan.materialReady(currentDay + 1),
-      productionOrderLabel: copy.acceptPlan.productionOrder(offer.items.length),
+      cuttingStartLabel,
+      materialReadyLabel,
+      productionOrderLabel,
+    },
+    acceptanceSummary: {
+      cuttingStartLabel,
+      materialReadyLabel,
+      plannedMarginLabel,
+      productionImpactLabel,
+      productionOrderLabel,
+      riskSummaryLabel: decisionRiskSummaryLabel,
+      totalQuantityLabel,
+      totalRevenueLabel,
     },
     plannedCostCents: String(plannedCostCents),
     plannedCostLabel: formatMoney(plannedCostCents, currencyCode, locale),
     plannedProfitCents: String(plannedProfitCents),
     plannedProfitLabel: formatMoney(plannedProfitCents, currencyCode, locale),
     plannedMarginBps,
-    plannedMarginLabel: formatMarginPercent(plannedMarginBps, locale),
+    plannedMarginLabel,
+    decisionRisk: {
+      ...decisionRiskValues,
+      scoreLabel: decisionRiskScoreLabel,
+      summaryLabel: decisionRiskSummaryLabel,
+    },
     capacityRiskLabel: formatBpsNumber(offer.capacityRiskBps, locale),
     deliveryRiskLabel: formatBpsNumber(offer.deliveryRiskBps, locale),
     capacityPlan: buildCapacityPlanView({ capacityContext, locale, offer }),
@@ -546,6 +600,7 @@ function toOrderOfferItemView({
     id: item.id,
     productName: item.product.name,
     productCode: item.product.code ?? item.product.key,
+    productTypeKey: item.product.productType.key,
     productTier: item.productTier,
     productTierLabel: ordersCopy[locale].filters[item.productTier].label,
     quantity: item.quantity,
@@ -1023,8 +1078,14 @@ function buildRouteSteps(
 function getProductImageUrl(item: MarketOfferItemRecord) {
   const image =
     item.product.images.find(
+      (productImage) => productImage.variant === ProductImageVariant.DETAIL,
+    ) ??
+    item.product.images.find(
       (productImage) => productImage.variant === ProductImageVariant.CARD,
-    ) ?? item.product.images[0];
+    ) ??
+    item.product.images.find(
+      (productImage) => productImage.variant === ProductImageVariant.THUMBNAIL,
+    );
 
   return image?.url ?? image?.pathname ?? null;
 }

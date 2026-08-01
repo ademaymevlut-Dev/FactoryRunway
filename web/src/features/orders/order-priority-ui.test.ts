@@ -8,6 +8,7 @@ function read(relativePath: string) {
 
 test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiketi yapar", () => {
   const panel = read("./components/orders-panel.tsx");
+  const workspace = read("./components/order-decision-workspace.tsx");
   const copy = read("./orders-copy.ts");
   const registry = read("../game/panels/panel-registry.tsx");
   const service = read("./services/order-market-view.ts");
@@ -21,8 +22,7 @@ test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiket
   assert.match(service, /locale\?: SupportedLocale \| string/);
   assert.match(service, /getTranslationLocaleFallbacks\(locale\)/);
   assert.match(panel, /OrderSidebarPanel/);
-  assert.match(panel, /SelectedOrderDetail/);
-  assert.match(panel, /OrderCostPanel/);
+  assert.match(panel, /OrderDecisionWorkspace/);
   assert.doesNotMatch(panel, /OrderMarketEntryPanel/);
   assert.match(panel, /"BASIC"/);
   assert.match(panel, /"STANDARD"/);
@@ -35,12 +35,19 @@ test("sipariş paneli dört ürün grubunu ana filtre, teklif tipini kart etiket
   assert.match(panel, /copy\.sidebar\.changeFilterAria/);
   assert.doesNotMatch(panel, /Filtre Seç/);
   assert.match(panel, /matchesMarketFilter/);
-  assert.match(panel, /CustomerRelationshipCard/);
-  assert.match(panel, /copy\.relationship\.title/);
+  assert.match(workspace, /CustomerRelationshipCard/);
+  assert.match(workspace, /copy\.relationship\.title/);
 });
 
 test("sipariş paneli ürün kart arka planında Light Rays efektini kullanır", () => {
-  const panel = read("./components/orders-panel.tsx");
+  const workspace = read("./components/order-decision-workspace.tsx");
+  const hero = read("./components/order-product-hero-canvas.tsx");
+  const atmosphere = read(
+    "../../components/game-presentation/product-hero-atmosphere.tsx",
+  );
+  const surface = read(
+    "../../components/game-presentation/product-hero-surface.tsx",
+  );
   const showcase = read(
     "../../components/game-presentation/product-showcase-card.tsx",
   );
@@ -50,26 +57,19 @@ test("sipariş paneli ürün kart arka planında Light Rays efektini kullanır",
   const lightRays = read("../../components/effects/light-rays.tsx");
   const marketView = read("./services/order-market-view.ts");
 
-  assert.match(panel, /ProductShowcaseCard/);
-  assert.match(panel, /gradientFrom: item\.cardGradientFrom/);
-  assert.match(panel, /gradientTo: item\.cardGradientTo/);
-  assert.match(panel, /primaryColor: item\.cardPrimaryColor/);
-  assert.match(panel, /secondaryColor: item\.cardSecondaryColor/);
-  assert.match(panel, /svgIconAccentColor: item\.cardSvgIconAccentColor/);
-  assert.doesNotMatch(panel, /drop-shadow/);
-  assert.match(panel, /import \{ ProductLightRaysBackground \}/);
-  assert.match(
-    panel,
-    /<ProductLightRaysBackground color=\{item\.cardPrimaryColor\} \/>/,
-  );
+  assert.match(workspace, /OrderProductHeroCanvas/);
+  assert.doesNotMatch(workspace, /ProductShowcaseCard/);
+  assert.match(hero, /import \{ ProductHeroSurface \}/);
+  assert.match(hero, /paletteSource=\{activeItem\}/);
+  assert.match(surface, /resolveProductHeroPalette/);
+  assert.match(atmosphere, /ProductLightRaysBackground/);
+  assert.match(atmosphere, /color=\{palette\.rayColor\}/);
   assert.match(productLightRays, /FALLBACK_RAYS_COLOR = "#38bdf8"/);
   assert.match(productLightRays, /raysColor=\{raysColor\}/);
   assert.match(productLightRays, /raysOrigin="top-center"/);
-  assert.match(
-    productLightRays,
-    /className="absolute inset-0 opacity-100 mix-blend-screen"/,
-  );
-  assert.match(productLightRays, /raysSpeed=\{0\.78\}/);
+  assert.match(productLightRays, /motion-reduce:hidden/);
+  assert.match(productLightRays, /raysSpeed=\{0\.32\}/);
+  assert.match(productLightRays, /showFallback=\{false\}/);
   assert.doesNotMatch(productLightRays, /followMouse/);
   assert.doesNotMatch(productLightRays, /mouseInfluence=/);
   assert.match(showcase, /backgroundLayer\?: ReactNode/);
@@ -92,43 +92,55 @@ test("sipariş paneli ürün kart arka planında Light Rays efektini kullanır",
   assert.match(lightRays, /import\("ogl"\)/);
   assert.match(lightRays, /dpr: getDevicePixelRatio\(\)/);
   assert.doesNotMatch(lightRays, /console\.(warn|error|log)/);
+  assert.match(marketView, /productImage\.variant === ProductImageVariant\.DETAIL/);
   assert.match(marketView, /productImage\.variant === ProductImageVariant\.CARD/);
+  assert.match(marketView, /productImage\.variant === ProductImageVariant\.THUMBNAIL/);
 });
 
 test("koleksiyon siparişlerinde tüm ürün detayları carousel ile gezilebilir", () => {
-  const panel = read("./components/orders-panel.tsx");
+  const workspace = read("./components/order-decision-workspace.tsx");
+  const hero = read("./components/order-product-hero-canvas.tsx");
   const copy = read("./orders-copy.ts");
 
-  assert.match(panel, /SelectedOrderPanels/);
-  assert.match(panel, /CollectionCarouselControls/);
-  assert.match(panel, /copy\.carousel\.previousAria/);
-  assert.match(panel, /copy\.carousel\.nextAria/);
+  assert.match(workspace, /OrderDecisionWorkspace/);
+  assert.doesNotMatch(workspace, /CollectionCarouselControls/);
+  assert.match(hero, /copy\.carousel\.previousAria/);
+  assert.match(hero, /copy\.carousel\.nextAria/);
   assert.match(copy, /Previous collection product/);
-  assert.match(panel, /activeItem=\{activeItem\}/);
-  assert.match(panel, /activeItemId=\{activeItem\.id\}/);
-  assert.match(panel, /copy\.cost\.itemTotal/);
-  assert.match(panel, /copy\.cost\.itemCost/);
-  assert.match(panel, /copy\.cost\.itemProfit/);
+  assert.match(workspace, /activeItem=\{activeItem\}/);
+  assert.match(workspace, /activeItemId=\{activeItem\.id\}/);
+  assert.match(workspace, /copy\.cost\.itemTotal/);
+  assert.match(workspace, /copy\.cost\.itemCost/);
+  assert.match(workspace, /copy\.cost\.itemProfit/);
 });
 
-test("sipariş paneli dar masaüstünde sol filtre rayını ve mobil detay geçişini korur", () => {
+test("sipariş paneli karar çekirdeğini Faz 3 container düzeninde korur", () => {
   const panel = read("./components/orders-panel.tsx");
+  const workspace = read("./components/order-decision-workspace.tsx");
+  const globals = read("../../app/globals.css");
   const panelRegistry = read("../game/panels/panel-registry.tsx");
   const overlay = read("../game/components/overlay-layer-manager.tsx");
   const showcase = read(
     "../../components/game-presentation/product-showcase-card.tsx",
   );
 
-  assert.match(
-    panel,
-    /grid-cols-\[68px_minmax\(0,1fr\)\][\s\S]*?sm:grid-cols-\[210px_minmax\(0,1fr\)\]/,
-  );
-  assert.match(panel, /ResponsiveDetailSwitcher/);
-  assert.match(panel, /activeDetailPanel/);
-  assert.match(panel, /xl:grid-cols-\[minmax\(0,1fr\)_340px\]/);
+  assert.match(panel, /orders-responsive-layout/);
+  assert.match(globals, /container-name: orders-panel/);
+  assert.match(globals, /@container orders-panel \(min-width: 760px\)/);
+  assert.match(globals, /@container orders-panel \(min-width: 1180px\)/);
+  assert.match(workspace, /data-order-decision-core="true"/);
+  assert.match(workspace, /data-order-decision-bar="true"/);
+  assert.match(workspace, /ResponsiveAnalysisShell/);
   assert.match(panel, /aria-pressed=\{selected\}/);
-  assert.match(panel, /hidden truncate min-\[440px\]:inline/);
-  assert.match(panel, /compactMobile/);
+  assert.match(panel, /offer\.customerName/);
+  assert.match(panel, /offer\.totalRevenueLabel/);
+  assert.match(panel, /orders-compact-offer-delivery/);
+  assert.match(panel, /copy\.list\.delivery/);
+  assert.doesNotMatch(panel, /String\(index \+ 1\)\.padStart/);
+  assert.doesNotMatch(panel, /badgeStyle/);
+  assert.match(panel, /whitespace-nowrap text-right/);
+  assert.match(workspace, /OrderProductHeroCanvas/);
+  assert.match(workspace, /panelMode === "COMPACT"/);
   assert.match(showcase, /COMPACT_MOBILE_METRIC_KEYS/);
   assert.match(showcase, /hidden xl:contents/);
   assert.match(panelRegistry, /size: "orders"/);

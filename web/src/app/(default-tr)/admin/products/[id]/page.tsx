@@ -23,6 +23,7 @@ import { ProductCardDesigner } from "./product-card-designer";
 import { ProductColorsForm } from "./product-colors-form";
 import { ProductDefinitionsForm } from "./product-definitions-form";
 import { ProductDetailTabs } from "./product-detail-tabs";
+import { ProductPresentationDraftProvider } from "./product-presentation-draft-context";
 import { ProductRouteStepForm } from "./product-route-step-form";
 
 export default async function ProductDetailPage({
@@ -163,10 +164,17 @@ export default async function ProductDetailPage({
       (maximum, step) => Math.max(maximum, step.sequence),
       0,
     ) + 1;
-  const cardImage =
+  const heroImage =
+    product.images.find(
+      (image) => image.view === "FRONT" && image.variant === "DETAIL",
+    ) ??
     product.images.find(
       (image) => image.view === "FRONT" && image.variant === "CARD",
-    ) ?? product.images.find((image) => image.view === "FRONT");
+    ) ??
+    product.images.find(
+      (image) => image.view === "FRONT" && image.variant === "THUMBNAIL",
+    ) ??
+    product.images.find((image) => image.view === "FRONT");
 
   return (
     <div className="grid gap-4">
@@ -200,7 +208,8 @@ export default async function ProductDetailPage({
         </Badge>
       </header>
 
-      <ProductDetailTabs
+      <ProductPresentationDraftProvider initialImageUrl={heroImage?.url ?? null}>
+        <ProductDetailTabs
         main={
           <Panel
             description="Ürünün kimliği, sınıflandırması ve yayın durumu."
@@ -418,10 +427,11 @@ export default async function ProductDetailPage({
                 product.productType.translations,
                 product.productType.key,
               ),
+              productTypeKey: product.productType.key,
               tier: product.tier,
               baseUnitPriceCents: product.baseUnitPriceCents,
               requiredPlayerLevel: product.requiredPlayerLevel,
-              imageUrl: cardImage?.url,
+              imageUrl: heroImage?.url,
               cardPrimaryColor: product.cardPrimaryColor,
               cardSecondaryColor: product.cardSecondaryColor,
               cardGradientFrom: product.cardGradientFrom,
@@ -433,7 +443,8 @@ export default async function ProductDetailPage({
             }}
           />
         }
-      />
+        />
+      </ProductPresentationDraftProvider>
     </div>
   );
 }

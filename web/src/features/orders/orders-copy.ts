@@ -37,6 +37,8 @@ export const ordersCopy = {
       acceptPlan: {
         cuttingStart: (day: number) => `${day}. gün kesim başlayabilir`,
         materialReady: (day: number) => `${day}. gün kumaş ve aksesuar stokta`,
+        productionImpact: (count: number) =>
+          `${count} üretim emri üretim planına eklenecek`,
         productionOrder: (count: number) => `${count} üretim emri hazırlanacak`,
       },
       capacityState: {
@@ -52,6 +54,11 @@ export const ordersCopy = {
         new: "Yeni",
         trusted: "Güvenilir",
         warm: "Sıcak",
+      },
+      decisionRisk: {
+        capacity: (score: string) => `Kapasite · ${score}`,
+        delivery: (score: string) => `Teslimat · ${score}`,
+        equal: (score: string) => `Birleşik risk · ${score}`,
       },
       days: (value: string) => `${value} gün`,
       deadlineDays: (value: number) => `${value} gün termin`,
@@ -73,6 +80,16 @@ export const ordersCopy = {
       repeatPending: "RPT beklemede",
     },
     ui: {
+      analysis: {
+        capacity: "Kapasite",
+        close: "Analizi kapat",
+        customer: "Müşteri",
+        description: "Siparişin kârlılık, kapasite, müşteri ve ürün analizleri.",
+        open: "Analiz",
+        product: "Ürün Detayları",
+        profitability: "Kârlılık",
+        title: "Sipariş Analizi",
+      },
       acceptPlan: {
         cutting: "Kesim",
         material: "Stok",
@@ -82,6 +99,27 @@ export const ordersCopy = {
       acceptButton: {
         idle: "Siparişi Kabul Et",
         pending: "Hazırlanıyor...",
+      },
+      confirmation: {
+        cancel: "Vazgeç",
+        cutting: "Kesim başlangıcı",
+        description:
+          "Kesin onaydan sonra üretim emirleri oluşturulur ve teklif siparişe dönüşür.",
+        margin: "Beklenen marj",
+        material: "Malzeme hazırlığı",
+        productionImpact: "Üretim etkisi",
+        productionOrders: "Üretim emri",
+        quantity: "Toplam adet",
+        revenue: "Toplam gelir",
+        risk: "Birleşik risk",
+        title: "Kabul sonrası üretim planı",
+      },
+      decision: {
+        delivery: "Teslim",
+        margin: "Beklenen marj",
+        quantity: "Adet",
+        revenue: "Toplam gelir",
+        risk: "Risk",
       },
       activeOrders: {
         empty: "Aktif üretim emri yok.",
@@ -130,6 +168,9 @@ export const ordersCopy = {
         expires: (day: number) => `Son: ${day}. gün`,
         selectedOrder: "Seçili Sipariş",
       },
+      hero: {
+        imageUnavailable: "Ürün görseli bulunamadı",
+      },
       empty: {
         market: "Sipariş Pazarı",
         noOffers: "Yeni teklifler vardiya ilerledikçe uygun ürün gruplarında oluşacak.",
@@ -150,6 +191,9 @@ export const ordersCopy = {
         eyebrow: "Kilitli Ürün Grubu",
       },
       marketTitle: "Sipariş Pazarı",
+      navigation: {
+        backToMarket: "Tekliflere dön",
+      },
       metrics: {
         code: "Kod",
         colors: "Renk",
@@ -212,6 +256,8 @@ export const ordersCopy = {
       acceptPlan: {
         cuttingStart: (day: number) => `Cutting can start on day ${day}`,
         materialReady: (day: number) => `Fabric and trims are in stock on day ${day}`,
+        productionImpact: (count: number) =>
+          `${count} production orders will be added to the production plan`,
         productionOrder: (count: number) => `${count} production orders will be prepared`,
       },
       capacityState: {
@@ -227,6 +273,11 @@ export const ordersCopy = {
         new: "New",
         trusted: "Trusted",
         warm: "Warm",
+      },
+      decisionRisk: {
+        capacity: (score: string) => `Capacity · ${score}`,
+        delivery: (score: string) => `Delivery · ${score}`,
+        equal: (score: string) => `Combined risk · ${score}`,
       },
       days: (value: string) => `${value} days`,
       deadlineDays: (value: number) => `${value} day deadline`,
@@ -248,6 +299,17 @@ export const ordersCopy = {
       repeatPending: "RPT pending",
     },
     ui: {
+      analysis: {
+        capacity: "Capacity",
+        close: "Close analysis",
+        customer: "Customer",
+        description:
+          "Profitability, capacity, customer, and product analysis for this order.",
+        open: "Analysis",
+        product: "Product Details",
+        profitability: "Profitability",
+        title: "Order Analysis",
+      },
       acceptPlan: {
         cutting: "Cutting",
         material: "Stock",
@@ -257,6 +319,27 @@ export const ordersCopy = {
       acceptButton: {
         idle: "Accept Order",
         pending: "Preparing...",
+      },
+      confirmation: {
+        cancel: "Cancel",
+        cutting: "Cutting start",
+        description:
+          "After final confirmation, production orders are created and the offer becomes an order.",
+        margin: "Expected margin",
+        material: "Material preparation",
+        productionImpact: "Production impact",
+        productionOrders: "Production orders",
+        quantity: "Total quantity",
+        revenue: "Total revenue",
+        risk: "Combined risk",
+        title: "Post-acceptance production plan",
+      },
+      decision: {
+        delivery: "Delivery",
+        margin: "Expected margin",
+        quantity: "Quantity",
+        revenue: "Total revenue",
+        risk: "Risk",
       },
       activeOrders: {
         empty: "No active production orders.",
@@ -305,6 +388,9 @@ export const ordersCopy = {
         expires: (day: number) => `Expires: day ${day}`,
         selectedOrder: "Selected Order",
       },
+      hero: {
+        imageUnavailable: "Product image unavailable",
+      },
       empty: {
         market: "Order Market",
         noOffers: "New offers will appear in matching product tiers as shifts advance.",
@@ -325,6 +411,9 @@ export const ordersCopy = {
         eyebrow: "Locked Product Tier",
       },
       marketTitle: "Order Market",
+      navigation: {
+        backToMarket: "Back to offers",
+      },
       metrics: {
         code: "Code",
         colors: "Color",
@@ -372,10 +461,16 @@ export const ordersCopy = {
       acceptPlan: {
         cuttingStart: (day: number) => string;
         materialReady: (day: number) => string;
+        productionImpact: (count: number) => string;
         productionOrder: (count: number) => string;
       };
       capacityState: Record<OrderOfferCapacityState, string>;
       customerStatus: Record<RelationshipStatus, string>;
+      decisionRisk: {
+        capacity: (score: string) => string;
+        delivery: (score: string) => string;
+        equal: (score: string) => string;
+      };
       days: (value: string) => string;
       deadlineDays: (value: number) => string;
       estimatedDays: (value: string) => string;
@@ -391,6 +486,16 @@ export const ordersCopy = {
       repeatPending: string;
     };
     ui: {
+      analysis: {
+        capacity: string;
+        close: string;
+        customer: string;
+        description: string;
+        open: string;
+        product: string;
+        profitability: string;
+        title: string;
+      };
       acceptPlan: {
         cutting: string;
         material: string;
@@ -400,6 +505,26 @@ export const ordersCopy = {
       acceptButton: {
         idle: string;
         pending: string;
+      };
+      confirmation: {
+        cancel: string;
+        cutting: string;
+        description: string;
+        margin: string;
+        material: string;
+        productionImpact: string;
+        productionOrders: string;
+        quantity: string;
+        revenue: string;
+        risk: string;
+        title: string;
+      };
+      decision: {
+        delivery: string;
+        margin: string;
+        quantity: string;
+        revenue: string;
+        risk: string;
       };
       activeOrders: {
         empty: string;
@@ -448,6 +573,9 @@ export const ordersCopy = {
         expires: (day: number) => string;
         selectedOrder: string;
       };
+      hero: {
+        imageUnavailable: string;
+      };
       empty: {
         market: string;
         noOffers: string;
@@ -465,6 +593,9 @@ export const ordersCopy = {
         eyebrow: string;
       };
       marketTitle: string;
+      navigation: {
+        backToMarket: string;
+      };
       metrics: {
         code: string;
         colors: string;

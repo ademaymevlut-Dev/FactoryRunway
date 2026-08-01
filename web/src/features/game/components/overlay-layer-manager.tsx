@@ -40,7 +40,7 @@ export function OverlayLayerManager({ snapshot }: { snapshot: GameSnapshot }) {
           ? cn(
               "items-center justify-center",
               panel.size === "orders"
-                ? "p-2 sm:px-8 sm:py-24"
+                ? "p-0 min-[840px]:px-8 min-[840px]:py-24"
                 : "px-4 py-24 sm:px-8",
               showBackdrop
                 ? "pointer-events-auto bg-background/55 backdrop-blur-[2px]"

@@ -303,13 +303,14 @@ export function PanelChrome({
       className={cn(
         "pointer-events-auto relative flex flex-col overflow-hidden border border-white/10 text-card-foreground shadow-2xl backdrop-blur",
         layout !== "rightDrawer" &&
+          size !== "orders" &&
           "max-h-[calc(100dvh-2rem)] rounded-lg",
         layout === "center" &&
           size === "wide" &&
           "h-[min(780px,calc(100dvh-8rem))] w-[min(1380px,calc(100vw-2rem))] bg-background p-4 sm:w-[min(1380px,calc(100vw-7rem))]",
         layout === "center" &&
           size === "orders" &&
-          "h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] bg-background p-2 sm:h-[min(780px,calc(100dvh-8rem))] sm:w-[min(1380px,calc(100vw-5rem))] sm:p-3 lg:w-[min(1380px,calc(100vw-7rem))] lg:p-4",
+          "h-dvh max-h-none w-full rounded-none border-0 bg-background px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] min-[840px]:h-[min(780px,calc(100dvh-8rem))] min-[840px]:w-[min(1380px,calc(100vw-5rem))] min-[840px]:rounded-lg min-[840px]:border min-[840px]:p-3 lg:w-[min(1380px,calc(100vw-7rem))] lg:p-4",
         layout === "center" &&
           size === "adaptive" &&
           "h-[min(720px,calc(100dvh-13rem))] w-[min(1080px,calc(100vw-2rem))] bg-background p-3 sm:w-[min(1080px,calc(100vw-5rem))]",
@@ -341,6 +342,7 @@ export function PanelChrome({
           </h2>
           <Button
             aria-label={closeAria}
+            className={cn(size === "orders" && "size-11 min-[840px]:size-8")}
             onClick={onClose}
             size="icon-sm"
             type="button"

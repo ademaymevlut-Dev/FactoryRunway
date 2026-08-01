@@ -249,6 +249,12 @@ test("shift, olay ve bildirim görünümleri yalnızca verilen durumu yansıtır
 
 test("oyun containerları ortak görünümleri kullanırken davranış sahipliğini korur", () => {
   const orders = read("../../features/orders/components/orders-panel.tsx");
+  const orderWorkspace = read(
+    "../../features/orders/components/order-decision-workspace.tsx",
+  );
+  const orderHero = read(
+    "../../features/orders/components/order-product-hero-canvas.tsx",
+  );
   const queue = read(
     "../../features/production-queue/components/department-queue-panel.tsx",
   );
@@ -268,10 +274,12 @@ test("oyun containerları ortak görünümleri kullanırken davranış sahipliğ
     "../../features/game/components/notification-center.tsx",
   );
 
-  assert.match(orders, /ProductShowcaseCard/);
-  assert.match(orders, /ProductColorChips/);
-  assert.match(orders, /ProductRouteTimeline/);
-  assert.match(orders, /acceptMarketOrderAction/);
+  assert.match(orders, /OrderDecisionWorkspace/);
+  assert.match(orderWorkspace, /OrderProductHeroCanvas/);
+  assert.match(orderHero, /ProductHeroSurface/);
+  assert.match(orderHero, /ProductHeroColorRail/);
+  assert.match(orderWorkspace, /ProductRouteTimeline/);
+  assert.match(orderWorkspace, /acceptMarketOrderAction/);
   assert.match(queue, /ProductionQueueRow/);
   assert.match(queue, /SortableItemHandle/);
   assert.match(queue, /updateDepartmentWorkloadPriorityAction/);

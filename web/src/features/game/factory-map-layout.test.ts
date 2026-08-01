@@ -6,6 +6,7 @@ import {
   FACTORY_MAP_BASE_SCALE,
   FACTORY_MAP_CANVAS_HEIGHT,
   FACTORY_MAP_DEPARTMENT_AREA_HEIGHT,
+  FACTORY_MAP_OFFICE_AREA_SCALE,
   FACTORY_MAP_OFFICE_AREA_WIDTH,
   FACTORY_MAP_OFFICE_CONNECTOR_GAP,
   FACTORY_MAP_OFFICE_TOP_PADDING,
@@ -32,7 +33,7 @@ test("Shipment scene canonical 360x330 ölçüsünü ve 416 px canvas artışın
   );
 });
 
-test("Office Management sahnesi Sevkiyat ile aynı 416 px canvas payını kullanır", () => {
+test("Office Management çerçevesi Sevkiyat'tan yüzde 20 dar ve ayrı canvas payı kullanır", () => {
   const sectionWidths = [1_000, 1_200];
   const currentWidth = getFactoryMapCanvasWidth({
     includeShipmentArea: true,
@@ -48,9 +49,11 @@ test("Office Management sahnesi Sevkiyat ile aynı 416 px canvas payını kullan
     officeWidth - currentWidth,
     FACTORY_MAP_OFFICE_AREA_WIDTH + FACTORY_MAP_OFFICE_CONNECTOR_GAP,
   );
-  assert.equal(FACTORY_MAP_OFFICE_AREA_WIDTH, FACTORY_MAP_SHIPMENT_AREA_WIDTH);
+  assert.equal(FACTORY_MAP_OFFICE_AREA_SCALE, 0.8);
+  assert.equal(FACTORY_MAP_OFFICE_AREA_WIDTH, 288);
+  assert.equal(FACTORY_MAP_SHIPMENT_AREA_WIDTH, 360);
   assert.equal(OFFICE_MANAGEMENT_AREA_WIDTH, FACTORY_MAP_OFFICE_AREA_WIDTH);
-  assert.equal(officeWidth - currentWidth, 416);
+  assert.equal(officeWidth - currentWidth, 344);
 });
 
 test("Office bölüm çerçevesi production hattında taşmadan ortak merkezde kalır", () => {

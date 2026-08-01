@@ -47,18 +47,15 @@ test("bilinmeyen stage güvenli biçimde beşinci görsele düşer", () => {
   );
 });
 
-test("Office görseli Sevkiyat Deposu'nun 360 px enine ölçeklenir", () => {
+test("Office görseli çerçevesiyle birlikte Sevkiyat Deposu'ndan yüzde 20 daralır", () => {
   const assets = Object.keys(expectedAssetByStage).map((stageKey) =>
     getOfficeManagementSceneAsset(stageKey),
   );
 
-  assert.equal(OFFICE_MANAGEMENT_AREA_WIDTH, 360);
-  assert.equal(
-    OFFICE_MANAGEMENT_AREA_WIDTH,
-    FACTORY_MAP_SHIPMENT_AREA_WIDTH,
-  );
+  assert.equal(OFFICE_MANAGEMENT_AREA_WIDTH, 288);
+  assert.equal(FACTORY_MAP_SHIPMENT_AREA_WIDTH, 360);
   assert.equal(OFFICE_MANAGEMENT_SCENE_HORIZONTAL_INSET, 14);
-  assert.equal(OFFICE_MANAGEMENT_SCENE_WIDTH, 332);
+  assert.equal(OFFICE_MANAGEMENT_SCENE_WIDTH, 260);
   assert.equal(
     getOfficeManagementSceneScale(assets[0]!),
     OFFICE_MANAGEMENT_SCENE_WIDTH / 1_024,

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -34,9 +35,17 @@ export type LightRaysProps = {
   mouseInfluence?: number;
   noiseAmount?: number;
   distortion?: number;
+  onRenderModeChange?: (mode: LightRaysRenderMode) => void;
+  showFallback?: boolean;
   className?: string;
   style?: CSSProperties;
 };
+
+export type LightRaysRenderMode =
+  | "initializing"
+  | "webgl"
+  | "fallback"
+  | "reduced-motion";
 
 type Vec2 = [number, number];
 type Vec3 = [number, number, number];
@@ -187,6 +196,8 @@ export function LightRays({
   mouseInfluence = 0,
   noiseAmount = 0.01,
   distortion = 0.02,
+  onRenderModeChange,
+  showFallback = true,
   className,
   style,
 }: LightRaysProps) {
@@ -200,10 +211,19 @@ export function LightRays({
   const raysColorRef = useRef(raysColor);
   const mouseRef = useRef({ x: 0.5, y: 0.5 });
   const smoothMouseRef = useRef({ x: 0.5, y: 0.5 });
+  const renderModeRef = useRef<LightRaysRenderMode>("initializing");
+  const [renderMode, setRenderMode] =
+    useState<LightRaysRenderMode>("initializing");
   const [isVisible, setIsVisible] = useState(
     () => typeof IntersectionObserver === "undefined",
   );
   const prefersReducedMotion = usePrefersReducedMotion();
+  const updateRenderMode = useCallback((mode: LightRaysRenderMode) => {
+    if (renderModeRef.current === mode) return;
+
+    renderModeRef.current = mode;
+    setRenderMode(mode);
+  }, []);
 
   const fallbackStyle = useMemo<CSSProperties>(
     () =>
@@ -242,6 +262,10 @@ export function LightRays({
   );
 
   useEffect(() => {
+    onRenderModeChange?.(renderMode);
+  }, [onRenderModeChange, renderMode]);
+
+  useEffect(() => {
     raysColorRef.current = raysColor;
 
     const uniforms = uniformsRef.current;
@@ -266,7 +290,7 @@ export function LightRays({
       (entries) => {
         setIsVisible(entries[0]?.isIntersecting ?? false);
       },
-      { threshold: 0.1 },
+      { threshold: 0.01 },
     );
 
     observer.observe(root);
@@ -277,9 +301,26 @@ export function LightRays({
   useEffect(() => {
     const host = canvasHostRef.current;
 
-    if (!host || !isVisible || prefersReducedMotion !== false) {
+    if (!host) {
+      return;
+    }
+
+    if (prefersReducedMotion === null) {
+      updateRenderMode("initializing");
+      return;
+    }
+
+    if (prefersReducedMotion) {
       cleanupRef.current?.();
       cleanupRef.current = null;
+      updateRenderMode("reduced-motion");
+      return;
+    }
+
+    if (!isVisible) {
+      cleanupRef.current?.();
+      cleanupRef.current = null;
+      updateRenderMode("fallback");
       return;
     }
 
@@ -287,37 +328,41 @@ export function LightRays({
 
     cleanupRef.current?.();
     cleanupRef.current = null;
+    updateRenderMode("initializing");
 
     let disposed = false;
+    let initializedRenderer: OglRenderer | null = null;
 
     async function initializeWebGL() {
-      await new Promise((resolve) => window.setTimeout(resolve, 10));
+      try {
+        await new Promise((resolve) => window.setTimeout(resolve, 10));
 
-      if (disposed || !canvasHost.isConnected) {
-        return;
-      }
+        if (disposed || !canvasHost.isConnected) {
+          return;
+        }
 
-      const { Mesh, Program, Renderer, Triangle } = await import("ogl");
+        const { Mesh, Program, Renderer, Triangle } = await import("ogl");
 
-      if (disposed || !canvasHost.isConnected) {
-        return;
-      }
+        if (disposed || !canvasHost.isConnected) {
+          return;
+        }
 
-      const renderer = new Renderer({
-        alpha: true,
-        dpr: getDevicePixelRatio(),
-      });
-      const gl = renderer.gl;
+        const renderer = new Renderer({
+          alpha: true,
+          dpr: getDevicePixelRatio(),
+        });
+        initializedRenderer = renderer;
+        const gl = renderer.gl;
 
-      rendererRef.current = renderer;
-      gl.canvas.style.display = "block";
-      gl.canvas.style.height = "100%";
-      gl.canvas.style.width = "100%";
-      gl.canvas.setAttribute("aria-hidden", "true");
-      gl.canvas.tabIndex = -1;
-      canvasHost.replaceChildren(gl.canvas);
+        rendererRef.current = renderer;
+        gl.canvas.style.display = "block";
+        gl.canvas.style.height = "100%";
+        gl.canvas.style.width = "100%";
+        gl.canvas.setAttribute("aria-hidden", "true");
+        gl.canvas.tabIndex = -1;
+        canvasHost.replaceChildren(gl.canvas);
 
-      const uniforms: Uniforms = {
+        const uniforms: Uniforms = {
         iResolution: { value: [1, 1] },
         iTime: { value: 0 },
         fadeDistance: { value: fadeDistance },
@@ -333,19 +378,19 @@ export function LightRays({
         raysSpeed: { value: raysSpeed },
         saturation: { value: saturation },
         distortion: { value: distortion },
-      };
-      const geometry = new Triangle(gl);
-      const program = new Program(gl, {
-        fragment: fragmentShader,
-        uniforms,
-        vertex: vertexShader,
-      });
-      const mesh = new Mesh(gl, { geometry, program });
+        };
+        const geometry = new Triangle(gl);
+        const program = new Program(gl, {
+          fragment: fragmentShader,
+          uniforms,
+          vertex: vertexShader,
+        });
+        const mesh = new Mesh(gl, { geometry, program });
 
-      uniformsRef.current = uniforms;
-      meshRef.current = mesh;
+        uniformsRef.current = uniforms;
+        meshRef.current = mesh;
 
-      const updatePlacement = () => {
+        const updatePlacement = () => {
         const width = canvasHost.clientWidth;
         const height = canvasHost.clientHeight;
 
@@ -367,14 +412,13 @@ export function LightRays({
         uniforms.iResolution.value = [renderWidth, renderHeight];
         uniforms.rayPos.value = anchor;
         uniforms.rayDir.value = dir;
-      };
-      const resizeObserver =
-        typeof ResizeObserver === "undefined"
-          ? null
-          : new ResizeObserver(updatePlacement);
-      const canFollowMouse =
-        followMouse && mouseInfluence > 0;
-      const handleMouseMove = (event: MouseEvent) => {
+        };
+        const resizeObserver =
+          typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(updatePlacement);
+        const canFollowMouse = followMouse && mouseInfluence > 0;
+        const handleMouseMove = (event: MouseEvent) => {
         const rect = canvasHost.getBoundingClientRect();
 
         if (rect.width <= 0 || rect.height <= 0) {
@@ -385,8 +429,15 @@ export function LightRays({
           x: (event.clientX - rect.left) / rect.width,
           y: (event.clientY - rect.top) / rect.height,
         };
-      };
-      const loop = (time: number) => {
+        };
+        const handleContextLost = (event: Event) => {
+          event.preventDefault();
+          updateRenderMode("fallback");
+          cleanupRef.current?.();
+          cleanupRef.current = null;
+        };
+        let renderedFirstFrame = false;
+        const loop = (time: number) => {
         if (disposed || !rendererRef.current || !meshRef.current) {
           return;
         }
@@ -408,57 +459,93 @@ export function LightRays({
           ];
         }
 
-        try {
-          renderer.render({ scene: mesh });
-        } catch {
-          return;
-        }
+          try {
+            renderer.render({ scene: mesh });
+          } catch {
+            updateRenderMode("fallback");
+            cleanupRef.current?.();
+            cleanupRef.current = null;
+            return;
+          }
 
-        animationIdRef.current = requestAnimationFrame(loop);
-      };
+          if (!renderedFirstFrame) {
+            renderedFirstFrame = true;
+            updateRenderMode("webgl");
+          }
 
-      resizeObserver?.observe(canvasHost);
+          animationIdRef.current = requestAnimationFrame(loop);
+        };
 
-      if (!resizeObserver) {
-        window.addEventListener("resize", updatePlacement);
-      }
-
-      if (canFollowMouse) {
-        window.addEventListener("mousemove", handleMouseMove, {
-          passive: true,
-        });
-      }
-
-      updatePlacement();
-      animationIdRef.current = requestAnimationFrame(loop);
-
-      cleanupRef.current = () => {
-        disposed = true;
-
-        if (animationIdRef.current !== null) {
-          cancelAnimationFrame(animationIdRef.current);
-          animationIdRef.current = null;
-        }
-
-        resizeObserver?.disconnect();
+        resizeObserver?.observe(canvasHost);
 
         if (!resizeObserver) {
-          window.removeEventListener("resize", updatePlacement);
+          window.addEventListener("resize", updatePlacement);
         }
 
         if (canFollowMouse) {
-          window.removeEventListener("mousemove", handleMouseMove);
+          window.addEventListener("mousemove", handleMouseMove, {
+            passive: true,
+          });
         }
 
-        const canvas = renderer.gl.canvas;
-        const loseContext = renderer.gl.getExtension("WEBGL_lose_context");
+        gl.canvas.addEventListener("webglcontextlost", handleContextLost);
 
-        loseContext?.loseContext();
-        canvas.remove();
-        rendererRef.current = null;
-        uniformsRef.current = null;
-        meshRef.current = null;
-      };
+        updatePlacement();
+
+        cleanupRef.current = () => {
+          disposed = true;
+
+          if (animationIdRef.current !== null) {
+            cancelAnimationFrame(animationIdRef.current);
+            animationIdRef.current = null;
+          }
+
+          resizeObserver?.disconnect();
+
+          if (!resizeObserver) {
+            window.removeEventListener("resize", updatePlacement);
+          }
+
+          if (canFollowMouse) {
+            window.removeEventListener("mousemove", handleMouseMove);
+          }
+
+          const canvas = renderer.gl.canvas;
+          canvas.removeEventListener("webglcontextlost", handleContextLost);
+
+          if (!renderer.gl.isContextLost()) {
+            const loseContext = renderer.gl.getExtension("WEBGL_lose_context");
+            loseContext?.loseContext();
+          }
+
+          canvas.remove();
+          rendererRef.current = null;
+          uniformsRef.current = null;
+          meshRef.current = null;
+        };
+
+        animationIdRef.current = requestAnimationFrame(loop);
+      } catch {
+        if (!disposed) {
+          if (initializedRenderer) {
+            const failedRenderer = initializedRenderer;
+
+            if (!failedRenderer.gl.isContextLost()) {
+              const loseContext =
+                failedRenderer.gl.getExtension("WEBGL_lose_context");
+              loseContext?.loseContext();
+            }
+
+            failedRenderer.gl.canvas.remove();
+          }
+
+          canvasHost.replaceChildren();
+          rendererRef.current = null;
+          uniformsRef.current = null;
+          meshRef.current = null;
+          updateRenderMode("fallback");
+        }
+      }
     }
 
     void initializeWebGL();
@@ -482,6 +569,7 @@ export function LightRays({
     raysOrigin,
     raysSpeed,
     saturation,
+    updateRenderMode,
   ]);
 
   return (
@@ -491,14 +579,17 @@ export function LightRays({
         "pointer-events-none relative h-full w-full overflow-hidden",
         className,
       )}
+      data-light-rays-render-mode={renderMode}
       ref={rootRef}
       style={style}
     >
-      <div
-        className="absolute inset-0 opacity-70"
-        data-light-rays-fallback="true"
-        style={fallbackStyle}
-      />
+      {showFallback ? (
+        <div
+          className="absolute inset-0 opacity-70"
+          data-light-rays-fallback="true"
+          style={fallbackStyle}
+        />
+      ) : null}
       <div
         className="absolute inset-0"
         data-light-rays-canvas-host="true"
@@ -532,10 +623,18 @@ function usePrefersReducedMotion() {
     const updatePreference = () =>
       setPrefersReducedMotion(mediaQuery.matches);
 
-    mediaQuery.addEventListener("change", updatePreference);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", updatePreference);
+    } else {
+      mediaQuery.addListener(updatePreference);
+    }
 
     return () => {
-      mediaQuery.removeEventListener("change", updatePreference);
+      if (typeof mediaQuery.removeEventListener === "function") {
+        mediaQuery.removeEventListener("change", updatePreference);
+      } else {
+        mediaQuery.removeListener(updatePreference);
+      }
     };
   }, []);
 

@@ -5433,3 +5433,424 @@
     transform-origin: top right;
   }
 }
+
+@keyframes order-product-media-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes product-hero-ambient-drift {
+  from {
+    transform: translate3d(-1.5%, -1%, 0) scale(1.01);
+  }
+
+  to {
+    transform: translate3d(1.75%, 1.25%, 0) scale(1.025);
+  }
+}
+
+.product-hero-ambient-drift {
+  animation: product-hero-ambient-drift 21s ease-in-out infinite alternate;
+  transform: translate3d(-1.5%, -1%, 0) scale(1.01);
+  will-change: transform;
+}
+
+.product-hero-soft-blob {
+  position: absolute;
+  border-radius: 9999px;
+}
+
+.product-hero-soft-blob-primary {
+  top: 23%;
+  left: 18%;
+  width: 44%;
+  height: 52%;
+  background: radial-gradient(
+    ellipse at center,
+    var(--product-hero-primary-glow) 0%,
+    var(--product-hero-primary-glow) 18%,
+    transparent 72%
+  );
+}
+
+.product-hero-soft-blob-secondary {
+  top: 14%;
+  right: 10%;
+  width: 28%;
+  height: 34%;
+  background: radial-gradient(
+    ellipse at center,
+    var(--product-hero-secondary-glow) 0%,
+    var(--product-hero-secondary-glow) 14%,
+    transparent 72%
+  );
+}
+
+.order-product-media-enter {
+  animation: order-product-media-enter 190ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .product-hero-ambient-drift {
+    animation: none;
+    transform: translate3d(0, 0, 0);
+    will-change: auto;
+  }
+
+  .order-product-media-enter {
+    animation: none;
+  }
+}
+
+@keyframes orders-compact-view-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0.4rem, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+/*
+ * These rules intentionally stay outside Tailwind's cascade layers. The
+ * responsive shell has to override structural utility classes such as flex,
+ * grid and hidden; placing it in `components` lets the later `utilities`
+ * layer win and collapses the workspace back into normal document flow.
+ */
+.orders-panel-root {
+  container-name: orders-panel;
+  container-type: inline-size;
+}
+
+.orders-responsive-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.orders-market-view,
+.orders-detail-view {
+  grid-column: 1;
+  grid-row: 1;
+  height: 100%;
+}
+
+.orders-detail-view {
+  display: none;
+}
+
+.orders-panel-root[data-compact-view="DETAIL"] .orders-market-view {
+  display: none;
+}
+
+.orders-panel-root[data-compact-view="DETAIL"] .orders-detail-view {
+  display: block;
+  animation: orders-compact-view-enter 180ms ease-out both;
+}
+
+.orders-decision-workspace {
+  position: relative;
+  isolation: isolate;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
+}
+
+.orders-compact-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.orders-decision-core {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.orders-decision-metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.orders-risk-metric {
+  grid-column: span 2 / span 2;
+}
+
+.orders-analysis-wide-dock {
+  display: none;
+}
+
+.orders-analysis-overlay {
+  flex-direction: column;
+}
+
+.orders-analysis-bottom-sheet {
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+}
+
+.orders-decision-bar {
+  display: grid;
+  grid-column: 1;
+  grid-row: 3;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.orders-decision-actions {
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+}
+
+.orders-analysis-trigger,
+.orders-accept-button {
+  min-height: 2.75rem;
+}
+
+.orders-compact-offer-delivery {
+  display: inline;
+}
+
+@container orders-panel (min-width: 760px) {
+    .orders-responsive-layout {
+      grid-template-columns: 210px minmax(0, 1fr);
+    }
+
+    .orders-market-view {
+      display: block !important;
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .orders-detail-view {
+      display: block !important;
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .orders-compact-detail-header {
+      display: none;
+    }
+
+    .orders-decision-workspace {
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .orders-decision-core {
+      grid-row: 1;
+    }
+
+    .orders-decision-metric-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .orders-risk-metric {
+      grid-column: auto;
+    }
+
+    .orders-decision-bar {
+      grid-row: 2;
+    }
+
+    .orders-compact-offer-delivery {
+      display: none;
+    }
+  }
+
+@container orders-panel (min-width: 1180px) {
+    .orders-responsive-layout {
+      grid-template-columns: 270px minmax(0, 1fr);
+    }
+
+    .orders-decision-workspace {
+      grid-template-columns: minmax(0, 1fr) 330px;
+      grid-template-rows: minmax(0, 1fr) auto;
+    }
+
+    .orders-decision-core {
+      grid-column: 1;
+      grid-row: 1;
+    }
+
+    .orders-analysis-wide-dock {
+      display: flex;
+      grid-column: 2;
+      grid-row: 1;
+    }
+
+    .orders-decision-bar {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+    }
+
+    .orders-decision-metrics {
+      max-width: 32rem;
+    }
+
+    .orders-decision-actions {
+      display: block;
+    }
+
+    .orders-analysis-trigger {
+      display: none;
+    }
+
+    .orders-accept-button {
+      min-width: 11rem;
+    }
+}
+
+/*
+ * ResizeObserver-backed compatibility selectors mirror the container-query
+ * layout. They keep the shell deterministic in Safari/WebKit versions that
+ * parse the query but fail to apply a named container after a modal resize.
+ */
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-responsive-layout {
+  grid-template-columns: 210px minmax(0, 1fr);
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-market-view {
+  display: block;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-detail-view {
+  display: block;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-compact-detail-header {
+  display: none;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-decision-workspace {
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-decision-core {
+  grid-row: 1;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-decision-metric-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-risk-metric {
+  grid-column: auto;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-decision-bar {
+  grid-row: 2;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-compact-offer-delivery {
+  display: none;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"] .orders-responsive-layout {
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"]
+  .orders-decision-workspace {
+  grid-template-columns: minmax(0, 1fr) 330px;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"] .orders-decision-core {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"]
+  .orders-analysis-wide-dock {
+  display: flex;
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"] .orders-decision-bar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"]
+  .orders-decision-metrics {
+  max-width: 32rem;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"] .orders-decision-actions {
+  display: block;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"] .orders-analysis-trigger {
+  display: none;
+}
+
+.orders-panel-root[data-orders-panel-mode="WIDE"] .orders-accept-button {
+  min-width: 11rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orders-panel-root[data-compact-view="DETAIL"] .orders-detail-view {
+    animation: none;
+  }
+
+  .orders-analysis-overlay,
+  .orders-analysis-scrim {
+    animation: none !important;
+    transition: none !important;
+  }
+}
