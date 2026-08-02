@@ -131,6 +131,44 @@ test("günlük olay paneli ayrı sağ panel olarak shell içinde yer alır", () 
   assert.doesNotMatch(panel, /Günlük Olaylar|Vardiya başladı|Sipariş sevk edildi|Kapat/);
 });
 
+test("650px altı playback simülasyon ve günlük olayları sıralı iki mobil görünümde sunar", () => {
+  const hud = readSource("./components/shift-playback-hud.tsx");
+  const layout = readSource("./components/shift-playback-overlay-layout.tsx");
+  const panel = readSource("./components/daily-event-panel.tsx");
+
+  assert.match(layout, /MOBILE_PLAYBACK_QUERY = "\(max-width: 649px\)"/);
+  assert.match(layout, /type MobilePlaybackView = "events" \| "simulation"/);
+  assert.match(layout, /data-mobile-playback-view=\{mobileView\}/);
+  assert.match(layout, /mobileView === "simulation"/);
+  assert.match(layout, /presentation="mobileCompact"/);
+  assert.match(layout, /onCompletedClose=\{\(\) => setMobileView\("events"\)\}/);
+  assert.match(layout, /presentation="mobile"/);
+  assert.match(layout, /showAllImmediately/);
+  assert.match(layout, /dismissShiftPlayback\(activeShiftPlayback\)/);
+  assert.match(layout, /setActiveShiftPlayback\(null\)/);
+  assert.match(layout, /finalizedMobileShiftIdRef/);
+  assert.doesNotMatch(layout, /pointer: coarse/);
+  assert.match(hud, /copy\.showDailyEventsLabel/);
+  assert.match(hud, /copy\.mobileTotalProducedLabel/);
+  assert.match(panel, /showAllImmediately\s*\? eligibleEvents/);
+  assert.match(panel, /if \(showAllImmediately\) return/);
+});
+
+test("mobil departman kartı yalnızca üretilen adedi ve aktif ürün adını korur", () => {
+  const card = readSource("./components/shift-department-card.tsx");
+  const resultView = readSource(
+    "../../components/game-presentation/shift-department-result-view.tsx",
+  );
+
+  assert.match(card, /presentation\?: "default" \| "mobileCompact"/);
+  assert.match(card, /isMobileCompact\s*\? \[/);
+  assert.match(card, /label: copy\.mobileProducedLabel/);
+  assert.match(resultView, /presentation === "mobileCompact"/);
+  assert.match(resultView, /data-shift-department-presentation="mobile-compact"/);
+  assert.match(resultView, /activeProduct\.name/);
+  assert.match(resultView, /metric\.key === "produced"/);
+});
+
 test("playback projection ve view servisleri locale translation seçimini kullanır", () => {
   const playback = readSource("./shift-playback.ts");
   const view = readSource("./services/shift-playback-view.ts");

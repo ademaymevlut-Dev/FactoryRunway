@@ -172,6 +172,10 @@ type ShiftPlaybackLocaleCopy = {
     activeProductAria: (productName: string) => string;
     closeAria: string;
     lockAria: string;
+    mobileProducedLabel: string;
+    mobileTotalProducedLabel: string;
+    showDailyEventsAria: string;
+    showDailyEventsLabel: string;
     skipAnimationError: string;
     skipAnimationLabel: string;
     skipAnimationPending: string;
@@ -377,6 +381,10 @@ export const shiftPlaybackCopy = {
       activeProductAria: (productName) => `Aktif ürün: ${productName}`,
       closeAria: "Kapat",
       lockAria: "Vardiya sonucu kapatılana kadar planlama işlemleri kilitli",
+      mobileProducedLabel: "Üretilen",
+      mobileTotalProducedLabel: "Toplam üretim",
+      showDailyEventsAria: "Günlük olayları göster",
+      showDailyEventsLabel: "Olaylar",
       skipAnimationError:
         "Animasyon atlanamadı. Vardiya ilerlemeye devam ediyor.",
       skipAnimationLabel: "Animasyonu atla ve sonuçları göster",
@@ -583,6 +591,10 @@ export const shiftPlaybackCopy = {
       activeProductAria: (productName) => `Active product: ${productName}`,
       closeAria: "Close",
       lockAria: "Planning is locked until the shift result is closed",
+      mobileProducedLabel: "Produced",
+      mobileTotalProducedLabel: "Total output",
+      showDailyEventsAria: "Show daily events",
+      showDailyEventsLabel: "Events",
       skipAnimationError:
         "The animation could not be skipped. Shift playback is continuing.",
       skipAnimationLabel: "Skip animation and show results",

@@ -33,6 +33,7 @@ export function ShiftDepartmentCard({
   department,
   isFinal,
   locale,
+  presentation = "default",
   producedQuantity,
   productResults,
   queueEnteredQuantity,
@@ -42,6 +43,7 @@ export function ShiftDepartmentCard({
   department: ShiftDepartmentPlayback;
   isFinal: boolean;
   locale: SupportedLocale;
+  presentation?: "default" | "mobileCompact";
   producedQuantity: number;
   productResults: ShiftDepartmentProductResult[];
   queueEnteredQuantity: number;
@@ -58,6 +60,7 @@ export function ShiftDepartmentCard({
   const utilizationPercent = Math.round(throughputBps / 100);
   const copy = shiftPlaybackCopy[locale].hud;
   const numberLocale = resolveNumberLocale(locale);
+  const isMobileCompact = presentation === "mobileCompact";
 
   return (
     <ShiftDepartmentResultView
@@ -81,29 +84,44 @@ export function ShiftDepartmentCard({
       }
       departmentLabel={department.departmentName}
       isFinal={isFinal}
-      metrics={[
-        {
-          key: "queue-entered",
-          label: copy.metrics.queueEntered,
-          value: queueEnteredQuantity,
-        },
-        {
-          key: "produced",
-          label: copy.metrics.produced,
-          value: producedQuantity,
-        },
-      ]}
+      metrics={
+        isMobileCompact
+          ? [
+              {
+                key: "produced",
+                label: copy.mobileProducedLabel,
+                value: producedQuantity,
+              },
+            ]
+          : [
+              {
+                key: "queue-entered",
+                label: copy.metrics.queueEntered,
+                value: queueEnteredQuantity,
+              },
+              {
+                key: "produced",
+                label: copy.metrics.produced,
+                value: producedQuantity,
+              },
+            ]
+      }
       numberLocale={numberLocale}
+      presentation={presentation}
       processedProductsLabel={copy.processedProductsLabel}
-      products={productResults.map((product) => ({
-        imageUrl: product.productImageUrl,
-        key: `${product.orderId ?? "no-order"}:${product.productId}`,
-        name: product.productName,
-        orderLabel: copy.orderLabel(product.orderCode),
-        quantityLabel: copy.productQuantity(
-          formatQuantity(product.processedQuantity, numberLocale),
-        ),
-      }))}
+      products={
+        isMobileCompact
+          ? []
+          : productResults.map((product) => ({
+              imageUrl: product.productImageUrl,
+              key: `${product.orderId ?? "no-order"}:${product.productId}`,
+              name: product.productName,
+              orderLabel: copy.orderLabel(product.orderCode),
+              quantityLabel: copy.productQuantity(
+                formatQuantity(product.processedQuantity, numberLocale),
+              ),
+            }))
+      }
       utilizationAriaLabel={copy.utilizationAria(utilizationPercent)}
       utilizationPercent={utilizationPercent}
       utilizationTone={getUtilizationTone(utilizationPercent)}

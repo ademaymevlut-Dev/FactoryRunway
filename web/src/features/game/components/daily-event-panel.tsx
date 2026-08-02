@@ -15,6 +15,7 @@ import {
   type NumberLocale,
   type SupportedLocale,
 } from "@/lib/i18n/locales";
+import { cn } from "@/lib/utils";
 
 import { formatShiftPlaybackTime, getShiftPlaybackMinute } from "../shift-playback";
 import {
@@ -29,10 +30,14 @@ export function DailyEventPanel({
   currencyCode,
   locale,
   onCloseComplete,
+  presentation = "default",
+  showAllImmediately = false,
 }: {
   currencyCode: GameSnapshot["factory"]["currencyCode"];
   locale: SupportedLocale;
   onCloseComplete: (shiftId: string) => void;
+  presentation?: "default" | "mobile";
+  showAllImmediately?: boolean;
 }) {
   const copy = shiftPlaybackCopy[locale].dailyEvents;
   const numberLocale = resolveNumberLocale(locale);
@@ -61,10 +66,12 @@ export function DailyEventPanel({
     activeShiftPlayback && revealState.shiftId === activeShiftPlayback.shiftId
       ? revealState.count
       : 0;
-  const visibleEvents = eligibleEvents.slice(0, revealCount);
+  const visibleEvents = showAllImmediately
+    ? eligibleEvents
+    : eligibleEvents.slice(0, revealCount);
 
   useEffect(() => {
-    if (!activeShiftPlayback) return;
+    if (!activeShiftPlayback || showAllImmediately) return;
     if (
       revealState.shiftId === activeShiftPlayback.shiftId &&
       revealState.count >= eligibleEvents.length
@@ -98,13 +105,15 @@ export function DailyEventPanel({
     eligibleEvents.length,
     revealState.count,
     revealState.shiftId,
+    showAllImmediately,
   ]);
 
   useEffect(() => {
+    if (showAllImmediately) return;
     const viewport = viewportRef.current;
     if (!viewport || !pinnedToBottomRef.current) return;
     viewport.scrollTo({ top: viewport.scrollHeight, behavior: "smooth" });
-  }, [visibleEvents.length]);
+  }, [showAllImmediately, visibleEvents.length]);
 
   if (!activeShiftPlayback) return null;
 
@@ -120,19 +129,27 @@ export function DailyEventPanel({
   return (
     <aside
       aria-label={copy.panelAria}
-      className={[
+      className={cn(
         "pointer-events-auto relative flex size-full max-h-[760px] max-w-[820px] min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-right-12 motion-safe:duration-500",
+        presentation === "mobile" &&
+          "max-h-none max-w-none bg-background/88 backdrop-blur-xl",
         isClosing
           ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-right-10 motion-safe:duration-300"
           : "",
-      ].join(" ")}
+      )}
       data-daily-event-panel
+      data-daily-event-presentation={presentation}
       onAnimationEnd={(event) => {
         if (event.currentTarget !== event.target) return;
         if (isClosing) onCloseComplete(activeShiftPlayback.shiftId);
       }}
     >
-      <header className="flex items-start gap-2.5 border-b border-white/10 bg-background/45 p-3 backdrop-blur-md min-[1440px]:gap-3 min-[1440px]:p-4">
+      <header
+        className={cn(
+          "flex items-start gap-2.5 border-b border-white/10 bg-background/45 p-3 backdrop-blur-md min-[1440px]:gap-3 min-[1440px]:p-4",
+          presentation === "mobile" && "p-2.5",
+        )}
+      >
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-primary min-[1440px]:text-[10px] min-[1440px]:tracking-[0.22em]">
             {copy.title}

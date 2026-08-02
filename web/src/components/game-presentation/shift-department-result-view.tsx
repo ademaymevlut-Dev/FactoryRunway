@@ -46,6 +46,7 @@ export type ShiftDepartmentResultViewProps = {
   metrics: readonly ShiftDepartmentMetric[];
   numberLocale: string;
   numberSeparator?: string;
+  presentation?: "default" | "mobileCompact";
   processedProductsLabel: string;
   products?: readonly ShiftDepartmentProductView[];
   statusLabel?: string;
@@ -78,6 +79,7 @@ export function ShiftDepartmentResultView({
   metrics,
   numberLocale,
   numberSeparator = ".",
+  presentation = "default",
   processedProductsLabel,
   products = [],
   statusLabel,
@@ -86,6 +88,55 @@ export function ShiftDepartmentResultView({
   utilizationPercent,
   utilizationTone,
 }: ShiftDepartmentResultViewProps) {
+  if (presentation === "mobileCompact") {
+    const primaryMetric =
+      metrics.find((metric) => metric.key === "produced") ?? metrics[0];
+
+    return (
+      <article
+        className="flex min-h-[52px] min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-card/80 px-2.5 py-2 shadow-md backdrop-blur"
+        data-final={isFinal}
+        data-shift-department-presentation="mobile-compact"
+        data-shift-department-result-view
+      >
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-xs font-semibold text-white">
+            {departmentLabel}
+          </h3>
+          {activeProduct ? (
+            <p
+              aria-label={activeProduct.ariaLabel}
+              aria-live="polite"
+              className="mt-0.5 truncate text-[9px] text-muted-foreground"
+              data-active-product-key={activeProduct.key}
+              style={{ opacity: activeProduct.opacity }}
+            >
+              {activeProduct.name}
+            </p>
+          ) : null}
+        </div>
+        {primaryMetric ? (
+          <div
+            className="shrink-0 text-right"
+            data-metric-value={primaryMetric.value}
+            data-shift-department-metric={primaryMetric.key}
+          >
+            <p className="text-[8px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {primaryMetric.label}
+            </p>
+            <CountUp
+              className="block font-mono text-base font-semibold tabular-nums text-emerald-300"
+              immediate={isFinal}
+              locale={numberLocale}
+              separator={numberSeparator}
+              value={primaryMetric.value}
+            />
+          </div>
+        ) : null}
+      </article>
+    );
+  }
+
   return (
     <article
       className="min-w-0 rounded-lg border border-white/10 bg-card/80 p-2 shadow-lg backdrop-blur min-[1440px]:p-3"

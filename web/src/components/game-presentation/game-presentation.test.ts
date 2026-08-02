@@ -247,6 +247,53 @@ test("shift, olay ve bildirim görünümleri yalnızca verilen durumu yansıtır
   assert.match(notification, /data-notification-tone="success"/);
 });
 
+test("mobil shift departman görünümü ayrıntılı masaüstü metriklerini sadeleştirir", () => {
+  const department = render(
+    createElement(ShiftDepartmentResultView, {
+      activeLineLabel: "2 lines",
+      activeProduct: {
+        ariaLabel: "Active product: Clavier T-shirt",
+        imageUrl: null,
+        key: "product-1",
+        name: "Clavier T-shirt",
+        opacity: 1,
+        orderLabel: "Order: ORD-1042",
+        pulseScale: 1,
+      },
+      departmentLabel: "Sewing",
+      isFinal: false,
+      metrics: [{ key: "produced", label: "Produced", value: 360 }],
+      numberLocale: "en-US",
+      presentation: "mobileCompact",
+      processedProductsLabel: "Processed products",
+      products: [
+        {
+          imageUrl: null,
+          key: "product-1",
+          name: "Clavier T-shirt",
+          orderLabel: "Order: ORD-1042",
+          quantityLabel: "360",
+        },
+      ],
+      utilizationAriaLabel: "Department utilization 90 percent",
+      utilizationPercent: 90,
+      utilizationTone: "success",
+    }),
+  );
+
+  assert.match(
+    department,
+    /data-shift-department-presentation="mobile-compact"/,
+  );
+  assert.match(department, /Sewing/);
+  assert.match(department, /Clavier T-shirt/);
+  assert.match(department, /Produced/);
+  assert.doesNotMatch(department, /2 lines/);
+  assert.doesNotMatch(department, /Department utilization/);
+  assert.doesNotMatch(department, /Processed products/);
+  assert.doesNotMatch(department, /ORD-1042/);
+});
+
 test("oyun containerları ortak görünümleri kullanırken davranış sahipliğini korur", () => {
   const orders = read("../../features/orders/components/orders-panel.tsx");
   const orderWorkspace = read(

@@ -8,7 +8,7 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import { X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -17,6 +17,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { numberLocale as resolveNumberLocale } from "@/lib/i18n/locales";
+import { cn } from "@/lib/utils";
 import { skipShiftPlaybackAction } from "../actions/skip-shift-playback-action";
 import {
   formatShiftPlaybackTime,
@@ -31,9 +33,21 @@ import { shiftPlaybackCopy } from "../shift-playback-copy";
 import { ShiftDepartmentCard } from "./shift-department-card";
 import { ShiftProgressBar } from "./shift-progress-bar";
 
-export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] }) {
+type ShiftPlaybackHudPresentation = "default" | "mobileCompact";
+
+export function ShiftPlaybackHud({
+  locale,
+  onCompletedClose,
+  presentation = "default",
+}: {
+  locale: GameSnapshot["locale"];
+  onCompletedClose?: () => void;
+  presentation?: ShiftPlaybackHudPresentation;
+}) {
   const router = useRouter();
   const copy = shiftPlaybackCopy[locale].hud;
+  const numberLocale = resolveNumberLocale(locale);
+  const isMobileCompact = presentation === "mobileCompact";
   const {
     activeShiftPlayback,
     finishActiveShiftPlayback,
@@ -51,10 +65,20 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
     if (closeFinalizedRef.current === activeShiftPlayback.shiftId) return;
 
     closeFinalizedRef.current = activeShiftPlayback.shiftId;
+    if (onCompletedClose) {
+      onCompletedClose();
+      return;
+    }
+
     dismissShiftPlayback(activeShiftPlayback);
     setActiveShiftPlayback(null);
     router.refresh();
-  }, [activeShiftPlayback, router, setActiveShiftPlayback]);
+  }, [
+    activeShiftPlayback,
+    onCompletedClose,
+    router,
+    setActiveShiftPlayback,
+  ]);
 
   const requestClose = useCallback(() => {
     if (!activeShiftPlayback || isShiftPlaybackActive) return;
@@ -132,18 +156,24 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
       data-shift-playback-hud
     >
       <div
-        className={[
+        className={cn(
           "pointer-events-auto mx-auto flex max-h-full w-full max-w-[820px] flex-col overflow-hidden rounded-lg border border-white/10 bg-background/50 shadow-[0_24px_70px_rgba(0,0,0,0.32)] backdrop-blur-sm motion-safe:animate-in motion-safe:fade-in-0 motion-safe:zoom-in-95 motion-safe:slide-in-from-top-2 motion-safe:duration-300 min-[1180px]:max-h-[min(680px,100%)] min-[1440px]:max-h-[min(760px,100%)] min-[1440px]:max-w-5xl min-[1440px]:rounded-xl",
-          isClosing
-            ? "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-top-2 motion-safe:duration-200"
-            : "",
-        ].join(" ")}
+          isMobileCompact &&
+            "h-full max-w-none rounded-xl bg-background/88 backdrop-blur-xl",
+          isClosing &&
+            "motion-safe:animate-out motion-safe:fade-out-0 motion-safe:zoom-out-95 motion-safe:slide-out-to-top-2 motion-safe:duration-200",
+        )}
         onAnimationEnd={(event) => {
           if (event.currentTarget !== event.target) return;
           if (isClosing) finalizeClose();
         }}
       >
-        <div className="flex items-start gap-2 border-b border-white/10 p-2.5 min-[1440px]:gap-3 min-[1440px]:p-4">
+        <div
+          className={cn(
+            "flex items-start gap-2 border-b border-white/10 p-2.5 min-[1440px]:gap-3 min-[1440px]:p-4",
+            isMobileCompact && "bg-background/45",
+          )}
+        >
           <div className="min-w-0 flex-1">
             <ShiftProgressBar
               currentTime={formatShiftPlaybackTime(shiftMinute)}
@@ -152,25 +182,38 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
               progress={progress}
               simulatedGameDay={activeShiftPlayback.simulatedGameDay}
             />
-            <div className="mt-2 flex min-h-5 items-center gap-2">
-              <Checkbox
-                aria-describedby={skipError ? skipErrorId : undefined}
-                checked={isSkipping || isSkipped}
-                disabled={isFinal || isSkipping || isClosing}
-                id={skipControlId}
-                onCheckedChange={(checked) => {
-                  if (checked === true) requestSkip();
-                }}
-              />
-              <label
-                className="cursor-pointer text-[11px] font-medium text-white/90 drop-shadow-sm transition-colors hover:text-white peer-disabled:cursor-not-allowed peer-disabled:text-white/60 min-[1440px]:text-xs"
-                htmlFor={skipControlId}
-              >
-                {isSkipping
-                  ? copy.skipAnimationPending
-                  : copy.skipAnimationLabel}
-              </label>
-            </div>
+            {isMobileCompact && isFinal ? (
+              <div className="mt-2 flex min-h-8 items-center justify-between gap-3 rounded-md border border-emerald-300/15 bg-emerald-400/8 px-2.5 py-1.5">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  {copy.mobileTotalProducedLabel}
+                </span>
+                <strong className="font-mono text-base font-semibold tabular-nums text-emerald-300">
+                  {new Intl.NumberFormat(numberLocale).format(
+                    activeShiftPlayback.summary.totalProducedQuantity,
+                  )}
+                </strong>
+              </div>
+            ) : (
+              <div className="mt-2 flex min-h-5 items-center gap-2">
+                <Checkbox
+                  aria-describedby={skipError ? skipErrorId : undefined}
+                  checked={isSkipping || isSkipped}
+                  disabled={isFinal || isSkipping || isClosing}
+                  id={skipControlId}
+                  onCheckedChange={(checked) => {
+                    if (checked === true) requestSkip();
+                  }}
+                />
+                <label
+                  className="cursor-pointer text-[11px] font-medium text-white/90 drop-shadow-sm transition-colors hover:text-white peer-disabled:cursor-not-allowed peer-disabled:text-white/60 min-[1440px]:text-xs"
+                  htmlFor={skipControlId}
+                >
+                  {isSkipping
+                    ? copy.skipAnimationPending
+                    : copy.skipAnimationLabel}
+                </label>
+              </div>
+            )}
             {skipError ? (
               <p
                 className="mt-1 text-[11px] text-destructive min-[1440px]:text-xs"
@@ -181,25 +224,55 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
               </p>
             ) : null}
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label={copy.closeAria}
-                disabled={!isFinal || isClosing}
-                onClick={requestClose}
-                size="icon-lg"
-                type="button"
-                variant="ghost"
-              >
-                <X className="size-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">{copy.closeAria}</TooltipContent>
-          </Tooltip>
+          {!isMobileCompact || isFinal ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  aria-label={
+                    isMobileCompact ? copy.showDailyEventsAria : copy.closeAria
+                  }
+                  className={
+                    isMobileCompact
+                      ? "h-9 shrink-0 gap-1.5 border border-primary/25 bg-primary/10 px-3 text-primary hover:bg-primary/15 hover:text-primary"
+                      : undefined
+                  }
+                  disabled={!isFinal || isClosing}
+                  onClick={requestClose}
+                  size={isMobileCompact ? "lg" : "icon-lg"}
+                  type="button"
+                  variant="ghost"
+                >
+                  {isMobileCompact ? (
+                    <>
+                      <span className="text-[11px] font-semibold">
+                        {copy.showDailyEventsLabel}
+                      </span>
+                      <ArrowRight className="size-4" />
+                    </>
+                  ) : (
+                    <X className="size-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                {isMobileCompact ? copy.showDailyEventsAria : copy.closeAria}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 min-[1440px]:space-y-3 min-[1440px]:p-4">
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-2">
+        <div
+          className={cn(
+            "min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain p-2.5 min-[1440px]:space-y-3 min-[1440px]:p-4",
+            isMobileCompact && "p-2",
+          )}
+        >
+          <div
+            className={cn(
+              "grid grid-cols-[repeat(auto-fit,minmax(min(100%,16rem),1fr))] gap-2",
+              isMobileCompact && "grid-cols-1 gap-1.5",
+            )}
+          >
             {activeShiftPlayback.departmentResults.map((department) => (
               <ShiftDepartmentCard
                 throughputBps={
@@ -221,6 +294,7 @@ export function ShiftPlaybackHud({ locale }: { locale: GameSnapshot["locale"] })
                   departmentId: department.departmentId,
                   productResults: activeShiftPlayback.productResults,
                 })}
+                presentation={presentation}
                 queueEnteredQuantity={getShiftQuantityAtMinute(
                   department.queueEnteredTimeline,
                   shiftMinute,
