@@ -22,11 +22,14 @@ import { TopStatusBar } from "./top-status-bar";
 import { GameUiProvider } from "../store/game-ui-store";
 
 const MOBILE_DOCK_HEIGHT_FALLBACK_PX = 50;
+const MOBILE_HEADER_HEIGHT_PX = 64;
 const MOBILE_SHIFT_DOCK_GAP_PX = 10;
 
 const gameShellStyle = {
   "--game-dock-height": `${MOBILE_DOCK_HEIGHT_FALLBACK_PX}px`,
+  "--game-mobile-header-height": `${MOBILE_HEADER_HEIGHT_PX}px`,
   "--game-shift-dock-gap": `${MOBILE_SHIFT_DOCK_GAP_PX}px`,
+  "--game-visual-viewport-height": "100dvh",
 } as CSSProperties;
 
 export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }) {
@@ -40,7 +43,7 @@ export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }
     <GameUiProvider initialShiftPlayback={initialSnapshot.activeShiftPlayback}>
       <TooltipProvider>
         <main
-          className="game-shell fixed inset-0 h-screen h-dvh w-full overflow-hidden overscroll-none bg-background text-foreground [--game-dock-edge-offset:0.5rem] xl:[--game-dock-edge-offset:1rem]"
+          className="game-shell fixed inset-0 h-screen h-dvh w-full overflow-hidden overscroll-none bg-background text-foreground [--game-dock-edge-offset:0.5rem] [--game-header-block-offset:0.5rem] [--game-header-inline-offset:0.5rem] xl:[--game-dock-edge-offset:1rem] xl:[--game-header-block-offset:1rem] xl:[--game-header-inline-offset:1.5rem]"
           lang={initialSnapshot.locale}
           ref={shellRef}
           style={gameShellStyle}
@@ -97,16 +100,30 @@ function useGameVisualViewportHeight(shellRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const shell = shellRef.current;
     const visualViewport = window.visualViewport;
+    const documentRoot = document.documentElement;
 
     if (!shell || !visualViewport) {
       return;
     }
 
     let animationFrameId: number | null = null;
+    const initialViewportHeight = shell.style.getPropertyValue(
+      "--game-visual-viewport-height",
+    );
+    const initialRootViewportHeight = documentRoot.style.getPropertyValue(
+      "--game-visual-viewport-height",
+    );
 
     const syncViewportHeight = () => {
       animationFrameId = null;
-      shell.style.height = `${Math.round(visualViewport.height)}px`;
+      const viewportHeight = `${Math.round(visualViewport.height)}px`;
+
+      shell.style.height = viewportHeight;
+      shell.style.setProperty("--game-visual-viewport-height", viewportHeight);
+      documentRoot.style.setProperty(
+        "--game-visual-viewport-height",
+        viewportHeight,
+      );
     };
 
     const scheduleViewportHeightSync = () => {
@@ -132,6 +149,19 @@ function useGameVisualViewportHeight(shellRef: RefObject<HTMLElement | null>) {
       }
 
       shell.style.removeProperty("height");
+      shell.style.setProperty(
+        "--game-visual-viewport-height",
+        initialViewportHeight,
+      );
+
+      if (initialRootViewportHeight) {
+        documentRoot.style.setProperty(
+          "--game-visual-viewport-height",
+          initialRootViewportHeight,
+        );
+      } else {
+        documentRoot.style.removeProperty("--game-visual-viewport-height");
+      }
     };
   }, [shellRef]);
 }

@@ -29,11 +29,12 @@ test("üst HUD açık borçları düşen kullanılabilir bakiyeyi gösterir", ()
   );
   assert.match(
     statusBar,
-    /displayedSnapshot\.factory\.availableBalanceCents/,
+    /currentCents=\{Number\(snapshot\.factory\.availableBalanceCents\)\}/,
   );
+  assert.match(statusBar, /snapshot=\{displayedSnapshot\}/);
   assert.doesNotMatch(
     statusBar,
-    /currentCents=\{Number\(displayedSnapshot\.factory\.cashBalanceCents\)\}/,
+    /currentCents=\{Number\((?:displayedSnapshot|snapshot)\.factory\.cashBalanceCents\)\}/,
   );
 });
 

@@ -16,6 +16,7 @@ const shiftControlStyles = readSource(
   "./components/shift-control-bar.module.css",
 );
 const layout = readSource("../../app/(default-tr)/game/layout.tsx");
+const pwaConfig = readSource("../../app/pwa-config.ts");
 const globals = readSource("../../app/globals.css");
 const mapLayout = readSource("./factory-map-layout.ts");
 
@@ -39,10 +40,11 @@ test("oyun belge scroll kilidi önceki html ve body değerlerini cleanup sıras�
 
 test("game layout viewport-fit cover kullanır ve erişilebilir kullanıcı zoom'unu yasaklamaz", () => {
   assert.match(layout, /export const viewport:\s*Viewport/);
-  assert.match(layout, /width:\s*"device-width"/);
-  assert.match(layout, /initialScale:\s*1/);
-  assert.match(layout, /viewportFit:\s*"cover"/);
-  assert.doesNotMatch(layout, /maximumScale|userScalable/);
+  assert.match(layout, /factoryRunwayGameViewport/);
+  assert.match(pwaConfig, /width:\s*"device-width"/);
+  assert.match(pwaConfig, /initialScale:\s*1/);
+  assert.match(pwaConfig, /viewportFit:\s*"cover"/);
+  assert.doesNotMatch(`${layout}${pwaConfig}`, /maximumScale|userScalable/);
 });
 
 test("mobil HUD kenarları max kullanmadan safe-area insetlerine bağlanır", () => {
@@ -75,15 +77,22 @@ test("mobil HUD kenarları max kullanmadan safe-area insetlerine bağlanır", ()
 
 test("Safari alt araç çubuğu dock'u görsel viewport içinde tutar", () => {
   assert.match(shell, /function useGameVisualViewportHeight/);
+  assert.match(shell, /const viewportHeight = `\$\{Math\.round\(visualViewport\.height\)\}px`/);
+  assert.match(shell, /shell\.style\.height = viewportHeight/);
   assert.match(
     shell,
-    /shell\.style\.height = `\$\{Math\.round\(visualViewport\.height\)\}px`/,
+    /shell\.style\.setProperty\("--game-visual-viewport-height", viewportHeight\)/,
   );
   assert.match(shell, /visualViewport\.addEventListener\("resize"/);
   assert.match(shell, /visualViewport\.addEventListener\("scroll"/);
   assert.match(shell, /visualViewport\.removeEventListener\("resize"/);
   assert.match(shell, /visualViewport\.removeEventListener\("scroll"/);
   assert.match(shell, /shell\.style\.removeProperty\("height"\)/);
+  assert.match(shell, /const initialViewportHeight = shell\.style\.getPropertyValue/);
+  assert.match(
+    shell,
+    /shell\.style\.setProperty\(\s*"--game-visual-viewport-height",\s*initialViewportHeight,/,
+  );
 });
 
 test("HUD boşlukları haritaya geçerken gerçek kontroller pointer olaylarını alır", () => {

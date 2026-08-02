@@ -245,6 +245,20 @@ export const gameCopy = {
       logoutAria: "Çıkış yap",
       logoutTitle: "Çıkış yap",
       logoutLabel: "Logout",
+      mobile: {
+        alerts: (count: number) => `${count} kritik fabrika bildirimi`,
+        close: "Fabrika durumunu kapat",
+        description: "Fabrika bilgileri, metrikleri ve yönetim eylemleri",
+        factoryInformation: "Fabrika Bilgileri",
+        factoryStatus: "Fabrika Durumu",
+        language: "Dil",
+        logout: "Çıkış",
+        management: "Yönetim",
+        messages: "Oyuncu Mesajları",
+        metrics: "Fabrika Metrikleri",
+        ranking: "Sıralama",
+        staff: "Personel",
+      },
     },
     workload: {
       daySuffix: "g",
@@ -472,6 +486,20 @@ export const gameCopy = {
       logoutAria: "Log out",
       logoutTitle: "Log out",
       logoutLabel: "Logout",
+      mobile: {
+        alerts: (count: number) => `${count} critical factory alerts`,
+        close: "Close factory status",
+        description: "Factory information, metrics, and management actions",
+        factoryInformation: "Factory Information",
+        factoryStatus: "Factory Status",
+        language: "Language",
+        logout: "Log out",
+        management: "Management",
+        messages: "Player Messages",
+        metrics: "Factory Metrics",
+        ranking: "Ranking",
+        staff: "Staff",
+      },
     },
     workload: {
       daySuffix: "d",
@@ -640,6 +668,20 @@ export const gameCopy = {
       logoutAria: string;
       logoutTitle: string;
       logoutLabel: string;
+      mobile: {
+        alerts: (count: number) => string;
+        close: string;
+        description: string;
+        factoryInformation: string;
+        factoryStatus: string;
+        language: string;
+        logout: string;
+        management: string;
+        messages: string;
+        metrics: string;
+        ranking: string;
+        staff: string;
+      };
     };
     workload: {
       daySuffix: string;

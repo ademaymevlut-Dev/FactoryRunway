@@ -7,6 +7,146 @@
     transform 220ms ease;
 }
 
+.desktopHeaderContent {
+  display: flex;
+}
+
+.mobileHeaderContent {
+  --mobile-factory-name-max-width: 160px;
+
+  display: none;
+  height: var(--game-mobile-header-height);
+}
+
+.mobileFactoryIdentity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mobileFactoryName {
+  display: block;
+  max-width: min(var(--mobile-factory-name-max-width), 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobileStatusTrigger {
+  flex: 0 0 44px;
+}
+
+.mobileSheetContent {
+  --factory-status-sheet-edge-gap: 8px;
+  --factory-status-sheet-max-width: 560px;
+  --factory-status-sheet-top-gap: 16px;
+
+  position: fixed;
+  right: auto;
+  bottom: 0;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: calc(
+    100% - env(safe-area-inset-left, 0px) -
+      env(safe-area-inset-right, 0px) -
+      var(--factory-status-sheet-edge-gap) -
+      var(--factory-status-sheet-edge-gap)
+  );
+  max-width: var(--factory-status-sheet-max-width);
+  max-height: min(
+    78dvh,
+    calc(
+      var(--game-visual-viewport-height, 100dvh) -
+        env(safe-area-inset-top, 0px) -
+        var(--factory-status-sheet-top-gap)
+    )
+  );
+  margin: 0;
+  translate: -50% 0;
+}
+
+.mobileSheetContent[data-state="open"] {
+  animation: factoryStatusSheetIn 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mobileSheetContent[data-state="closed"] {
+  animation: factoryStatusSheetOut 200ms ease-in both;
+}
+
+.mobileSheetFixedHeader {
+  flex: 0 0 auto;
+}
+
+.mobileSheetScroll {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.fullFactoryName {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@keyframes factoryStatusSheetIn {
+  from {
+    opacity: 0.7;
+    transform: translateY(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes factoryStatusSheetOut {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0.7;
+    transform: translateY(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobileSheetContent[data-state="open"],
+  .mobileSheetContent[data-state="closed"] {
+    animation-duration: 1ms;
+    animation-name: none;
+  }
+}
+
+@media (max-width: 639px), (pointer: coarse) {
+  .desktopHeaderContent {
+    display: none;
+  }
+
+  .mobileHeaderContent {
+    display: flex;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 374px) {
+  .mobileHeaderContent {
+    --mobile-factory-name-max-width: 124px;
+  }
+}
+
+@media (min-width: 430px) and (max-width: 639px),
+  (min-width: 430px) and (pointer: coarse) {
+  .mobileHeaderContent {
+    --mobile-factory-name-max-width: 190px;
+  }
+}
+
 .cashPositive {
   animation: hudCashPositive 4200ms ease-out both;
 }

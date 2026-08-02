@@ -1,18 +1,14 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+
+import {
+  factoryRunwayRootMetadata,
+  factoryRunwayRootViewport,
+} from "../pwa-config";
 
 import "../globals.css";
 
-const factoryRunwayIcon = {
-  type: "image/svg+xml",
-  url: "/factoryRunway.svg",
-};
-
-export const metadata: Metadata = {
-  icons: {
-    icon: [factoryRunwayIcon],
-    shortcut: [factoryRunwayIcon],
-  },
-};
+export const metadata: Metadata = factoryRunwayRootMetadata;
+export const viewport: Viewport = factoryRunwayRootViewport;
 
 export default function TurkishLandingRootLayout({
   children,

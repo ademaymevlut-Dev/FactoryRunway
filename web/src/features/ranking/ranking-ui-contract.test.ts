@@ -16,7 +16,7 @@ test("Ranking ve oyuncu fikirleri üst header üzerinden panel olarak açılır"
   assert.match(header, /<Mail/);
   assert.match(header, /copy\.messagesTooltip/);
   assert.match(header, /GameLocaleSwitcher/);
-  assert.match(header, /activePanel\?\.key === "playerFeedback"/);
+  assert.match(header, /activePanelKey === "playerFeedback"/);
   assert.doesNotMatch(leftDock, /key: "ranking"/);
   assert.doesNotMatch(leftDock, /key: "playerFeedback"/);
   assert.doesNotMatch(leftDock, /key: "management"/);
