@@ -1784,6 +1784,73 @@
     background: var(--background);
   }
 
+  .landing-mobile-hero {
+    padding: clamp(2rem, 8svh, 4.5rem) 0 1.35rem;
+  }
+
+  .landing-mobile-hero h1 {
+    max-width: 21rem;
+    color: #fff;
+    font-size: clamp(2.35rem, 11vw, 3.35rem);
+    font-weight: 800;
+    letter-spacing: -0.055em;
+    line-height: 0.98;
+    text-wrap: balance;
+  }
+
+  .landing-mobile-account {
+    padding: 0 0 max(2rem, env(safe-area-inset-bottom));
+  }
+
+  .landing-mobile-auth-panel {
+    width: 100%;
+    max-width: 30rem;
+    margin-inline: auto;
+    padding: 0.9rem;
+  }
+
+  .landing-auth-stack-compact {
+    gap: 0.8rem;
+  }
+
+  @media (max-width: 767px) {
+    .landing-desktop-panel {
+      display: none;
+    }
+
+    .landing-panel-stack {
+      isolation: auto;
+    }
+
+    .landing-scroll-panel-account {
+      min-height: auto;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .landing-scroll-panel-account::before {
+      display: none;
+    }
+
+    .landing-mobile-auth-panel .landing-auth-tab,
+    .landing-mobile-auth-panel .landing-auth-input,
+    .landing-mobile-auth-panel .landing-auth-submit,
+    .landing-mobile-auth-panel .landing-google-button {
+      font-size: 1rem;
+    }
+
+    .landing-mobile-auth-panel .landing-auth-tab,
+    .landing-mobile-auth-panel .landing-auth-input-wrap,
+    .landing-mobile-auth-panel .landing-auth-submit,
+    .landing-mobile-auth-panel .landing-google-button {
+      min-height: 3rem;
+    }
+
+    .landing-mobile-auth-panel .landing-auth-form {
+      gap: 0.75rem;
+    }
+  }
+
   @media (min-width: 1024px) {
     .landing-panel-stack[data-landing-panel-stack-ready="true"] .landing-panel-scroll-spacer {
       display: block;

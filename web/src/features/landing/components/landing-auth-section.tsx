@@ -10,11 +10,26 @@ type LandingAuthSectionProps = {
 export function LandingAuthSection({ content }: LandingAuthSectionProps) {
   return (
     <section
-      aria-labelledby="account-title"
-      className="scroll-mt-52 py-16 sm:scroll-mt-40 sm:py-24 lg:scroll-mt-24"
+      className="scroll-mt-24 py-0 md:scroll-mt-40 md:py-24 lg:scroll-mt-24"
       id="account"
     >
-      <div className="grid items-center gap-10 lg:grid-cols-[1fr_30rem]">
+      <div className="landing-mobile-account md:hidden">
+        <div className="landing-auth-panel landing-mobile-auth-panel">
+          <LandingAuthForm
+            compact
+            copy={content.auth}
+            defaultTab="login"
+            idPrefix="mobile"
+            locale={content.locale}
+            tabLabels={{
+              login: content.mobile.loginTab,
+              player: content.mobile.registerTab,
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="hidden items-center gap-10 md:grid lg:grid-cols-[1fr_30rem]">
         <div className="max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.26em] text-primary-readable">
             {content.auth.eyebrow}

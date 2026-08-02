@@ -26,11 +26,22 @@ type AccountTab = "login" | "player";
 
 type LandingAuthFormProps = {
   copy: LandingContent["auth"];
+  compact?: boolean;
+  defaultTab?: AccountTab;
+  idPrefix?: string;
   locale: LandingContent["locale"];
+  tabLabels?: Record<AccountTab, string>;
 };
 
-export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
-  const [activeTab, setActiveTab] = useState<AccountTab>("login");
+export function LandingAuthForm({
+  compact = false,
+  copy,
+  defaultTab = "login",
+  idPrefix,
+  locale,
+  tabLabels,
+}: LandingAuthFormProps) {
+  const [activeTab, setActiveTab] = useState<AccountTab>(defaultTab);
   const [loginState, loginFormAction] = useActionState(
     loginAction,
     initialPublicAuthState,
@@ -40,9 +51,13 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
     initialPublicAuthState,
   );
   const accountTabs = [
-    { key: "login", label: copy.loginTab },
-    { key: "player", label: copy.registerTab },
+    { key: "login", label: tabLabels?.login ?? copy.loginTab },
+    { key: "player", label: tabLabels?.player ?? copy.registerTab },
   ] as const;
+  const getPanelId = (tab: AccountTab) =>
+    idPrefix ? `account-${idPrefix}-panel-${tab}` : `account-panel-${tab}`;
+  const getTabId = (tab: AccountTab) =>
+    idPrefix ? `account-${idPrefix}-tab-${tab}` : `account-tab-${tab}`;
 
   function handleTabKeyDown(
     event: KeyboardEvent<HTMLButtonElement>,
@@ -69,34 +84,37 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
     if (!nextTab) return;
 
     setActiveTab(nextTab.key);
-    document.getElementById(`account-tab-${nextTab.key}`)?.focus();
+    document.getElementById(getTabId(nextTab.key))?.focus();
   }
 
   return (
-    <div className="landing-auth-stack">
-      <div className="landing-auth-card-head">
-        <span className="landing-auth-brand-mark">
-          <Factory aria-hidden="true" size={18} />
-        </span>
-        <div>
-          <p className="landing-auth-kicker">{copy.accountCardEyebrow}</p>
-          <h3>{copy.accountCardTitle}</h3>
-          <p>{copy.accountCardDescription}</p>
-        </div>
-      </div>
+    <div
+      className={
+        compact
+          ? "landing-auth-stack landing-auth-stack-compact"
+          : "landing-auth-stack"
+      }
+    >
+      {!compact ? (
+        <>
+          <div className="landing-auth-card-head">
+            <span className="landing-auth-brand-mark">
+              <Factory aria-hidden="true" size={18} />
+            </span>
+            <div>
+              <p className="landing-auth-kicker">{copy.accountCardEyebrow}</p>
+              <h3>{copy.accountCardTitle}</h3>
+              <p>{copy.accountCardDescription}</p>
+            </div>
+          </div>
 
-      <a
-        className="landing-google-button"
-        href={`/api/auth/google?locale=${locale}`}
-      >
-        <GoogleIcon />
-        <span>{copy.googleButton}</span>
-        <Sparkles aria-hidden="true" className="landing-google-spark" size={16} />
-      </a>
+          <GoogleButton copy={copy} locale={locale} />
 
-      <div className="landing-auth-divider">
-        <span>{copy.emailDivider}</span>
-      </div>
+          <div className="landing-auth-divider">
+            <span>{copy.emailDivider}</span>
+          </div>
+        </>
+      ) : null}
 
       <div
         aria-label={copy.tabsAriaLabel}
@@ -106,14 +124,14 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
       >
         {accountTabs.map((tab, tabIndex) => (
           <button
-            aria-controls={`account-panel-${tab.key}`}
+            aria-controls={getPanelId(tab.key)}
             aria-selected={activeTab === tab.key}
             className={
               activeTab === tab.key
                 ? "landing-auth-tab is-active"
                 : "landing-auth-tab"
             }
-            id={`account-tab-${tab.key}`}
+            id={getTabId(tab.key)}
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             onKeyDown={(event) => handleTabKeyDown(event, tabIndex)}
@@ -129,13 +147,14 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
       {activeTab === "login" ? (
         <form
           action={loginFormAction}
-          aria-labelledby="account-tab-login"
+          aria-labelledby={getTabId("login")}
           className="landing-auth-form"
-          id="account-panel-login"
+          id={getPanelId("login")}
           role="tabpanel"
         >
           <input name="locale" type="hidden" value={locale} />
           <FormField
+            autoComplete="email"
             copy={copy}
             errorCode={loginState.fieldErrors?.email}
             icon={<Mail size={18} />}
@@ -145,6 +164,7 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
             type="email"
           />
           <FormField
+            autoComplete="current-password"
             copy={copy}
             errorCode={loginState.fieldErrors?.password}
             icon={<ShieldCheck size={18} />}
@@ -162,13 +182,14 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
       ) : (
         <form
           action={playerFormAction}
-          aria-labelledby="account-tab-player"
+          aria-labelledby={getTabId("player")}
           className="landing-auth-form"
-          id="account-panel-player"
+          id={getPanelId("player")}
           role="tabpanel"
         >
           <input name="locale" type="hidden" value={locale} />
           <FormField
+            autoComplete="name"
             copy={copy}
             errorCode={playerState.fieldErrors?.name}
             icon={<UserRound size={18} />}
@@ -177,6 +198,7 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
             placeholder={copy.namePlaceholder}
           />
           <FormField
+            autoComplete="email"
             copy={copy}
             errorCode={playerState.fieldErrors?.email}
             icon={<Mail size={18} />}
@@ -186,6 +208,7 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
             type="email"
           />
           <FormField
+            autoComplete="new-password"
             copy={copy}
             errorCode={playerState.fieldErrors?.password}
             icon={<ShieldCheck size={18} />}
@@ -201,11 +224,37 @@ export function LandingAuthForm({ copy, locale }: LandingAuthFormProps) {
           />
         </form>
       )}
+
+      {compact ? (
+        <>
+          <div className="landing-auth-divider">
+            <span>{copy.emailDivider}</span>
+          </div>
+          <GoogleButton copy={copy} locale={locale} />
+        </>
+      ) : null}
     </div>
   );
 }
 
+function GoogleButton({
+  copy,
+  locale,
+}: Pick<LandingAuthFormProps, "copy" | "locale">) {
+  return (
+    <a
+      className="landing-google-button"
+      href={`/api/auth/google?locale=${locale}`}
+    >
+      <GoogleIcon />
+      <span>{copy.googleButton}</span>
+      <Sparkles aria-hidden="true" className="landing-google-spark" size={16} />
+    </a>
+  );
+}
+
 function FormField({
+  autoComplete,
   copy,
   errorCode,
   icon,
@@ -214,6 +263,7 @@ function FormField({
   placeholder,
   type = "text",
 }: {
+  autoComplete: "current-password" | "email" | "name" | "new-password";
   copy: LandingContent["auth"];
   errorCode?: AuthMessageCode;
   icon: ReactNode;
@@ -231,13 +281,17 @@ function FormField({
       <span className="landing-auth-input-wrap">
         {icon}
         <input
+          autoCapitalize={name === "name" ? "words" : "none"}
+          autoComplete={autoComplete}
           aria-describedby={errorCode ? errorId : undefined}
           aria-invalid={errorCode ? true : undefined}
           className="landing-auth-input"
           id={fieldId}
+          inputMode={type === "email" ? "email" : undefined}
           name={name}
           placeholder={placeholder}
           required
+          spellCheck={name === "name"}
           type={type}
         />
       </span>

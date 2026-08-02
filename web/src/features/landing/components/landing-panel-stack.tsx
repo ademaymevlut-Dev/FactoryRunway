@@ -1,6 +1,5 @@
 "use client";
 
-import { gsap } from "gsap";
 import { useReducedMotion } from "motion/react";
 import {
   Children,
@@ -8,31 +7,54 @@ import {
   type PropsWithChildren,
   useEffect,
   useRef,
+  useSyncExternalStore,
 } from "react";
 
 const DESKTOP_PANEL_SCROLL_DISTANCE_MULTIPLIER = 2.7;
 const DESKTOP_PANEL_SCROLL_SPACER_FACTOR =
   DESKTOP_PANEL_SCROLL_DISTANCE_MULTIPLIER - 1;
+const LANDING_MOTION_MEDIA_QUERY = "(min-width: 768px)";
+type GsapInstance = (typeof import("gsap"))["gsap"];
+type GsapContext = ReturnType<GsapInstance["context"]>;
+type GsapMatchMedia = ReturnType<GsapInstance["matchMedia"]>;
+
+function subscribeToLandingMotionViewport(callback: () => void) {
+  const mediaQuery = window.matchMedia(LANDING_MOTION_MEDIA_QUERY);
+  mediaQuery.addEventListener("change", callback);
+  return () => mediaQuery.removeEventListener("change", callback);
+}
+
+function getLandingMotionViewportSnapshot() {
+  return window.matchMedia(LANDING_MOTION_MEDIA_QUERY).matches;
+}
 
 export function LandingPanelStack({ children }: PropsWithChildren) {
   const rootRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+  const supportsLandingMotion = useSyncExternalStore(
+    subscribeToLandingMotionViewport,
+    getLandingMotionViewportSnapshot,
+    () => false,
+  );
   const panels = Children.toArray(children);
 
   useEffect(() => {
     const root = rootRef.current;
 
-    if (!root || prefersReducedMotion) {
+    if (!root || prefersReducedMotion || !supportsLandingMotion) {
       return;
     }
 
     let cancelled = false;
-    let context: gsap.Context | null = null;
-    let media: gsap.MatchMedia | null = null;
+    let context: GsapContext | null = null;
+    let media: GsapMatchMedia | null = null;
     let refreshFrame: number | null = null;
 
     async function setupPanelStack() {
-      const { ScrollTrigger } = await import("gsap/dist/ScrollTrigger");
+      const [{ gsap }, { ScrollTrigger }] = await Promise.all([
+        import("gsap"),
+        import("gsap/dist/ScrollTrigger"),
+      ]);
 
       if (cancelled || !root) {
         return;
@@ -136,7 +158,7 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
           };
         });
 
-        media.add("(max-width: 1023px)", () => {
+        media.add("(min-width: 768px) and (max-width: 1023px)", () => {
           const panels = gsap.utils.toArray<HTMLElement>(
             "[data-landing-panel]",
             root,
@@ -204,7 +226,7 @@ export function LandingPanelStack({ children }: PropsWithChildren) {
       root.style.removeProperty("--landing-header-height");
       root.style.removeProperty("--landing-panel-scroll-spacer-height");
     };
-  }, [prefersReducedMotion]);
+  }, [prefersReducedMotion, supportsLandingMotion]);
 
   return (
     <div

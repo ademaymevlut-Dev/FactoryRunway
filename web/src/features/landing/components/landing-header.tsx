@@ -14,7 +14,29 @@ export function LandingHeader({ content }: LandingHeaderProps) {
       className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-xl"
       data-landing-header
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-2.5 md:hidden">
+        <Link
+          aria-label="Factory Runway"
+          className="inline-flex items-center gap-2 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          href={content.locale === "tr" ? "/tr" : "/"}
+        >
+          <Image
+            alt=""
+            aria-hidden="true"
+            className="h-10 w-10 object-contain"
+            height={40}
+            priority
+            src="/factoryRunway.svg"
+            width={40}
+          />
+          <span className="text-xs font-black tracking-[0.08em] text-white">
+            FACTORY RUNWAY
+          </span>
+        </Link>
+        <LandingLanguageSwitcher compact content={content} short />
+      </div>
+
+      <div className="mx-auto hidden w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:flex md:px-6 lg:px-8">
         <Link
           aria-label="Factory Runway"
           className="factory-brand-lockup shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"

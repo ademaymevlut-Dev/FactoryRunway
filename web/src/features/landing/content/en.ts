@@ -99,6 +99,11 @@ export const landingContentEn = {
     openGraphLocale: "en_US",
     title: "Factory Runway | Factory Management Simulation",
   },
+  mobile: {
+    heroTitle: "Build your factory. Start producing.",
+    loginTab: "Sign In",
+    registerTab: "Create Player",
+  },
   navigation: {
     ariaLabel: "Primary navigation",
     gameplay: "Gameplay",

@@ -46,6 +46,8 @@ test("landing responsive ve touch hedef sözleşmesi küçük ekran için güven
   const replay = read("./showcase/components/showcase-replay-button.tsx");
   const page = read("./components/landing-page.tsx");
   const gameLoop = read("./components/landing-game-loop.tsx");
+  const mobileHero = read("./components/landing-mobile-hero.tsx");
+  const authSection = read("./components/landing-auth-section.tsx");
   const css = read("../../app/globals.css");
 
   assert.match(hero, /flex flex-col gap-3 sm:flex-row/);
@@ -54,10 +56,19 @@ test("landing responsive ve touch hedef sözleşmesi küçük ekran için güven
   assert.match(language, /inline-flex min-h-11 min-w-11/);
   assert.match(replay, /min-h-11/);
   assert.match(page, /overflow-x-clip/);
+  assert.match(page, /<LandingMobileHero content=\{content\} \/>/);
+  assert.match(page, /landing-desktop-panel/g);
+  assert.match(mobileHero, /content\.mobile\.heroTitle/);
+  assert.match(authSection, /defaultTab="login"/);
+  assert.match(authSection, /compact/);
+  assert.match(authSection, /content\.mobile\.registerTab/);
   assert.match(gameLoop, /scroll-mt-52/);
   assert.match(gameLoop, /sm:scroll-mt-40/);
   assert.match(css, /\.landing-public \.game-tab \{[\s\S]*min-height: 2\.75rem/);
   assert.match(css, /\.landing-public \.game-input \{[\s\S]*min-height: 2\.75rem/);
+  assert.match(css, /@media \(max-width: 767px\)/);
+  assert.match(css, /\.landing-desktop-panel \{[\s\S]*display: none/);
+  assert.match(css, /\.landing-mobile-auth-panel \.landing-auth-input,[\s\S]*font-size: 1rem/);
 });
 
 test("landing hareket ve viewport yaşam döngüsü reduced-motion ile uyumludur", () => {
@@ -67,6 +78,8 @@ test("landing hareket ve viewport yaşam döngüsü reduced-motion ile uyumludur
   assert.match(playback, /shouldResumeOnIntersect/);
   assert.match(playback, /timeline\.pause\(\)/);
   assert.match(playback, /timeline\?\.resume\(\)/);
+  assert.match(playback, /LANDING_MOTION_MEDIA_QUERY = "\(min-width: 768px\)"/);
+  assert.match(playback, /if \(!supportsLandingMotion\)/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(css, /\.landing-public \*,[\s\S]*transition-duration: 0\.01ms/);
 });
@@ -114,7 +127,8 @@ test("landing yedi panelli GSAP stack ve kompakt showcase sözleşmesini taşır
   assert.match(panelStack, /landingPanelStackReady/);
   assert.match(panelStack, /data-landing-panel-scroll-spacer/);
   assert.match(panelStack, /min-width: 1024px/);
-  assert.match(panelStack, /max-width: 1023px/);
+  assert.match(panelStack, /min-width: 768px\) and \(max-width: 1023px/);
+  assert.match(panelStack, /if \(!root \|\| prefersReducedMotion \|\| !supportsLandingMotion\)/);
   assert.match(css, /landing-panel-scroll-spacer/);
   assert.match(css, /--landing-panel-scroll-spacer-height/);
   assert.match(gameLoop, /BlurText/);

@@ -27,6 +27,17 @@ const idleControls: PlaybackControls = {
   restart: () => undefined,
   seek: () => undefined,
 };
+const LANDING_MOTION_MEDIA_QUERY = "(min-width: 768px)";
+
+function subscribeToLandingMotionViewport(callback: () => void) {
+  const mediaQuery = window.matchMedia(LANDING_MOTION_MEDIA_QUERY);
+  mediaQuery.addEventListener("change", callback);
+  return () => mediaQuery.removeEventListener("change", callback);
+}
+
+function getLandingMotionViewportSnapshot() {
+  return window.matchMedia(LANDING_MOTION_MEDIA_QUERY).matches;
+}
 
 function subscribeToReducedMotion(callback: () => void) {
   const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -50,12 +61,22 @@ export function useShowcasePlayback({
     getReducedMotionSnapshot,
     () => false,
   );
+  const supportsLandingMotion = useSyncExternalStore(
+    subscribeToLandingMotionViewport,
+    getLandingMotionViewportSnapshot,
+    () => false,
+  );
   const showReducedMotionResult = useEffectEvent(onReducedMotionResult);
 
   useEffect(() => {
     const root = rootRef.current;
 
     if (!root) return;
+
+    if (!supportsLandingMotion) {
+      controlsRef.current = idleControls;
+      return;
+    }
 
     if (prefersReducedMotion) {
       hasAutoPlayedRef.current = true;
@@ -167,7 +188,7 @@ export function useShowcasePlayback({
       context?.revert();
       controlsRef.current = idleControls;
     };
-  }, [createTimeline, prefersReducedMotion]);
+  }, [createTimeline, prefersReducedMotion, supportsLandingMotion]);
 
   const restart = useCallback(() => {
     controlsRef.current.restart();

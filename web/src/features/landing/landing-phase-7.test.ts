@@ -84,6 +84,17 @@ test("TR ve EN landing content aynı, eksiksiz tipli sözleşmeyi taşır", () =
       6,
     );
   }
+
+  assert.equal(
+    landingContent.tr.mobile.heroTitle,
+    "Kendi fabrikanı kur. Üretime başla.",
+  );
+  assert.equal(landingContent.tr.mobile.registerTab, "Oyuncu Oluştur");
+  assert.equal(
+    landingContent.en.mobile.heroTitle,
+    "Build your factory. Start producing.",
+  );
+  assert.equal(landingContent.en.mobile.registerTab, "Create Player");
 });
 
 test("İngilizce scene copy Türkçe fallback içermez", () => {
@@ -293,6 +304,13 @@ test("public auth aynı action'ları kullanır ve server görünür UI dili seç
   const loginAction = actionSource.slice(loginStart, logoutStart);
 
   assert.match(formSource, /createPlayerAction, loginAction/);
+  assert.match(formSource, /defaultTab = "login"/);
+  assert.ok(
+    formSource.indexOf('{ key: "login"') <
+      formSource.indexOf('{ key: "player"'),
+  );
+  assert.match(formSource, /autoComplete="current-password"/);
+  assert.match(formSource, /autoComplete="new-password"/);
   assert.match(formSource, /copy\.messages\[state\.messageCode\]/);
   assert.match(playerAction, /messageCode: "VALIDATION_ERROR"/);
   assert.match(playerAction, /messageCode: "EMAIL_ALREADY_EXISTS"/);

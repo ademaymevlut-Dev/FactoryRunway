@@ -4,6 +4,7 @@ import { LandingFooter } from "./landing-footer";
 import { LandingGameLoop } from "./landing-game-loop";
 import { LandingHeader } from "./landing-header";
 import { LandingHero } from "./landing-hero";
+import { LandingMobileHero } from "./landing-mobile-hero";
 import { LandingPanelStack } from "./landing-panel-stack";
 import { LandingOrderAcceptanceSection } from "../showcase/components/landing-order-acceptance-section";
 import { LandingProductionQueueSection } from "../showcase/components/landing-production-queue-section";
@@ -30,9 +31,10 @@ export function LandingPage({ content }: LandingPageProps) {
         id="main-content"
         tabIndex={-1}
       >
+        <LandingMobileHero content={content} />
         <LandingPanelStack>
           <div
-            className="landing-scroll-panel landing-scroll-panel-hero"
+            className="landing-desktop-panel landing-scroll-panel landing-scroll-panel-hero"
             data-landing-panel
             data-landing-panel-index="1"
           >
@@ -42,7 +44,7 @@ export function LandingPage({ content }: LandingPageProps) {
           </div>
 
           <div
-            className="landing-scroll-panel"
+            className="landing-desktop-panel landing-scroll-panel"
             data-landing-panel
             data-landing-panel-index="2"
           >
@@ -52,7 +54,7 @@ export function LandingPage({ content }: LandingPageProps) {
           </div>
 
           <div
-            className="landing-scroll-panel"
+            className="landing-desktop-panel landing-scroll-panel"
             data-landing-panel
             data-landing-panel-index="3"
           >
@@ -62,7 +64,7 @@ export function LandingPage({ content }: LandingPageProps) {
           </div>
 
           <div
-            className="landing-scroll-panel"
+            className="landing-desktop-panel landing-scroll-panel"
             data-landing-panel
             data-landing-panel-index="4"
           >
@@ -72,7 +74,7 @@ export function LandingPage({ content }: LandingPageProps) {
           </div>
 
           <div
-            className="landing-scroll-panel"
+            className="landing-desktop-panel landing-scroll-panel"
             data-landing-panel
             data-landing-panel-index="5"
           >
@@ -82,7 +84,7 @@ export function LandingPage({ content }: LandingPageProps) {
           </div>
 
           <div
-            className="landing-scroll-panel"
+            className="landing-desktop-panel landing-scroll-panel"
             data-landing-panel
             data-landing-panel-index="6"
           >
@@ -102,7 +104,7 @@ export function LandingPage({ content }: LandingPageProps) {
           </div>
         </LandingPanelStack>
       </main>
-      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+      <div className="relative mx-auto hidden w-full max-w-7xl px-4 md:block md:px-6 lg:px-8">
         <LandingFooter content={content} />
       </div>
     </div>

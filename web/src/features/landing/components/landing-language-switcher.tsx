@@ -5,15 +5,22 @@ import type { LandingContent } from "../content/types";
 type LandingLanguageSwitcherProps = {
   content: LandingContent;
   compact?: boolean;
+  short?: boolean;
 };
 
 export function LandingLanguageSwitcher({
   compact = false,
   content,
+  short = false,
 }: LandingLanguageSwitcherProps) {
   const currentLanguage = content.locale === "tr" ? "TR" : "EN";
   const href = content.locale === "tr" ? "/" : "/tr";
   const hrefLang = content.locale === "tr" ? "en" : "tr";
+  const alternateLanguage = short
+    ? content.locale === "tr"
+      ? "EN"
+      : "TR"
+    : content.navigation.languageLabel;
 
   return (
     <div
@@ -39,7 +46,7 @@ export function LandingLanguageSwitcher({
         hrefLang={hrefLang}
         lang={hrefLang}
       >
-        {content.navigation.languageLabel}
+        {alternateLanguage}
       </Link>
     </div>
   );

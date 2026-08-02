@@ -99,6 +99,11 @@ export const landingContentTr = {
     openGraphLocale: "tr_TR",
     title: "Factory Runway | Fabrika Yönetim Simülasyonu",
   },
+  mobile: {
+    heroTitle: "Kendi fabrikanı kur. Üretime başla.",
+    loginTab: "Giriş Yap",
+    registerTab: "Oyuncu Oluştur",
+  },
   navigation: {
     ariaLabel: "Ana gezinme",
     gameplay: "Oynanış",

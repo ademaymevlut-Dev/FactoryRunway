@@ -64,6 +64,11 @@ export type LandingContent = {
     openGraphLocale: "en_US" | "tr_TR";
     title: string;
   };
+  mobile: {
+    heroTitle: string;
+    loginTab: string;
+    registerTab: string;
+  };
   navigation: {
     ariaLabel: string;
     gameplay: string;
