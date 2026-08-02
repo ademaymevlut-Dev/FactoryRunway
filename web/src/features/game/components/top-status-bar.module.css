@@ -122,7 +122,7 @@
   }
 }
 
-@media (max-width: 639px), (pointer: coarse) {
+@media (max-width: 639px) {
   .desktopHeaderContent {
     display: none;
   }
@@ -139,8 +139,7 @@
   }
 }
 
-@media (min-width: 430px) and (max-width: 639px),
-  (min-width: 430px) and (pointer: coarse) {
+@media (min-width: 430px) and (max-width: 639px) {
   .mobileHeaderContent {
     --mobile-factory-name-max-width: 190px;
   }

@@ -60,6 +60,30 @@ test("compact market ve detail aynı DOM sınırında ayrı ekranlar olarak tutu
   assert.match(panel, /offer\.totalRevenueLabel/);
 });
 
+test("compact sipariş detayı tekrar eden risk ve CTA üstü metrikleri gizler", () => {
+  const globals = read("../../app/globals.css");
+  const workspace = read("./components/order-decision-workspace.tsx");
+
+  assert.match(workspace, /className="orders-risk-metric"/);
+  assert.match(workspace, /className="orders-decision-metrics grid/);
+  assert.match(
+    globals,
+    /\.orders-risk-metric\s*\{[\s\S]*?display:\s*none;[\s\S]*?grid-column:\s*span 2 \/ span 2;/,
+  );
+  assert.match(
+    globals,
+    /\.orders-decision-metrics\s*\{[\s\S]*?display:\s*none;/,
+  );
+  assert.match(
+    globals,
+    /@container orders-panel \(min-width: 760px\)[\s\S]*?\.orders-risk-metric\s*\{[\s\S]*?display:\s*block[\s\S]*?\.orders-decision-metrics\s*\{[\s\S]*?display:\s*grid/,
+  );
+  assert.match(
+    globals,
+    /data-orders-panel-mode="MEDIUM"[\s\S]*?\.orders-decision-metrics\s*\{[\s\S]*?display:\s*grid/,
+  );
+});
+
 test("tek analiz içeriği wide dock, medium drawer ve compact sheet kabuklarında kullanılır", () => {
   const workspace = read("./components/order-decision-workspace.tsx");
 

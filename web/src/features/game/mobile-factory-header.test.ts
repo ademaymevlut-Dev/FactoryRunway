@@ -20,7 +20,7 @@ const dialog = readSource("../../components/ui/dialog.tsx");
 const factoryMap = readSource("./components/factory-map.tsx");
 const copy = readSource("./game-copy.ts");
 
-test("telefon ve coarse tablet kompakt header, fine pointer masaüstü geniş header kullanır", () => {
+test("telefon kompakt header, geniş tablet ve masaüstü web header kullanır", () => {
   assert.match(header, /function DesktopHeaderContent/);
   assert.match(header, /function MobileHeaderContent/);
   assert.match(header, /data-desktop-game-header/);
@@ -29,7 +29,11 @@ test("telefon ve coarse tablet kompakt header, fine pointer masaüstü geniş he
   assert.match(styles, /\.mobileHeaderContent\s*\{[\s\S]*?display:\s*none/);
   assert.match(
     styles,
-    /@media \(max-width: 639px\), \(pointer: coarse\)[\s\S]*?\.desktopHeaderContent\s*\{[\s\S]*?display:\s*none[\s\S]*?\.mobileHeaderContent\s*\{[\s\S]*?display:\s*flex/,
+    /@media \(max-width: 639px\)[\s\S]*?\.desktopHeaderContent\s*\{[\s\S]*?display:\s*none[\s\S]*?\.mobileHeaderContent\s*\{[\s\S]*?display:\s*flex/,
+  );
+  assert.doesNotMatch(
+    styles,
+    /@media[^\{]*pointer:\s*coarse[^\{]*\{[\s\S]*?\.(?:desktopHeaderContent|mobileHeaderContent)/,
   );
 });
 

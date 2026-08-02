@@ -5581,6 +5581,7 @@
 }
 
 .orders-risk-metric {
+  display: none;
   grid-column: span 2 / span 2;
 }
 
@@ -5603,6 +5604,10 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+
+.orders-decision-metrics {
+  display: none;
 }
 
 .orders-decision-actions {
@@ -5652,7 +5657,12 @@
     }
 
     .orders-risk-metric {
+      display: block;
       grid-column: auto;
+    }
+
+    .orders-decision-metrics {
+      display: grid;
     }
 
     .orders-decision-bar {
@@ -5779,7 +5789,16 @@
     [data-orders-panel-mode="WIDE"]
   )
   .orders-risk-metric {
+  display: block;
   grid-column: auto;
+}
+
+.orders-panel-root:is(
+    [data-orders-panel-mode="MEDIUM"],
+    [data-orders-panel-mode="WIDE"]
+  )
+  .orders-decision-metrics {
+  display: grid;
 }
 
 .orders-panel-root:is(
