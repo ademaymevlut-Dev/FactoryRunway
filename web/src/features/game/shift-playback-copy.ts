@@ -384,7 +384,7 @@ export const shiftPlaybackCopy = {
       mobileProducedLabel: "Üretilen",
       mobileTotalProducedLabel: "Toplam üretim",
       showDailyEventsAria: "Günlük olayları göster",
-      showDailyEventsLabel: "Olaylar",
+      showDailyEventsLabel: "Günlük olayları gör",
       skipAnimationError:
         "Animasyon atlanamadı. Vardiya ilerlemeye devam ediyor.",
       skipAnimationLabel: "Animasyonu atla ve sonuçları göster",
@@ -594,7 +594,7 @@ export const shiftPlaybackCopy = {
       mobileProducedLabel: "Produced",
       mobileTotalProducedLabel: "Total output",
       showDailyEventsAria: "Show daily events",
-      showDailyEventsLabel: "Events",
+      showDailyEventsLabel: "View daily events",
       skipAnimationError:
         "The animation could not be skipped. Shift playback is continuing.",
       skipAnimationLabel: "Skip animation and show results",

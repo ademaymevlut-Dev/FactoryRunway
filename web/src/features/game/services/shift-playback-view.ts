@@ -49,6 +49,7 @@ const shiftPlaybackSelect = {
       startingQueueQuantity: true,
       department: {
         select: {
+          dockIconKey: true,
           key: true,
           translations: {
             select: { locale: true, name: true },

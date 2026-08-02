@@ -36,6 +36,7 @@ function buildPrisma(
             queueEnteredQuantity: 0,
             startingQueueQuantity: 800,
             department: {
+              dockIconKey: null,
               key: "sewing",
               translations: [{ name: "Dikim" }],
             },
@@ -60,6 +61,7 @@ test("sayfa yenilemesinde süresi devam eden son playback tekrar okunur", async 
   assert.deepEqual(playback.departmentResults[0], {
     activeLineCount: 2,
     departmentCode: "sewing",
+    departmentIconKey: "shirt",
     departmentId: "department-1",
     departmentName: "Dikim",
     endingQueueQuantity: 150,

@@ -224,39 +224,21 @@ export function ShiftPlaybackHud({
               </p>
             ) : null}
           </div>
-          {!isMobileCompact || isFinal ? (
+          {!isMobileCompact ? (
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
-                  aria-label={
-                    isMobileCompact ? copy.showDailyEventsAria : copy.closeAria
-                  }
-                  className={
-                    isMobileCompact
-                      ? "h-9 shrink-0 gap-1.5 border border-primary/25 bg-primary/10 px-3 text-primary hover:bg-primary/15 hover:text-primary"
-                      : undefined
-                  }
+                  aria-label={copy.closeAria}
                   disabled={!isFinal || isClosing}
                   onClick={requestClose}
-                  size={isMobileCompact ? "lg" : "icon-lg"}
+                  size="icon-lg"
                   type="button"
                   variant="ghost"
                 >
-                  {isMobileCompact ? (
-                    <>
-                      <span className="text-[11px] font-semibold">
-                        {copy.showDailyEventsLabel}
-                      </span>
-                      <ArrowRight className="size-4" />
-                    </>
-                  ) : (
-                    <X className="size-4" />
-                  )}
+                  <X className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left">
-                {isMobileCompact ? copy.showDailyEventsAria : copy.closeAria}
-              </TooltipContent>
+              <TooltipContent side="left">{copy.closeAria}</TooltipContent>
             </Tooltip>
           ) : null}
         </div>
@@ -304,6 +286,22 @@ export function ShiftPlaybackHud({
             ))}
           </div>
         </div>
+
+        {isMobileCompact && isFinal ? (
+          <div className="border-t border-white/10 bg-background/65 p-2.5 backdrop-blur-md">
+            <Button
+              aria-label={copy.showDailyEventsAria}
+              className="h-12 w-full rounded-xl font-semibold shadow-[0_12px_32px_hsl(var(--primary)/0.28)]"
+              disabled={isClosing}
+              onClick={requestClose}
+              size="lg"
+              type="button"
+            >
+              <span>{copy.showDailyEventsLabel}</span>
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

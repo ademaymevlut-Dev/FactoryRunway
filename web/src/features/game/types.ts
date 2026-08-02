@@ -51,6 +51,7 @@ export type ShiftQuantityPoint = {
 export type ShiftDepartmentPlayback = {
   departmentId: string;
   departmentCode: string;
+  departmentIconKey: string;
   departmentName: string;
   activeLineCount: number;
   performance: {

@@ -57,6 +57,7 @@ import {
   preferredTranslation,
   type SupportedLocale,
 } from "@/lib/i18n/locales";
+import { resolveDepartmentIconKey } from "../department-icon";
 
 import { buildFactoryLineWorkload } from "./factory-line-workload";
 import { getLatestReviewableShiftPlayback } from "./shift-playback-view";
@@ -1116,9 +1117,11 @@ function buildDockItems({
       if (!firstDepartment) return null;
 
       const badgeKey = firstDepartment.dockBadgeKey ?? getDefaultDockBadgeKey(groupKey, firstDepartment);
-      const iconKey = normalizeDockIconKey(
-        firstDepartment.dockIconKey ?? getDefaultDockIconKey(groupKey, firstDepartment.key),
-      );
+      const iconKey = resolveDepartmentIconKey({
+        configuredIconKey: firstDepartment.dockIconKey,
+        departmentKey: firstDepartment.key,
+        groupKey,
+      });
 
       return {
         id: `dock:${groupKey}`,
@@ -1283,29 +1286,6 @@ function getDockLabel(
     departments[0]?.key ?? groupKey,
     locale,
   );
-}
-
-function normalizeDockIconKey(iconKey: string) {
-  return iconKey.trim().toLocaleLowerCase("en-US").replace(/-/g, "_");
-}
-
-function getDefaultDockIconKey(groupKey: string, departmentKey: string) {
-  const iconKeys: Record<string, string> = {
-    accessory_warehouse: "warehouse",
-    cutting: "scissors",
-    dyeing: "paint_bucket",
-    embroidery: "needle",
-    fabric_warehouse: "warehouse",
-    ironing_packing: "package_check",
-    printing: "printer",
-    product_warehouse: "warehouse",
-    sewing: "shirt",
-    shipping: "truck",
-    warehouse: "warehouse",
-    washing: "waves",
-  };
-
-  return iconKeys[groupKey] ?? iconKeys[departmentKey] ?? "warehouse";
 }
 
 function getDefaultDockBadgeKey(groupKey: string, department: DockDepartmentRecord) {
@@ -1537,7 +1517,10 @@ function toMapDepartment(
   return {
     id: department.id,
     key: department.key,
-    iconKey: normalizeDockIconKey(department.dockIconKey ?? getDefaultDockIconKey(department.key, department.key)),
+    iconKey: resolveDepartmentIconKey({
+      configuredIconKey: department.dockIconKey,
+      departmentKey: department.key,
+    }),
     name: pickTranslation(department.translations, department.key, locale),
     kind: department.kind,
     routeOrder: department.routeOrder,

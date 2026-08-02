@@ -41,6 +41,13 @@
   }
 }
 
+@media (max-width: 649px) {
+  .dragHandleHint {
+    animation: none;
+    background: color-mix(in srgb, var(--primary) 5%, transparent);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .dragHandleHint,
   .dragHandleIcon {

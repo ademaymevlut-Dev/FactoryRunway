@@ -162,6 +162,9 @@ test("üretim kuyruğu satırı hazır metrik ve durum label'larını gösterir"
         planned: "Planned",
         remaining: "Remaining",
       },
+      mobileDetailsId: "queue-details-ord-1042",
+      mobileDetailsOpen: true,
+      mobileDetailsToggle: createElement("button", null, "Details"),
       priorityLabel: "1",
       showDragHandle: true,
     }),
@@ -173,6 +176,9 @@ test("üretim kuyruğu satırı hazır metrik ve durum label'larını gösterir"
   assert.match(queueRow, /760/);
   assert.match(queueRow, /2 days/);
   assert.match(queueRow, /Capacity risk/);
+  assert.match(queueRow, /data-production-queue-mobile-details/);
+  assert.match(queueRow, /id="queue-details-ord-1042"/);
+  assert.match(queueRow, /Details/);
 });
 
 test("shift, olay ve bildirim görünümleri yalnızca verilen durumu yansıtır", () => {
@@ -253,13 +259,14 @@ test("mobil shift departman görünümü ayrıntılı masaüstü metriklerini sa
       activeLineLabel: "2 lines",
       activeProduct: {
         ariaLabel: "Active product: Clavier T-shirt",
-        imageUrl: null,
+        imageUrl: "/products/clavier.png",
         key: "product-1",
         name: "Clavier T-shirt",
         opacity: 1,
         orderLabel: "Order: ORD-1042",
         pulseScale: 1,
       },
+      departmentIconKey: "shirt",
       departmentLabel: "Sewing",
       isFinal: false,
       metrics: [{ key: "produced", label: "Produced", value: 360 }],
@@ -288,6 +295,8 @@ test("mobil shift departman görünümü ayrıntılı masaüstü metriklerini sa
   assert.match(department, /Sewing/);
   assert.match(department, /Clavier T-shirt/);
   assert.match(department, /Produced/);
+  assert.match(department, /game-icons\/dock\/shirt\.svg/);
+  assert.match(department, /clavier\.png/);
   assert.doesNotMatch(department, /2 lines/);
   assert.doesNotMatch(department, /Department utilization/);
   assert.doesNotMatch(department, /Processed products/);

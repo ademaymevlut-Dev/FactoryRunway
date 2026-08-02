@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { PackageOpen } from "lucide-react";
 import Image from "next/image";
 
@@ -41,6 +42,7 @@ export type ShiftDepartmentResultViewProps = {
   activeLineLabel: string;
   activeProduct?: ShiftDepartmentActiveProductView | null;
   compactMetrics?: boolean;
+  departmentIconKey?: string;
   departmentLabel: string;
   isFinal: boolean;
   metrics: readonly ShiftDepartmentMetric[];
@@ -74,6 +76,7 @@ export function ShiftDepartmentResultView({
   activeLineLabel,
   activeProduct,
   compactMetrics = false,
+  departmentIconKey = "warehouse",
   departmentLabel,
   isFinal,
   metrics,
@@ -94,26 +97,37 @@ export function ShiftDepartmentResultView({
 
     return (
       <article
-        className="flex min-h-[52px] min-w-0 items-center justify-between gap-3 rounded-lg border border-white/10 bg-card/80 px-2.5 py-2 shadow-md backdrop-blur"
+        className="flex min-h-[68px] min-w-0 items-center justify-between gap-3 rounded-xl border border-white/10 bg-card/80 px-2.5 py-2.5 shadow-[0_10px_28px_rgba(0,0,0,0.2)] backdrop-blur"
         data-final={isFinal}
         data-shift-department-presentation="mobile-compact"
         data-shift-department-result-view
       >
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-xs font-semibold text-white">
-            {departmentLabel}
-          </h3>
-          {activeProduct ? (
-            <p
-              aria-label={activeProduct.ariaLabel}
-              aria-live="polite"
-              className="mt-0.5 truncate text-[9px] text-muted-foreground"
-              data-active-product-key={activeProduct.key}
-              style={{ opacity: activeProduct.opacity }}
-            >
-              {activeProduct.name}
-            </p>
-          ) : null}
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <MobileDepartmentIcon iconKey={departmentIconKey} />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-xs font-semibold text-white">
+              {departmentLabel}
+            </h3>
+            {activeProduct ? (
+              <div
+                aria-label={activeProduct.ariaLabel}
+                aria-live="polite"
+                className="mt-1 flex min-w-0 items-center gap-1.5"
+                data-active-product-key={activeProduct.key}
+                style={{ opacity: activeProduct.opacity }}
+              >
+                <ProductThumb
+                  imageUrl={activeProduct.imageUrl}
+                  name={activeProduct.name}
+                  pulseScale={activeProduct.pulseScale}
+                  size="sm"
+                />
+                <p className="min-w-0 truncate text-[9px] font-medium text-muted-foreground">
+                  {activeProduct.name}
+                </p>
+              </div>
+            ) : null}
+          </div>
         </div>
         {primaryMetric ? (
           <div
@@ -263,6 +277,46 @@ export function ShiftDepartmentResultView({
     </article>
   );
 }
+
+const MobileDepartmentIcon = memo(function MobileDepartmentIcon({
+  iconKey,
+}: {
+  iconKey: string;
+}) {
+  const iconUrl = `/game-icons/dock/${iconKey}.svg`;
+  const iconMaskStyle = {
+    WebkitMaskImage: `url("${iconUrl}")`,
+    WebkitMaskPosition: "center",
+    WebkitMaskRepeat: "no-repeat",
+    WebkitMaskSize: "contain",
+    maskImage: `url("${iconUrl}")`,
+    maskPosition: "center",
+    maskRepeat: "no-repeat",
+    maskSize: "contain",
+  };
+
+  return (
+    <span
+      aria-hidden="true"
+      className="relative grid size-10 shrink-0 place-items-center overflow-hidden rounded-xl border border-primary/20 bg-primary/8 text-primary shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_8px_20px_rgba(0,0,0,0.22)]"
+    >
+      <span className="relative block size-5">
+        <span
+          className="absolute inset-0 bg-current opacity-95"
+          style={iconMaskStyle}
+        />
+        <span
+          className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.86)_0%,rgba(136,224,255,0.62)_28%,rgba(0,109,143,0.88)_66%,rgba(1,28,40,0.3)_100%)] opacity-80 mix-blend-screen"
+          style={iconMaskStyle}
+        />
+        <span
+          className="absolute inset-0 bg-[radial-gradient(circle_at_30%_18%,rgba(255,255,255,0.94)_0%,rgba(255,255,255,0.28)_24%,transparent_52%)] opacity-70"
+          style={iconMaskStyle}
+        />
+      </span>
+    </span>
+  );
+});
 
 function Metric({
   compact,

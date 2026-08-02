@@ -82,6 +82,7 @@ export function ShiftDepartmentCard({
             }
           : null
       }
+      departmentIconKey={department.departmentIconKey}
       departmentLabel={department.departmentName}
       isFinal={isFinal}
       metrics={

@@ -8,6 +8,7 @@ import {
   preferredTranslation,
   type SupportedLocale,
 } from "@/lib/i18n/locales";
+import { resolveDepartmentIconKey } from "./department-icon";
 
 export const SHIFT_PLAYBACK_DURATION_SECONDS = 15;
 export const SKIPPED_SHIFT_PLAYBACK_DURATION_SECONDS = 0;
@@ -36,6 +37,7 @@ export type ShiftPlaybackRecord = {
     productionStartMinute: number | null;
     productionEndMinute: number | null;
     department: {
+      dockIconKey?: string | null;
       key: string;
       translations: Array<{ locale?: string; name: string }>;
     };
@@ -80,6 +82,10 @@ export function toShiftPlayback(
     departmentResults: record.departmentResults.map((result) => ({
       activeLineCount: result.activeLineCount,
       departmentCode: result.department.key,
+      departmentIconKey: resolveDepartmentIconKey({
+        configuredIconKey: result.department.dockIconKey,
+        departmentKey: result.department.key,
+      }),
       departmentId: result.departmentId,
       departmentName:
         pickTranslation(

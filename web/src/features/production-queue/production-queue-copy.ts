@@ -151,10 +151,12 @@ export const productionQueueCopy = {
         remaining: "Kalan",
       },
       row: {
+        hideDetails: (orderNo: string) => `${orderNo} detaylarını gizle`,
         internalMode: "İç Hat",
         manualPriority: "Manuel sıra",
         orderSummary: (quantity: string, productionNo: string) =>
           `Sipariş: ${quantity} · ${productionNo}`,
+        showDetails: (orderNo: string) => `${orderNo} detaylarını göster`,
       },
       readyDay: (day: number) => `${day}. gün`,
     },
@@ -300,10 +302,12 @@ export const productionQueueCopy = {
         remaining: "Remaining",
       },
       row: {
+        hideDetails: (orderNo: string) => `Hide ${orderNo} details`,
         internalMode: "Internal Line",
         manualPriority: "Manual order",
         orderSummary: (quantity: string, productionNo: string) =>
           `Order: ${quantity} · ${productionNo}`,
+        showDetails: (orderNo: string) => `Show ${orderNo} details`,
       },
       readyDay: (day: number) => `Day ${day}`,
     },
@@ -422,9 +426,11 @@ export const productionQueueCopy = {
         remaining: string;
       };
       row: {
+        hideDetails: (orderNo: string) => string;
         internalMode: string;
         manualPriority: string;
         orderSummary: (quantity: string, productionNo: string) => string;
+        showDetails: (orderNo: string) => string;
       };
       readyDay: (day: number) => string;
     };

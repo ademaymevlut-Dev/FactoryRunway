@@ -180,11 +180,15 @@ test("departman kuyruğu mevcut Sortable ile global sipariş önceliğini günce
 
   assert.match(queue, /Sortable/);
   assert.match(queue, /SortableItemHandle/);
+  assert.match(queue, /max-\[649px\]:h-14/);
+  assert.match(queue, /mobileDetailsOpen/);
+  assert.match(queue, /setExpandedItemId/);
   assert.match(queue, /updateDepartmentWorkloadPriorityAction/);
   assert.match(queue, /isShiftPlaybackActive/);
   assert.match(queue, /productionQueueCopy/);
   assert.match(copy, /Internal Line Queue/);
   assert.match(copy, /Fason Teklifi Bekleyen/);
+  assert.match(copy, /detaylarını göster/);
   assert.match(registry, /<DepartmentQueuePanel[\s\S]*?locale=\{snapshot\.locale\}/);
   assert.match(service, /locale\?: SupportedLocale \| string/);
   assert.match(action, /getPlayerPreferredLocale\(auth\.id\)/);

@@ -384,6 +384,7 @@ test("günlük event projection kronolojik dakika ve sequence sırasını korur"
         {
           activeLineCount: 1,
           departmentCode: "sewing",
+          departmentIconKey: "shirt",
           departmentId: "department-1",
           departmentName: "Dikim",
           endingQueueQuantity: 0,

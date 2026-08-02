@@ -1,6 +1,7 @@
 "use client"
 
 import {
+  ChevronDown,
   Clock3,
   Droplet,
   Factory,
@@ -193,6 +194,7 @@ function DepartmentQueue({
   const { copy, numberLocale } = useQueueUi()
   const { isShiftPlaybackActive, openPanel } = useGameUiStore()
   const [items, setItems] = useState<ProductionQueueItem[]>(queue.items)
+  const [expandedItemId, setExpandedItemId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [isPriorityPending, startPriorityTransition] = useTransition()
   const plannedQuantityByItemId = useMemo(
@@ -218,6 +220,7 @@ function DepartmentQueue({
     if (isShiftPlaybackActive) return
 
     const previousItems = items
+    setExpandedItemId(null)
     setItems(nextItems)
     setMessage(copy.header.saving)
 
@@ -285,6 +288,12 @@ function DepartmentQueue({
                           disabled={isShiftPlaybackActive || isPriorityPending}
                           index={index}
                           item={item}
+                          mobileDetailsOpen={expandedItemId === item.id}
+                          onMobileDetailsToggle={() =>
+                            setExpandedItemId((currentItemId) =>
+                              currentItemId === item.id ? null : item.id,
+                            )
+                          }
                           onMessage={setMessage}
                           plannedQuantity={
                             plannedQuantityByItemId.get(item.routeProgressId) ?? 0
@@ -372,16 +381,28 @@ function DepartmentQueueHeader({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-5 xl:min-w-[520px]">
+      <div className="grid grid-cols-2 gap-1.5 min-[650px]:grid-cols-5 xl:min-w-[520px]">
         <SummaryPill
           highlight
           label={copy.summary.planned}
           value={formatQuantity(plannedTotalQuantity, numberLocale, copy)}
         />
-        <SummaryPill label={copy.summary.inputReady} value={queue.summary.totalInputReadyQuantityLabel} />
-        <SummaryPill label={queue.completedColumnLabel} value={queue.summary.totalCompletedQuantityLabel} />
+        <SummaryPill
+          className="max-[649px]:hidden"
+          label={copy.summary.inputReady}
+          value={queue.summary.totalInputReadyQuantityLabel}
+        />
+        <SummaryPill
+          className="max-[649px]:hidden"
+          label={queue.completedColumnLabel}
+          value={queue.summary.totalCompletedQuantityLabel}
+        />
         <SummaryPill label={copy.summary.remaining} value={queue.summary.totalRemainingQuantityLabel} />
-        <SummaryPill label={copy.summary.dailyPoints} value={queue.summary.dailyCapacityLabel} />
+        <SummaryPill
+          className="max-[649px]:hidden"
+          label={copy.summary.dailyPoints}
+          value={queue.summary.dailyCapacityLabel}
+        />
       </div>
 
       <div className="xl:col-span-2">
@@ -403,16 +424,23 @@ function DepartmentQueueHeader({
 }
 
 function SummaryPill({
+  className,
   highlight = false,
   label,
   value,
 }: {
+  className?: string
   highlight?: boolean
   label: string
   value: string
 }) {
   return (
-    <div className="min-w-0 rounded-md border border-border bg-card/40 px-2 py-1">
+    <div
+      className={cn(
+        "min-w-0 rounded-md border border-border bg-card/40 px-2 py-1",
+        className,
+      )}
+    >
       <span
         className={cn(
           "block truncate text-[10px] text-muted-foreground",
@@ -735,6 +763,8 @@ function DepartmentQueueCard({
   disabled,
   index,
   item,
+  mobileDetailsOpen,
+  onMobileDetailsToggle,
   onMessage,
   numberLocale,
   plannedQuantity,
@@ -743,7 +773,9 @@ function DepartmentQueueCard({
   disabled: boolean
   index: number
   item: ProductionQueueItem
+  mobileDetailsOpen: boolean
   numberLocale: NumberLocale
+  onMobileDetailsToggle: () => void
   onMessage: (message: string | null) => void
   plannedQuantity: number
 }) {
@@ -777,6 +809,7 @@ function DepartmentQueueCard({
     planned: copy.summary.plannedShort,
     remaining: copy.summary.remainingQuantity,
   }
+  const mobileDetailsId = `production-queue-details-${item.id}`
 
   return (
     <ProductionQueueRow
@@ -793,7 +826,7 @@ function DepartmentQueueCard({
       dragHandle={
         <SortableItemHandle
           className={cn(
-            "size-7 text-muted-foreground hover:bg-muted hover:text-primary",
+            "size-7 text-muted-foreground hover:bg-muted hover:text-primary max-[649px]:h-14 max-[649px]:w-full max-[649px]:touch-none max-[649px]:rounded-none max-[649px]:hover:bg-primary/10",
             styles.dragHandleHint,
           )}
         >
@@ -802,6 +835,43 @@ function DepartmentQueueCard({
       }
       item={rowItem}
       labels={labels}
+      mobileDetailsAction={
+        item.outsourceOptions.length > 0 ? (
+          <OutsourceOfferDialog
+            compact
+            disabled={disabled}
+            item={item}
+            onMessage={onMessage}
+          />
+        ) : null
+      }
+      mobileDetailsId={mobileDetailsId}
+      mobileDetailsOpen={mobileDetailsOpen}
+      mobileDetailsToggle={
+        <Button
+          aria-controls={mobileDetailsId}
+          aria-expanded={mobileDetailsOpen}
+          aria-label={
+            mobileDetailsOpen
+              ? copy.row.hideDetails(item.orderNo)
+              : copy.row.showDetails(item.orderNo)
+          }
+          className="size-9 text-muted-foreground hover:text-primary"
+          onClick={onMobileDetailsToggle}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <ChevronDown
+            aria-hidden="true"
+            className={cn(
+              "transition-transform",
+              mobileDetailsOpen && "rotate-180",
+            )}
+            size={16}
+          />
+        </Button>
+      }
       priorityLabel={String(index + 1)}
     />
   )

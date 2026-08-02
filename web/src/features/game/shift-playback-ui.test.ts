@@ -150,6 +150,8 @@ test("650px altı playback simülasyon ve günlük olayları sıralı iki mobil 
   assert.doesNotMatch(layout, /pointer: coarse/);
   assert.match(hud, /copy\.showDailyEventsLabel/);
   assert.match(hud, /copy\.mobileTotalProducedLabel/);
+  assert.match(hud, /className="h-12 w-full rounded-xl/);
+  assert.match(hud, /isMobileCompact && isFinal/);
   assert.match(panel, /showAllImmediately\s*\? eligibleEvents/);
   assert.match(panel, /if \(showAllImmediately\) return/);
 });
@@ -163,8 +165,11 @@ test("mobil departman kartı yalnızca üretilen adedi ve aktif ürün adını k
   assert.match(card, /presentation\?: "default" \| "mobileCompact"/);
   assert.match(card, /isMobileCompact\s*\? \[/);
   assert.match(card, /label: copy\.mobileProducedLabel/);
+  assert.match(card, /departmentIconKey=\{department\.departmentIconKey\}/);
   assert.match(resultView, /presentation === "mobileCompact"/);
   assert.match(resultView, /data-shift-department-presentation="mobile-compact"/);
+  assert.match(resultView, /MobileDepartmentIcon iconKey=\{departmentIconKey\}/);
+  assert.match(resultView, /ProductThumb[\s\S]*?activeProduct\.imageUrl/);
   assert.match(resultView, /activeProduct\.name/);
   assert.match(resultView, /metric\.key === "produced"/);
 });
