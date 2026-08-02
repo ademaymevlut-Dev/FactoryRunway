@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import {
+  type CSSProperties,
   type ReactNode,
   useEffect,
   useRef,
@@ -39,6 +40,12 @@ import styles from "./top-status-bar.module.css";
 
 const VALUE_ANIMATION_MS = 4_200;
 const SMALL_METRIC_ANIMATION_MS = 900;
+const topStatusBarPositionStyle = {
+  top: "calc(env(safe-area-inset-top, 0px) + var(--game-header-block-offset, 0.5rem))",
+  right:
+    "calc(env(safe-area-inset-right, 0px) + var(--game-header-inline-offset, 0.5rem))",
+  left: "calc(env(safe-area-inset-left, 0px) + var(--game-header-inline-offset, 0.5rem))",
+} satisfies CSSProperties;
 
 const metricIcons: Record<string, LucideIcon> = {
   cash: Wallet,
@@ -70,7 +77,8 @@ export function TopStatusBar({
 
   return (
     <header
-      className={`pointer-events-none inset-x-0 top-0 z-30 px-2 pt-2 sm:px-3 xl:px-6 xl:pt-4 ${position}`}
+      className={`game-top-status-bar pointer-events-none z-30 xl:[--game-header-block-offset:1rem] xl:[--game-header-inline-offset:1.5rem] ${position}`}
+      style={topStatusBarPositionStyle}
     >
       <div className="pointer-events-auto mx-auto flex max-w-[1500px] items-center gap-1.5 rounded-lg bg-background/88 p-1.5 shadow-2xl backdrop-blur sm:gap-2 sm:p-2 xl:gap-3 xl:p-3">
         <div className="flex min-w-0 items-center gap-2 border-r border-card pr-2 sm:gap-2.5 sm:pr-3 xl:gap-3 xl:pr-4">

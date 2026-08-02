@@ -156,8 +156,9 @@ export const gameCopy = {
       },
     },
     shiftControl: {
-      pending: "Çalışıyor",
-      playing: "Oynatılıyor",
+      completed: "Gün Sonu Özeti",
+      pending: "Vardiya hazırlanıyor",
+      playing: "Vardiya sürüyor",
       start: "Vardiyayı başlat",
       day: (day: number) => `${day}. gün`,
     },
@@ -382,8 +383,9 @@ export const gameCopy = {
       },
     },
     shiftControl: {
-      pending: "Running",
-      playing: "Playing",
+      completed: "End of Day Summary",
+      pending: "Preparing shift",
+      playing: "Shift in progress",
       start: "Start shift",
       day: (day: number) => `Day ${day}`,
     },
@@ -567,6 +569,7 @@ export const gameCopy = {
       };
     };
     shiftControl: {
+      completed: string;
       pending: string;
       playing: string;
       start: string;

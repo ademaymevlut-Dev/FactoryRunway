@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { Factory, Plus } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ShipmentMapArea } from "@/features/warehouse/components/shipment-map-area";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,6 @@ import {
   getOfficeManagementSceneAsset,
 } from "../office-management-scene";
 import {
-  FACTORY_MAP_BASE_SCALE,
   FACTORY_MAP_CANVAS_HORIZONTAL_PADDING,
   FACTORY_MAP_DEPARTMENT_AREA_HEIGHT,
   FACTORY_MAP_OFFICE_CONNECTOR_GAP,
@@ -24,17 +23,41 @@ import {
   FACTORY_MAP_SHIPMENT_AREA_HEIGHT,
   FACTORY_MAP_SHIPMENT_AREA_WIDTH,
   FACTORY_MAP_SLOT_WIDTH,
+  FACTORY_MAP_ZERO_CAMERA_INSETS,
+  getFactoryMapBaseScale,
   getFactoryMapBoundedOffset,
+  getFactoryMapCameraInsets,
   getFactoryMapCanvasHeight,
   getFactoryMapCanvasWidth,
+  getFactoryMapEffectiveScale,
+  getFactoryMapInitialOffset,
   getFactoryMapOfficeVerticalRise,
+  getFactoryMapReanchoredOffset,
   getFactoryMapSectionWidth,
+  getFactoryMapUsableCenter,
+  resolveFactoryMapViewportClass,
+  type FactoryMapCameraInsets,
   type FactoryMapOffset,
+  type FactoryMapPoint,
+  type FactoryMapViewportClass,
 } from "../factory-map-layout";
 import type { FactoryMapItem, FactoryMapSection, GameSnapshot } from "../types";
 import { OfficeManagementMapArea } from "./office-management-map-area";
 
 const DRAG_THRESHOLD = 6;
+const CAMERA_HUD_SELECTORS = {
+  bottomControl: ".game-bottom-control",
+  bottomDock: ".game-bottom-dock",
+  leftHud: ".game-left-hud",
+  topHud: ".game-top-status-bar",
+} as const;
+
+type CameraSnapshot = {
+  orientation: "landscape" | "portrait";
+  scale: number;
+  usableCenter: FactoryMapPoint;
+  viewportClass: FactoryMapViewportClass;
+};
 
 type VisualSlotStatus =
   | "active"
@@ -95,7 +118,15 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     setHoveredDepartmentId,
     setMapPan,
   } = useGameUiStore();
+  const [viewportClass, setViewportClass] =
+    useState<FactoryMapViewportClass>("desktop");
   const viewportRef = useRef<HTMLElement | null>(null);
+  const cameraInsetsRef = useRef<FactoryMapCameraInsets>(
+    FACTORY_MAP_ZERO_CAMERA_INSETS,
+  );
+  const cameraSnapshotRef = useRef<CameraSnapshot | null>(null);
+  const cameraInitializedRef = useRef(false);
+  const mapPanRef = useRef(mapPan);
   const previousVerticalRiseRef = useRef(0);
   const suppressClickRef = useRef(false);
   const dragState = useRef({
@@ -106,7 +137,12 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     startX: 0,
     startY: 0,
   });
-  const scale = FACTORY_MAP_BASE_SCALE * mapZoom;
+
+  const responsiveBaseScale = getFactoryMapBaseScale(viewportClass);
+  const scale = getFactoryMapEffectiveScale({
+    baseScale: responsiveBaseScale,
+    mapZoom,
+  });
   const copy = gameCopy[snapshot.locale].map;
   const officeAsset = useMemo(
     () => getOfficeManagementSceneAsset(snapshot.factory.operatingStageKey),
@@ -131,12 +167,20 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     [hoveredDepartmentId, selectedDockDepartmentIds],
   );
 
+  useEffect(() => {
+    mapPanRef.current = mapPan;
+  }, [mapPan]);
+
   const boundOffsetToViewport = useCallback(
     (nextOffset: FactoryMapOffset, viewportRect?: DOMRect) => {
       const rect = viewportRect ?? viewportRef.current?.getBoundingClientRect();
       if (!rect) return nextOffset;
 
       return getFactoryMapBoundedOffset({
+        cameraInsets:
+          viewportClass === "desktop"
+            ? FACTORY_MAP_ZERO_CAMERA_INSETS
+            : cameraInsetsRef.current,
         canvasHeight,
         canvasWidth,
         proposedOffset: nextOffset,
@@ -145,36 +189,167 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
         viewportWidth: rect.width,
       });
     },
-    [canvasHeight, canvasWidth, scale],
+    [canvasHeight, canvasWidth, scale, viewportClass],
   );
 
   useEffect(() => {
+    let animationFrameId: number | null = null;
+    const viewport = viewportRef.current;
+    const coarsePointerQuery = window.matchMedia("(pointer: coarse)");
+
+    if (!viewport) {
+      return;
+    }
+
     const syncCameraBounds = () => {
+      const viewportRect = viewport.getBoundingClientRect();
+
+      if (viewportRect.width <= 0 || viewportRect.height <= 0) {
+        return;
+      }
+
+      const nextViewportClass = resolveFactoryMapViewportClass({
+        height: viewportRect.height,
+        inputMode: coarsePointerQuery.matches ? "coarse" : "fine",
+        width: viewportRect.width,
+      });
+
+      if (nextViewportClass !== viewportClass) {
+        setViewportClass(nextViewportClass);
+        return;
+      }
+
+      const readHudRect = (selector: string) =>
+        document
+          .querySelector<HTMLElement>(selector)
+          ?.getBoundingClientRect() ?? null;
+      const nextCameraInsets =
+        viewportClass === "desktop"
+          ? FACTORY_MAP_ZERO_CAMERA_INSETS
+          : getFactoryMapCameraInsets({
+              bottomHudRects: [
+                readHudRect(CAMERA_HUD_SELECTORS.bottomDock),
+                readHudRect(CAMERA_HUD_SELECTORS.bottomControl),
+              ].filter((rect): rect is DOMRect => rect !== null),
+              leftHudRect: readHudRect(CAMERA_HUD_SELECTORS.leftHud),
+              topHudRect: readHudRect(CAMERA_HUD_SELECTORS.topHud),
+              viewportRect,
+            });
+      cameraInsetsRef.current = nextCameraInsets;
+
+      const usableCenter = getFactoryMapUsableCenter({
+        cameraInsets: nextCameraInsets,
+        viewportHeight: viewportRect.height,
+        viewportWidth: viewportRect.width,
+      });
+      const orientation =
+        viewportRect.width >= viewportRect.height
+          ? "landscape"
+          : "portrait";
       const verticalRiseDelta =
         officeVerticalRise - previousVerticalRiseRef.current;
       previousVerticalRiseRef.current = officeVerticalRise;
-      const boundedOffset = boundOffsetToViewport({
-        x: mapPan.x,
-        y: mapPan.y - verticalRiseDelta * scale,
-      });
+      const currentOffset = mapPanRef.current;
+      const proposedOffset = {
+        x: currentOffset.x,
+        y: currentOffset.y - verticalRiseDelta * scale,
+      };
+      const previousCamera = cameraSnapshotRef.current;
+      let boundedOffset: FactoryMapOffset;
 
-      if (boundedOffset.x !== mapPan.x || boundedOffset.y !== mapPan.y) {
+      if (!cameraInitializedRef.current) {
+        boundedOffset =
+          viewportClass === "desktop"
+            ? boundOffsetToViewport(proposedOffset, viewportRect)
+            : getFactoryMapInitialOffset({
+                cameraInsets: nextCameraInsets,
+                canvasHeight,
+                canvasWidth,
+                scale,
+                viewportHeight: viewportRect.height,
+                viewportWidth: viewportRect.width,
+              });
+        cameraInitializedRef.current = true;
+      } else if (
+        previousCamera &&
+        (previousCamera.viewportClass !== viewportClass ||
+          previousCamera.orientation !== orientation)
+      ) {
+        boundedOffset = getFactoryMapReanchoredOffset({
+          canvasHeight,
+          canvasWidth,
+          nextCameraInsets,
+          nextScale: scale,
+          nextViewportHeight: viewportRect.height,
+          nextViewportWidth: viewportRect.width,
+          previousOffset: proposedOffset,
+          previousScale: previousCamera.scale,
+          previousUsableCenter: previousCamera.usableCenter,
+        });
+      } else {
+        boundedOffset = boundOffsetToViewport(proposedOffset, viewportRect);
+      }
+
+      cameraSnapshotRef.current = {
+        orientation,
+        scale,
+        usableCenter,
+        viewportClass,
+      };
+
+      if (
+        boundedOffset.x !== currentOffset.x ||
+        boundedOffset.y !== currentOffset.y
+      ) {
+        mapPanRef.current = boundedOffset;
         setMapPan(boundedOffset);
       }
     };
 
+    const scheduleCameraBoundsSync = () => {
+      if (animationFrameId !== null) return;
+
+      animationFrameId = window.requestAnimationFrame(() => {
+        animationFrameId = null;
+        syncCameraBounds();
+      });
+    };
+
     syncCameraBounds();
-    window.addEventListener("resize", syncCameraBounds);
+    window.addEventListener("resize", scheduleCameraBoundsSync);
+    coarsePointerQuery.addEventListener("change", scheduleCameraBoundsSync);
+
+    const visualViewport = window.visualViewport;
+    visualViewport?.addEventListener("resize", scheduleCameraBoundsSync);
+
+    const resizeObserver = new ResizeObserver(scheduleCameraBoundsSync);
+    resizeObserver.observe(viewport);
+    Object.values(CAMERA_HUD_SELECTORS).forEach((selector) => {
+      const hudElement = document.querySelector<HTMLElement>(selector);
+
+      if (hudElement) {
+        resizeObserver.observe(hudElement);
+      }
+    });
 
     return () => {
-      window.removeEventListener("resize", syncCameraBounds);
+      window.removeEventListener("resize", scheduleCameraBoundsSync);
+      coarsePointerQuery.removeEventListener("change", scheduleCameraBoundsSync);
+      visualViewport?.removeEventListener("resize", scheduleCameraBoundsSync);
+      resizeObserver.disconnect();
+
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId);
+      }
     };
   }, [
     boundOffsetToViewport,
-    mapPan,
+    canvasHeight,
+    canvasWidth,
     officeVerticalRise,
     scale,
     setMapPan,
+    viewportClass,
   ]);
 
   const releaseMapDrag = useCallback((target?: HTMLElement, pointerId?: number) => {

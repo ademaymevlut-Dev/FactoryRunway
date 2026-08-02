@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { CheckCircle2 } from "lucide-react";
 
 import {
@@ -34,6 +35,10 @@ const leftDockItems: LeftDockItem[] = [
   { key: "finance" },
   { key: "reports" },
 ];
+
+const leftDockPositionStyle = {
+  left: "calc(env(safe-area-inset-left, 0px) + var(--game-left-edge-offset, 0.5rem))",
+} satisfies CSSProperties;
 
 const leftDockIconPaths: Record<LeftDockKey, LeftDockIconPath[]> = {
   finance: [
@@ -85,7 +90,8 @@ export function LeftDockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <nav
       aria-label={copy.navLabel}
-      className="pointer-events-none absolute left-2 top-1/2 z-30 -translate-y-1/2 xl:left-4"
+      className="game-left-hud pointer-events-none absolute top-1/2 z-30 -translate-y-1/2 xl:[--game-left-edge-offset:1rem]"
+      style={leftDockPositionStyle}
     >
       <div className="pointer-events-auto relative isolate flex flex-col items-center gap-1 overflow-visible rounded-[20px] border border-white/10 bg-[#232429]/80 px-1 py-1 shadow-[inset_0_0_26px_hsl(var(--primary)/0.14),0_16px_40px_rgba(0,0,0,0.46)] backdrop-blur-xl xl:gap-1.5 xl:rounded-[28px] xl:px-2.5 xl:py-2.5 xl:shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)]">
         <span

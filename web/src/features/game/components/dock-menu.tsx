@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import { ArrowUpRight, BookOpenText } from "lucide-react";
 
@@ -14,6 +15,14 @@ import { cn } from "@/lib/utils";
 import { useGameUiStore } from "../store/game-ui-store";
 import { gameCopy } from "../game-copy";
 import type { GameDockBadge, GameDockItem, GamePanelKey, GameSnapshot } from "../types";
+
+const dockPositionStyle = {
+  right:
+    "calc(env(safe-area-inset-right, 0px) + var(--game-dock-edge-offset))",
+  bottom:
+    "calc(env(safe-area-inset-bottom, 0px) + var(--game-dock-edge-offset))",
+  left: "calc(env(safe-area-inset-left, 0px) + var(--game-dock-edge-offset))",
+} satisfies CSSProperties;
 
 export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   const {
@@ -33,7 +42,8 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
   return (
     <nav
       aria-label={copy.navLabel}
-      className="pointer-events-none absolute inset-x-0 bottom-2 z-30 flex items-end justify-center px-2 xl:bottom-4 xl:px-4"
+      className="game-bottom-dock pointer-events-none absolute z-30 flex items-end justify-center"
+      style={dockPositionStyle}
     >
       <div className="pointer-events-auto flex max-w-[calc(100vw-1rem)] items-end gap-1 xl:gap-3">
         <Link

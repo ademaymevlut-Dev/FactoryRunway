@@ -1,0 +1,118 @@
+.layer {
+  position: absolute;
+  bottom: calc(
+    env(safe-area-inset-bottom, 0px) +
+      var(--game-bottom-control-offset, 0.5rem)
+  );
+  left: calc(50% + var(--shift-control-left-compact));
+  z-index: 30;
+  display: block;
+  pointer-events: none;
+}
+
+.button {
+  height: 58px;
+  width: 76px;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 20px;
+  padding: 4px;
+}
+
+.iconSurface {
+  width: 24px;
+  height: 24px;
+}
+
+.icon {
+  width: 14px;
+  height: 14px;
+}
+
+.day {
+  display: block;
+  margin-top: 2px;
+  font-size: 8px;
+}
+
+.label {
+  font-size: 8px;
+}
+
+@media (max-width: 639px), (pointer: coarse) {
+  .layer {
+    right: 0;
+    bottom: calc(
+      env(safe-area-inset-bottom, 0px) + var(--game-dock-edge-offset) +
+        var(--game-dock-height) + var(--game-shift-dock-gap)
+    );
+    left: 0;
+    display: flex;
+    justify-content: center;
+  }
+
+  .button {
+    width: clamp(180px, 58vw, 230px);
+    max-width: calc(
+      100vw - env(safe-area-inset-left, 0px) -
+        env(safe-area-inset-right, 0px) - 32px
+    );
+    min-height: 48px;
+    height: 48px;
+    flex-direction: row;
+    gap: 8px;
+    border-radius: 9999px;
+    padding: 0 16px;
+  }
+
+  .iconSurface {
+    width: 32px;
+    height: 32px;
+  }
+
+  .icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .day {
+    display: none;
+  }
+
+  .label {
+    min-width: 0;
+    font-size: 13px;
+  }
+}
+
+@media (min-width: 1280px) and (pointer: fine) {
+  .layer {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 1rem);
+    left: calc(50% + var(--shift-control-left-desktop));
+  }
+
+  .button {
+    width: 112px;
+    height: 88px;
+    gap: 4px;
+    border-radius: 24px;
+  }
+
+  .iconSurface {
+    width: 36px;
+    height: 36px;
+  }
+
+  .icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .day {
+    font-size: 10px;
+  }
+
+  .label {
+    font-size: 11px;
+  }
+}
