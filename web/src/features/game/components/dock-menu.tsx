@@ -115,12 +115,13 @@ export function DockMenu({ snapshot }: { snapshot: GameSnapshot }) {
 
         <div
           className={cn(
-            "relative isolate overflow-visible rounded-[20px] border border-white/10 bg-[#232429]/80 shadow-[inset_0_0_26px_hsl(var(--primary)/0.14),0_16px_40px_rgba(0,0,0,0.46)] backdrop-blur-xl xl:rounded-[28px] xl:shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)]",
+            "relative isolate overflow-visible rounded-[20px] border border-white/10 shadow-[inset_0_0_26px_hsl(var(--primary)/0.14),0_16px_40px_rgba(0,0,0,0.46)] xl:rounded-[28px] xl:shadow-[inset_0_0_34px_hsl(var(--primary)/0.16),0_22px_55px_rgba(0,0,0,0.5)]",
             styles.frame,
           )}
           data-dock-overflow-left={overflow.canScrollLeft}
           data-dock-overflow-right={overflow.canScrollRight}
         >
+          <span aria-hidden="true" className={styles.glassSurface} />
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-x-8 top-0 h-px bg-gradient-to-r from-transparent via-white/35 to-transparent"
@@ -290,6 +291,25 @@ function useDockScroller(activeDockItemId: string | null) {
     overflowFrameRef.current = window.requestAnimationFrame(syncOverflow);
   }, [syncOverflow]);
 
+  const clampScrollPosition = useCallback(() => {
+    const scroller = scrollerRef.current;
+
+    if (!scroller) return;
+
+    const maximumScrollLeft = Math.max(
+      0,
+      scroller.scrollWidth - scroller.clientWidth,
+    );
+    const nextScrollLeft = Math.max(
+      0,
+      Math.min(maximumScrollLeft, scroller.scrollLeft),
+    );
+
+    if (Math.abs(nextScrollLeft - scroller.scrollLeft) > 0.5) {
+      scroller.scrollTo({ behavior: "auto", left: nextScrollLeft });
+    }
+  }, []);
+
   const ensureDockItemVisible = useCallback(
     (dockItemId: string, behavior: ScrollBehavior) => {
       const scroller = scrollerRef.current;
@@ -321,7 +341,7 @@ function useDockScroller(activeDockItemId: string | null) {
 
       scroller.scrollTo({
         behavior,
-        left: Math.min(maximumScrollLeft, targetScrollLeft),
+        left: Math.max(0, Math.min(maximumScrollLeft, targetScrollLeft)),
       });
     },
     [],
@@ -341,21 +361,29 @@ function useDockScroller(activeDockItemId: string | null) {
       const prefersReducedMotion = window.matchMedia(
         "(prefers-reduced-motion: reduce)",
       ).matches;
+      const usesCoarsePointer = window.matchMedia("(pointer: coarse)").matches;
 
       ensureDockItemVisible(
         dockItemId,
-        prefersReducedMotion ? "auto" : "smooth",
+        prefersReducedMotion || usesCoarsePointer ? "auto" : "smooth",
       );
     });
   }, [ensureDockItemVisible]);
 
   useEffect(() => {
     activeDockItemIdRef.current = activeDockItemId;
+    clampScrollPosition();
+    scheduleOverflowSync();
 
     if (activeDockItemId) {
       scheduleActiveItemVisibility();
     }
-  }, [activeDockItemId, scheduleActiveItemVisibility]);
+  }, [
+    activeDockItemId,
+    clampScrollPosition,
+    scheduleActiveItemVisibility,
+    scheduleOverflowSync,
+  ]);
 
   useEffect(() => {
     const scroller = scrollerRef.current;
@@ -364,8 +392,14 @@ function useDockScroller(activeDockItemId: string | null) {
     if (!scroller || !items) return;
 
     const handleLayoutChange = () => {
+      clampScrollPosition();
       scheduleOverflowSync();
       scheduleActiveItemVisibility();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        handleLayoutChange();
+      }
     };
     const resizeObserver = new ResizeObserver(handleLayoutChange);
 
@@ -375,12 +409,16 @@ function useDockScroller(activeDockItemId: string | null) {
       passive: true,
     });
     window.addEventListener("orientationchange", handleLayoutChange);
-    scheduleOverflowSync();
+    window.addEventListener("pageshow", handleLayoutChange);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    handleLayoutChange();
 
     return () => {
       resizeObserver.disconnect();
       scroller.removeEventListener("scroll", scheduleOverflowSync);
       window.removeEventListener("orientationchange", handleLayoutChange);
+      window.removeEventListener("pageshow", handleLayoutChange);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
 
       if (overflowFrameRef.current !== null) {
         window.cancelAnimationFrame(overflowFrameRef.current);
@@ -389,7 +427,11 @@ function useDockScroller(activeDockItemId: string | null) {
         window.cancelAnimationFrame(visibilityFrameRef.current);
       }
     };
-  }, [scheduleActiveItemVisibility, scheduleOverflowSync]);
+  }, [
+    clampScrollPosition,
+    scheduleActiveItemVisibility,
+    scheduleOverflowSync,
+  ]);
 
   useEffect(
     () => () => {

@@ -8,6 +8,7 @@ function readSource(relativePath: string) {
 
 const dock = readSource("./components/dock-menu.tsx");
 const styles = readSource("./components/dock-menu.module.css");
+const topStatusStyles = readSource("./components/top-status-bar.module.css");
 const shell = readSource("./components/game-shell.tsx");
 
 test("mobil dock dış ölçüm kabını koruyup yalnız içeriğini yatay kaydırır", () => {
@@ -18,7 +19,13 @@ test("mobil dock dış ölçüm kabını koruyup yalnız içeriğini yatay kayd�
   assert.match(styles, /overscroll-behavior-inline:\s*contain/);
   assert.match(styles, /scrollbar-width:\s*none/);
   assert.match(styles, /touch-action:\s*pan-x/);
-  assert.match(styles, /-webkit-overflow-scrolling:\s*touch/);
+  assert.doesNotMatch(`${styles}${topStatusStyles}`, /-webkit-overflow-scrolling/);
+  assert.match(styles, /\.glassSurface\s*\{[\s\S]*?backdrop-filter:\s*blur\(24px\)/);
+  assert.match(styles, /\.scroller\s*\{[\s\S]*?position:\s*relative[\s\S]*?z-index:\s*10/);
+  assert.doesNotMatch(
+    dock,
+    /styles\.frame[^\n]*[\s\S]{0,240}backdrop-blur-xl/,
+  );
   assert.match(styles, /\.items\s*\{[\s\S]*?width:\s*max-content[\s\S]*?min-width:\s*100%[\s\S]*?justify-content:\s*center/);
   assert.match(
     shell,
@@ -54,10 +61,21 @@ test("aktif ve klavye odaklı öğe yalnız kadraj dışındaysa görünür yap�
   assert.match(dock, /activeDockItemIdRef\.current = activeDockItemId/);
   assert.match(dock, /scheduleActiveItemVisibility\(\)/);
   assert.match(dock, /prefers-reduced-motion: reduce/);
-  assert.match(dock, /prefersReducedMotion \? "auto" : "smooth"/);
+  assert.match(dock, /const usesCoarsePointer = window\.matchMedia\("\(pointer: coarse\)"\)\.matches/);
+  assert.match(dock, /prefersReducedMotion \|\| usesCoarsePointer \? "auto" : "smooth"/);
   assert.match(dock, /handleDockItemFocus\(event, item\.id\)/);
   assert.match(dock, /aria-current=\{isActive \? "page" : undefined\}/);
   assert.match(dock, /aria-pressed=\{isActive\}/);
+});
+
+test("dock scroll konumu lifecycle ve ölçü değişimlerinde geçerli aralığa alınır", () => {
+  assert.match(dock, /const clampScrollPosition = useCallback\(\(\) =>/);
+  assert.match(dock, /Math\.min\(maximumScrollLeft, scroller\.scrollLeft\)/);
+  assert.match(dock, /activeDockItemIdRef\.current = activeDockItemId;[\s\S]*?clampScrollPosition\(\)/);
+  assert.match(dock, /window\.addEventListener\("pageshow", handleLayoutChange\)/);
+  assert.match(dock, /document\.addEventListener\("visibilitychange", handleVisibilityChange\)/);
+  assert.match(dock, /window\.removeEventListener\("pageshow", handleLayoutChange\)/);
+  assert.match(dock, /document\.removeEventListener\("visibilitychange", handleVisibilityChange\)/);
 });
 
 test("yatay swipe yanlış click'i ve harita etkileşimine taşmayı engeller", () => {

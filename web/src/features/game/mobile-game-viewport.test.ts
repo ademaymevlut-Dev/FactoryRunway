@@ -19,6 +19,7 @@ const layout = readSource("../../app/(default-tr)/game/layout.tsx");
 const pwaConfig = readSource("../../app/pwa-config.ts");
 const globals = readSource("../../app/globals.css");
 const mapLayout = readSource("./factory-map-layout.ts");
+const mapGesture = readSource("./factory-map-gesture.ts");
 
 test("oyun route'u dinamik viewport'a sabitlenir ve belge yüksekliği üretmez", () => {
   assert.match(
@@ -34,8 +35,14 @@ test("oyun belge scroll kilidi önceki html ve body değerlerini cleanup sıras�
   assert.match(shell, /htmlOverflow:\s*html\.style\.overflow/);
   assert.match(shell, /html\.style\.overflow = "hidden"/);
   assert.match(shell, /body\.style\.overflow = "hidden"/);
+  assert.match(shell, /body\.style\.position = "fixed"/);
+  assert.match(shell, /body\.style\.top = `\$\{-scrollY\}px`/);
+  assert.match(shell, /body\.style\.left = `\$\{-scrollX\}px`/);
+  assert.match(shell, /body\.style\.height = "100%"/);
   assert.match(shell, /html\.style\.overflow = previousStyles\.htmlOverflow/);
   assert.match(shell, /body\.style\.overflow = previousStyles\.bodyOverflow/);
+  assert.match(shell, /body\.style\.position = previousStyles\.bodyPosition/);
+  assert.match(shell, /window\.scrollTo\(\{ behavior: "auto", left: scrollX, top: scrollY \}\)/);
 });
 
 test("game layout viewport-fit cover kullanır ve erişilebilir kullanıcı zoom'unu yasaklamaz", () => {
@@ -75,8 +82,13 @@ test("mobil HUD kenarları max kullanmadan safe-area insetlerine bağlanır", ()
   );
 });
 
-test("Safari alt araç çubuğu dock'u görsel viewport içinde tutar", () => {
+test("normal Safari visual viewport'u izlerken standalone PWA stabil dvh kullanır", () => {
   assert.match(shell, /function useGameVisualViewportHeight/);
+  assert.match(shell, /function isStandaloneGameDisplay/);
+  assert.match(shell, /iosNavigator\.standalone === true/);
+  assert.match(shell, /matchMedia\("\(display-mode: standalone\)"\)/);
+  assert.match(shell, /if \(isStandaloneGameDisplay\(\)\)/);
+  assert.match(shell, /setProperty\("--game-visual-viewport-height", "100dvh"\)/);
   assert.match(shell, /const viewportHeight = `\$\{Math\.round\(visualViewport\.height\)\}px`/);
   assert.match(shell, /shell\.style\.height = viewportHeight/);
   assert.match(
@@ -130,5 +142,11 @@ test("harita etkileşim yüzeyi touch panı ve masaüstü temel ölçeğini koru
   assert.match(factoryMap, /onPointerUp=/);
   assert.match(factoryMap, /onPointerCancel=/);
   assert.match(factoryMap, /setPointerCapture/);
+  assert.match(factoryMap, /lockToAxis: event\.pointerType === "touch"/);
+  assert.match(factoryMap, /resolveFactoryMapDragAxis\(\{/);
+  assert.match(factoryMap, /getFactoryMapDragDelta\(\{/);
+  assert.match(mapGesture, /return Math\.abs\(deltaX\) >= Math\.abs\(deltaY\)/);
+  assert.match(mapGesture, /axis === "horizontal"/);
+  assert.match(mapGesture, /axis === "vertical"/);
   assert.match(mapLayout, /FACTORY_MAP_BASE_SCALE = 0\.82/);
 });

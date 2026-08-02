@@ -150,7 +150,7 @@ test("küçük telefon, büyük telefon ve tablette bottom sheet genişlik hesab
   );
 });
 
-test("sheet mevcut visualViewport yüksekliği içinde yalnız iç scroll alanını kullanır", () => {
+test("sheet Safari visualViewport ve standalone dvh içinde yalnız iç scroll alanını kullanır", () => {
   assert.match(shell, /--game-visual-viewport-height/);
   assert.match(shell, /visualViewport\.height/);
   assert.match(shell, /const documentRoot = document\.documentElement/);
@@ -159,7 +159,8 @@ test("sheet mevcut visualViewport yüksekliği içinde yalnız iç scroll alanı
   assert.match(styles, /max-height:\s*min\(/);
   assert.match(styles, /\.mobileSheetContent\s*\{[\s\S]*?display:\s*flex[\s\S]*?flex-direction:\s*column/);
   assert.match(styles, /\.mobileSheetFixedHeader\s*\{[\s\S]*?flex:\s*0 0 auto/);
-  assert.match(styles, /\.mobileSheetScroll\s*\{[\s\S]*?overflow-y:\s*auto[\s\S]*?overscroll-behavior:\s*contain[\s\S]*?padding-bottom:\s*calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)[\s\S]*?-webkit-overflow-scrolling:\s*touch/);
+  assert.match(styles, /\.mobileSheetScroll\s*\{[\s\S]*?overflow-y:\s*auto[\s\S]*?overscroll-behavior:\s*contain[\s\S]*?padding-bottom:\s*calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/);
+  assert.doesNotMatch(styles, /-webkit-overflow-scrolling/);
 });
 
 test("bottom sheet alttan açılır, kapanır ve reduced motion tercihine uyar", () => {

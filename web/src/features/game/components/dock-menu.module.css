@@ -9,7 +9,19 @@
   flex: 0 1 auto;
 }
 
+.glassSurface {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  border-radius: inherit;
+  background: rgb(35 36 41 / 0.8);
+  pointer-events: none;
+  backdrop-filter: blur(24px);
+}
+
 .scroller {
+  position: relative;
+  z-index: 10;
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
@@ -58,7 +70,6 @@
 @media (max-width: 639px), (pointer: coarse) {
   .scroller {
     touch-action: pan-x;
-    -webkit-overflow-scrolling: touch;
   }
 
   .button,

@@ -11,6 +11,11 @@ import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 import { useGameUiStore } from "../store/game-ui-store";
 import { gameCopy, type GameCopy } from "../game-copy";
 import {
+  getFactoryMapDragDelta,
+  resolveFactoryMapDragAxis,
+  type FactoryMapDragAxis,
+} from "../factory-map-gesture";
+import {
   OFFICE_MANAGEMENT_AREA_WIDTH,
   getOfficeManagementSceneAsset,
 } from "../office-management-scene";
@@ -57,6 +62,17 @@ type CameraSnapshot = {
   scale: number;
   usableCenter: FactoryMapPoint;
   viewportClass: FactoryMapViewportClass;
+};
+
+type FactoryMapDragState = {
+  active: boolean;
+  axis: FactoryMapDragAxis | null;
+  lockToAxis: boolean;
+  moved: boolean;
+  originX: number;
+  originY: number;
+  startX: number;
+  startY: number;
 };
 
 type VisualSlotStatus =
@@ -129,8 +145,10 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   const mapPanRef = useRef(mapPan);
   const previousVerticalRiseRef = useRef(0);
   const suppressClickRef = useRef(false);
-  const dragState = useRef({
+  const dragState = useRef<FactoryMapDragState>({
     active: false,
+    axis: null,
+    lockToAxis: false,
     moved: false,
     originX: 0,
     originY: 0,
@@ -407,6 +425,8 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
         setMapPan(boundedOffset);
         dragState.current = {
           active: true,
+          axis: null,
+          lockToAxis: event.pointerType === "touch",
           moved: false,
           originX: boundedOffset.x,
           originY: boundedOffset.y,
@@ -426,17 +446,27 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
 
         if (!dragState.current.moved) {
           event.currentTarget.setPointerCapture(event.pointerId);
+          dragState.current.axis = resolveFactoryMapDragAxis({
+            deltaX,
+            deltaY,
+            lockToAxis: dragState.current.lockToAxis,
+          });
         }
 
         dragState.current.moved = true;
         suppressClickRef.current = true;
 
+        const dragDelta = getFactoryMapDragDelta({
+          axis: dragState.current.axis ?? "free",
+          deltaX,
+          deltaY,
+        });
         const viewportRect = event.currentTarget.getBoundingClientRect();
         setMapPan(
           boundOffsetToViewport(
             {
-              x: dragState.current.originX + deltaX,
-              y: dragState.current.originY + deltaY,
+              x: dragState.current.originX + dragDelta.x,
+              y: dragState.current.originY + dragDelta.y,
             },
             viewportRect,
           ),

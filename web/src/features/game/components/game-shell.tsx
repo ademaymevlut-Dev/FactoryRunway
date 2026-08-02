@@ -102,17 +102,53 @@ function useGameVisualViewportHeight(shellRef: RefObject<HTMLElement | null>) {
     const visualViewport = window.visualViewport;
     const documentRoot = document.documentElement;
 
-    if (!shell || !visualViewport) {
+    if (!shell) {
       return;
     }
 
     let animationFrameId: number | null = null;
+    const initialShellHeight = shell.style.height;
     const initialViewportHeight = shell.style.getPropertyValue(
       "--game-visual-viewport-height",
     );
     const initialRootViewportHeight = documentRoot.style.getPropertyValue(
       "--game-visual-viewport-height",
     );
+    const restoreViewportHeight = () => {
+      if (initialShellHeight) {
+        shell.style.height = initialShellHeight;
+      } else {
+        shell.style.removeProperty("height");
+      }
+      shell.style.setProperty(
+        "--game-visual-viewport-height",
+        initialViewportHeight,
+      );
+
+      if (initialRootViewportHeight) {
+        documentRoot.style.setProperty(
+          "--game-visual-viewport-height",
+          initialRootViewportHeight,
+        );
+      } else {
+        documentRoot.style.removeProperty("--game-visual-viewport-height");
+      }
+    };
+
+    if (isStandaloneGameDisplay()) {
+      shell.style.removeProperty("height");
+      shell.style.setProperty("--game-visual-viewport-height", "100dvh");
+      documentRoot.style.setProperty(
+        "--game-visual-viewport-height",
+        "100dvh",
+      );
+
+      return restoreViewportHeight;
+    }
+
+    if (!visualViewport) {
+      return;
+    }
 
     const syncViewportHeight = () => {
       animationFrameId = null;
@@ -148,20 +184,7 @@ function useGameVisualViewportHeight(shellRef: RefObject<HTMLElement | null>) {
         window.cancelAnimationFrame(animationFrameId);
       }
 
-      shell.style.removeProperty("height");
-      shell.style.setProperty(
-        "--game-visual-viewport-height",
-        initialViewportHeight,
-      );
-
-      if (initialRootViewportHeight) {
-        documentRoot.style.setProperty(
-          "--game-visual-viewport-height",
-          initialRootViewportHeight,
-        );
-      } else {
-        documentRoot.style.removeProperty("--game-visual-viewport-height");
-      }
+      restoreViewportHeight();
     };
   }, [shellRef]);
 }
@@ -170,23 +193,58 @@ function useGameDocumentScrollLock() {
   useEffect(() => {
     const html = document.documentElement;
     const body = document.body;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
     const previousStyles = {
+      bodyHeight: body.style.height,
+      bodyLeft: body.style.left,
       bodyOverflow: body.style.overflow,
       bodyOverscrollBehavior: body.style.overscrollBehavior,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyWidth: body.style.width,
+      htmlHeight: html.style.height,
       htmlOverflow: html.style.overflow,
       htmlOverscrollBehavior: html.style.overscrollBehavior,
     };
 
+    html.style.height = "100%";
     html.style.overflow = "hidden";
     html.style.overscrollBehavior = "none";
+    body.style.position = "fixed";
+    body.style.top = `${-scrollY}px`;
+    body.style.left = `${-scrollX}px`;
+    body.style.width = "100%";
+    body.style.height = "100%";
     body.style.overflow = "hidden";
     body.style.overscrollBehavior = "none";
 
     return () => {
+      html.style.height = previousStyles.htmlHeight;
       html.style.overflow = previousStyles.htmlOverflow;
       html.style.overscrollBehavior = previousStyles.htmlOverscrollBehavior;
+      body.style.position = previousStyles.bodyPosition;
+      body.style.top = previousStyles.bodyTop;
+      body.style.left = previousStyles.bodyLeft;
+      body.style.width = previousStyles.bodyWidth;
+      body.style.height = previousStyles.bodyHeight;
       body.style.overflow = previousStyles.bodyOverflow;
       body.style.overscrollBehavior = previousStyles.bodyOverscrollBehavior;
+
+      if (scrollX !== 0 || scrollY !== 0) {
+        window.scrollTo({ behavior: "auto", left: scrollX, top: scrollY });
+      }
     };
   }, []);
+}
+
+function isStandaloneGameDisplay() {
+  const iosNavigator = window.navigator as Navigator & {
+    standalone?: boolean;
+  };
+
+  return (
+    iosNavigator.standalone === true ||
+    window.matchMedia("(display-mode: standalone)").matches
+  );
 }
