@@ -9,17 +9,19 @@ import {
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 
+import { isRunningStandalone } from "../pwa-install";
+import { GameUiProvider } from "../store/game-ui-store";
 import type { GameSnapshot } from "../types";
 import { DockMenu } from "./dock-menu";
 import { FactoryMap } from "./factory-map";
 import { LeftDockMenu } from "./left-dock-menu";
 import { NotificationCenter } from "./notification-center";
 import { OverlayLayerManager } from "./overlay-layer-manager";
+import { PwaInstallProvider } from "./pwa-install-provider";
 import { ShiftControlBar } from "./shift-control-bar";
 import { ShiftPlaybackInteractionLock } from "./shift-playback-interaction-lock";
 import { ShiftPlaybackOverlayLayout } from "./shift-playback-overlay-layout";
 import { TopStatusBar } from "./top-status-bar";
-import { GameUiProvider } from "../store/game-ui-store";
 
 const MOBILE_DOCK_HEIGHT_FALLBACK_PX = 50;
 const MOBILE_HEADER_HEIGHT_PX = 64;
@@ -41,27 +43,29 @@ export function GameShell({ initialSnapshot }: { initialSnapshot: GameSnapshot }
 
   return (
     <GameUiProvider initialShiftPlayback={initialSnapshot.activeShiftPlayback}>
-      <TooltipProvider>
-        <main
-          className="game-shell fixed inset-0 h-screen h-dvh w-full overflow-hidden overscroll-none bg-background text-foreground [--game-dock-edge-offset:0.5rem] [--game-header-block-offset:0.5rem] [--game-header-inline-offset:0.5rem] xl:[--game-dock-edge-offset:1rem] xl:[--game-header-block-offset:1rem] xl:[--game-header-inline-offset:1.5rem]"
-          lang={initialSnapshot.locale}
-          ref={shellRef}
-          style={gameShellStyle}
-        >
-          <FactoryMap snapshot={initialSnapshot} />
-          <TopStatusBar snapshot={initialSnapshot} />
-          <LeftDockMenu snapshot={initialSnapshot} />
-          <NotificationCenter notifications={initialSnapshot.notifications} />
-          <DockMenu snapshot={initialSnapshot} />
-          <ShiftControlBar snapshot={initialSnapshot} />
-          <OverlayLayerManager snapshot={initialSnapshot} />
-          <ShiftPlaybackInteractionLock locale={initialSnapshot.locale} />
-          <ShiftPlaybackOverlayLayout
-            currencyCode={initialSnapshot.factory.currencyCode}
-            locale={initialSnapshot.locale}
-          />
-        </main>
-      </TooltipProvider>
+      <PwaInstallProvider>
+        <TooltipProvider>
+          <main
+            className="game-shell fixed inset-0 h-screen h-dvh w-full overflow-hidden overscroll-none bg-background text-foreground [--game-dock-edge-offset:0.5rem] [--game-header-block-offset:0.5rem] [--game-header-inline-offset:0.5rem] xl:[--game-dock-edge-offset:1rem] xl:[--game-header-block-offset:1rem] xl:[--game-header-inline-offset:1.5rem]"
+            lang={initialSnapshot.locale}
+            ref={shellRef}
+            style={gameShellStyle}
+          >
+            <FactoryMap snapshot={initialSnapshot} />
+            <TopStatusBar snapshot={initialSnapshot} />
+            <LeftDockMenu snapshot={initialSnapshot} />
+            <NotificationCenter notifications={initialSnapshot.notifications} />
+            <DockMenu snapshot={initialSnapshot} />
+            <ShiftControlBar snapshot={initialSnapshot} />
+            <OverlayLayerManager snapshot={initialSnapshot} />
+            <ShiftPlaybackInteractionLock locale={initialSnapshot.locale} />
+            <ShiftPlaybackOverlayLayout
+              currencyCode={initialSnapshot.factory.currencyCode}
+              locale={initialSnapshot.locale}
+            />
+          </main>
+        </TooltipProvider>
+      </PwaInstallProvider>
     </GameUiProvider>
   );
 }
@@ -135,7 +139,7 @@ function useGameVisualViewportHeight(shellRef: RefObject<HTMLElement | null>) {
       }
     };
 
-    if (isStandaloneGameDisplay()) {
+    if (isRunningStandalone()) {
       shell.style.removeProperty("height");
       shell.style.setProperty("--game-visual-viewport-height", "100dvh");
       documentRoot.style.setProperty(
@@ -236,15 +240,4 @@ function useGameDocumentScrollLock() {
       }
     };
   }, []);
-}
-
-function isStandaloneGameDisplay() {
-  const iosNavigator = window.navigator as Navigator & {
-    standalone?: boolean;
-  };
-
-  return (
-    iosNavigator.standalone === true ||
-    window.matchMedia("(display-mode: standalone)").matches
-  );
 }

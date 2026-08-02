@@ -155,6 +155,24 @@ export const gameCopy = {
         order: "Sıra",
       },
     },
+    pwaInstall: {
+      cardTitle: "FactoryRunway’i yükle",
+      description: "Tarayıcı çubukları olmadan uygulama gibi kullan.",
+      gotIt: "Anladım",
+      helpDescription: "Safari’nin paylaşım menüsünü kullanarak kurulumu tamamla.",
+      helpTitle: "FactoryRunway’i Ana Ekrana Ekle",
+      installApp: "Uygulamayı Yükle",
+      installationSteps: "Kurulum Adımları",
+      iosCardTitle: "FactoryRunway’i Ana Ekrana Ekle",
+      iosSteps: [
+        "Safari’de Paylaş simgesine dokun.",
+        "“Ana Ekrana Ekle” seçeneğini aç.",
+        "Sağ üstteki “Ekle” düğmesine dokun.",
+      ],
+      later: "Daha Sonra",
+      manualIos: "Ana Ekrana Ekle",
+      manualNative: "Uygulamayı Yükle",
+    },
     shiftControl: {
       completed: "Gün Sonu Özeti",
       pending: "Vardiya hazırlanıyor",
@@ -396,6 +414,24 @@ export const gameCopy = {
         order: "Order",
       },
     },
+    pwaInstall: {
+      cardTitle: "Install FactoryRunway",
+      description: "Use it like an app without browser toolbars.",
+      gotIt: "Got it",
+      helpDescription: "Complete installation from Safari’s share menu.",
+      helpTitle: "Add FactoryRunway to Home Screen",
+      installApp: "Install App",
+      installationSteps: "Installation Steps",
+      iosCardTitle: "Add FactoryRunway to Home Screen",
+      iosSteps: [
+        "Tap the Share button in Safari.",
+        "Select “Add to Home Screen”.",
+        "Tap “Add” in the top-right corner.",
+      ],
+      later: "Later",
+      manualIos: "Add to Home Screen",
+      manualNative: "Install App",
+    },
     shiftControl: {
       completed: "End of Day Summary",
       pending: "Preparing shift",
@@ -595,6 +631,20 @@ export const gameCopy = {
         icon: string;
         order: string;
       };
+    };
+    pwaInstall: {
+      cardTitle: string;
+      description: string;
+      gotIt: string;
+      helpDescription: string;
+      helpTitle: string;
+      installApp: string;
+      installationSteps: string;
+      iosCardTitle: string;
+      iosSteps: readonly [string, string, string];
+      later: string;
+      manualIos: string;
+      manualNative: string;
     };
     shiftControl: {
       completed: string;

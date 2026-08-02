@@ -3,6 +3,7 @@
 import Image from "next/image";
 import {
   type CSSProperties,
+  type RefObject,
   type ReactNode,
   useEffect,
   useRef,
@@ -13,11 +14,13 @@ import {
   CalendarDays,
   ClipboardList,
   Coins,
+  Download,
   Factory,
   Gauge,
   Languages,
   LogOut,
   Mail,
+  Share2,
   Sparkles,
   Trophy,
   UserRound,
@@ -55,6 +58,8 @@ import {
   getMobileFactoryNamePresentation,
 } from "../mobile-factory-header";
 import type { GamePanelKey, GameSnapshot } from "../types";
+import { PwaInstallAssistant } from "./pwa-install-assistant";
+import { usePwaInstall } from "./pwa-install-provider";
 import styles from "./top-status-bar.module.css";
 
 const VALUE_ANIMATION_MS = 4_200;
@@ -96,14 +101,59 @@ export function TopStatusBar({
   position?: "absolute" | "fixed";
   snapshot: GameSnapshot;
 }) {
-  const { activePanel, closePanel, openPanel } = useGameUiStore();
+  const {
+    activePanel,
+    activeShiftPlayback,
+    closePanel,
+    openPanel,
+  } = useGameUiStore();
+  const { capability, requestInstall } = usePwaInstall();
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const mobileStatusTriggerRef = useRef<HTMLButtonElement>(null);
+  const installHelpTimerRef = useRef<number | null>(null);
   const displayedSnapshot = useDelayedHudSnapshot(snapshot);
   const stagePulse = usePulseOnChange(
     displayedSnapshot.factory.operatingStageName,
     1_600,
   );
   const copy = gameCopy[displayedSnapshot.locale].topStatus;
+  const installCopy = gameCopy[displayedSnapshot.locale].pwaInstall;
+  const installAction =
+    capability === "android-available" || capability === "ios-instructions"
+      ? {
+          icon: capability === "ios-instructions" ? Share2 : Download,
+          label:
+            capability === "ios-instructions"
+              ? installCopy.manualIos
+              : installCopy.manualNative,
+          onClick: () => {
+            setMobileSheetOpen(false);
+
+            if (capability === "android-available") {
+              void requestInstall(mobileStatusTriggerRef.current);
+              return;
+            }
+
+            if (installHelpTimerRef.current !== null) {
+              window.clearTimeout(installHelpTimerRef.current);
+            }
+
+            installHelpTimerRef.current = window.setTimeout(() => {
+              installHelpTimerRef.current = null;
+              void requestInstall(mobileStatusTriggerRef.current);
+            }, 220);
+          },
+        }
+      : null;
+
+  useEffect(
+    () => () => {
+      if (installHelpTimerRef.current !== null) {
+        window.clearTimeout(installHelpTimerRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <header
@@ -128,8 +178,16 @@ export function TopStatusBar({
           openPanel(panelKey);
         }}
         onSheetOpenChange={setMobileSheetOpen}
+        installAction={installAction}
         sheetOpen={mobileSheetOpen}
         snapshot={displayedSnapshot}
+        statusTriggerRef={mobileStatusTriggerRef}
+      />
+      <PwaInstallAssistant
+        blocked={
+          mobileSheetOpen || activePanel !== null || activeShiftPlayback !== null
+        }
+        locale={displayedSnapshot.locale}
       />
     </header>
   );
@@ -305,17 +363,21 @@ function DesktopHeaderContent({
 function MobileHeaderContent({
   alertCount,
   copy,
+  installAction,
   onOpenPanel,
   onSheetOpenChange,
   sheetOpen,
   snapshot,
+  statusTriggerRef,
 }: {
   alertCount: number;
   copy: GameCopyTopStatus;
+  installAction: MobileInstallAction | null;
   onOpenPanel: (key: "playerFeedback" | "ranking") => void;
   onSheetOpenChange: (open: boolean) => void;
   sheetOpen: boolean;
   snapshot: GameSnapshot;
+  statusTriggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const factoryName = getMobileFactoryNamePresentation(snapshot.factory.name);
 
@@ -346,6 +408,7 @@ function MobileHeaderContent({
             className={`relative grid size-11 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary outline-none transition-colors hover:border-primary/50 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/55 ${styles.mobileStatusTrigger}`}
             data-map-control="true"
             onPointerDown={(event) => event.stopPropagation()}
+            ref={statusTriggerRef}
             type="button"
           >
             <Factory aria-hidden="true" className="size-5" />
@@ -363,6 +426,7 @@ function MobileHeaderContent({
 
       <MobileFactoryStatusSheet
         copy={copy}
+        installAction={installAction}
         onOpenPanel={onOpenPanel}
         snapshot={snapshot}
       />
@@ -372,10 +436,12 @@ function MobileHeaderContent({
 
 function MobileFactoryStatusSheet({
   copy,
+  installAction,
   onOpenPanel,
   snapshot,
 }: {
   copy: GameCopyTopStatus;
+  installAction: MobileInstallAction | null;
   onOpenPanel: (key: "playerFeedback" | "ranking") => void;
   snapshot: GameSnapshot;
 }) {
@@ -467,6 +533,13 @@ function MobileFactoryStatusSheet({
               label={copy.mobile.messages}
               onClick={() => onOpenPanel("playerFeedback")}
             />
+            {installAction ? (
+              <MobileManagementAction
+                icon={installAction.icon}
+                label={installAction.label}
+                onClick={installAction.onClick}
+              />
+            ) : null}
             <div className="flex min-h-11 items-center gap-3 rounded-xl border border-white/10 bg-card/45 px-3">
               <Languages aria-hidden="true" className="size-4 shrink-0 text-primary" />
               <span className="min-w-0 flex-1 text-sm font-medium text-white">
@@ -567,6 +640,12 @@ function FactoryLogo({ desktop = false }: { desktop?: boolean }) {
 }
 
 type GameCopyTopStatus = (typeof gameCopy)[GameSnapshot["locale"]]["topStatus"];
+
+type MobileInstallAction = {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+};
 
 function useDelayedHudSnapshot(snapshot: GameSnapshot) {
   const { activeShiftPlayback, isShiftPlaybackActive } = useGameUiStore();

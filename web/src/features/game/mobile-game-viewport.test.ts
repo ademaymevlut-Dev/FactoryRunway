@@ -84,10 +84,8 @@ test("mobil HUD kenarları max kullanmadan safe-area insetlerine bağlanır", ()
 
 test("normal Safari visual viewport'u izlerken standalone PWA stabil dvh kullanır", () => {
   assert.match(shell, /function useGameVisualViewportHeight/);
-  assert.match(shell, /function isStandaloneGameDisplay/);
-  assert.match(shell, /iosNavigator\.standalone === true/);
-  assert.match(shell, /matchMedia\("\(display-mode: standalone\)"\)/);
-  assert.match(shell, /if \(isStandaloneGameDisplay\(\)\)/);
+  assert.match(shell, /import \{ isRunningStandalone \} from "\.\.\/pwa-install"/);
+  assert.match(shell, /if \(isRunningStandalone\(\)\)/);
   assert.match(shell, /setProperty\("--game-visual-viewport-height", "100dvh"\)/);
   assert.match(shell, /const viewportHeight = `\$\{Math\.round\(visualViewport\.height\)\}px`/);
   assert.match(shell, /shell\.style\.height = viewportHeight/);
