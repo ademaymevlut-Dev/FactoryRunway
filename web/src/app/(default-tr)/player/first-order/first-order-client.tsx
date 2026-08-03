@@ -1,7 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { useActionState, useMemo, useState, type CSSProperties } from "react";
+import {
+  useActionState,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import {
   CalendarDays,
   Check,
@@ -18,6 +24,7 @@ import {
   type FirstOrderAcceptState,
 } from "./first-order-actions";
 import { GameLocaleSwitcher } from "@/components/game-locale-switcher";
+import { useVisualViewportBottomInset } from "@/hooks/use-visual-viewport-bottom-inset";
 import type { SupportedLocale } from "@/lib/i18n/locales";
 import { firstOrderCopy, type FirstOrderCopy } from "./first-order-copy";
 
@@ -70,6 +77,7 @@ export function FirstOrderClient({
   orders,
 }: FirstOrderClientProps) {
   const copy = firstOrderCopy[locale];
+  const formRef = useRef<HTMLFormElement>(null);
   const [selectedId, setSelectedId] = useState(orders[0]?.id ?? "");
   const [state, formAction, pending] = useActionState(
     acceptFirstOrderAction,
@@ -79,6 +87,11 @@ export function FirstOrderClient({
     () => orders.find((order) => order.id === selectedId) ?? orders[0],
     [orders, selectedId],
   );
+  const selectedIndex = Math.max(
+    0,
+    orders.findIndex((order) => order.id === selectedOrder?.id),
+  );
+  useVisualViewportBottomInset(formRef);
 
   if (!selectedOrder) {
     return (
@@ -98,14 +111,18 @@ export function FirstOrderClient({
   return (
     <form
       action={formAction}
-      className="game-card relative h-[90dvh] max-h-[900px] min-h-[640px] w-full max-w-[1080px] overflow-hidden rounded-[28px] bg-card"
+      className="first-order-form game-card relative min-h-dvh w-full max-w-[1080px] overflow-visible rounded-none border-0 bg-card shadow-none md:h-[90dvh] md:max-h-[900px] md:min-h-[640px] md:overflow-hidden md:rounded-[28px] md:border md:shadow-[var(--shadow-md)]"
+      ref={formRef}
     >
       <input name="optionId" type="hidden" value={selectedOrder.id} />
       <input name="locale" type="hidden" value={locale} />
-      <GameLocaleSwitcher className="absolute right-4 top-4 z-20" locale={locale} />
+      <GameLocaleSwitcher
+        className="absolute right-4 top-[max(1rem,env(safe-area-inset-top))] z-20 md:top-4"
+        locale={locale}
+      />
       <div className="pointer-events-none absolute inset-0 bg-background/10" />
 
-      <div className="relative z-10 grid h-full grid-cols-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[360px_minmax(0,540px)] lg:overflow-hidden lg:p-8">
+      <div className="relative z-10 flex min-h-dvh flex-col gap-5 px-4 pb-[calc(env(safe-area-inset-bottom)+6rem)] pt-[calc(env(safe-area-inset-top)+4.5rem)] md:grid md:h-full md:min-h-0 md:grid-cols-1 md:overflow-y-auto md:p-5 lg:grid-cols-[360px_minmax(0,540px)] lg:overflow-hidden lg:p-8">
         <OrderListPanel
           currentDay={currentDay}
           copy={copy}
@@ -117,6 +134,7 @@ export function FirstOrderClient({
         <SelectedOrderPanel
           order={selectedOrder}
           orderCount={orders.length}
+          selectedIndex={selectedIndex}
           pending={pending}
           copy={copy}
           stateMessage={state.status === "error" ? state.message : ""}
@@ -142,20 +160,24 @@ function OrderListPanel({
   onSelect: (id: string) => void;
 }) {
   return (
-    <aside className="flex min-h-0 flex-col">
-      <div className="mb-5">
+    <aside className="flex flex-col md:min-h-0">
+      <div className="mb-4 pr-20 md:mb-5 md:pr-0">
         <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-primary">
           {copy.selection.marketKicker}
         </p>
-        <h1 className="mt-2 text-[34px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground">
+        <h1 className="mt-2 text-[28px] font-semibold leading-[1.05] tracking-[-0.02em] text-foreground md:text-[34px]">
           {copy.selection.title}
         </h1>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+        <p className="mt-2 text-sm leading-6 text-muted-foreground md:mt-3">
           {factoryName} · Day {currentDay}
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+      <div
+        aria-label={copy.selection.offers(orders.length)}
+        className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 pr-8 touch-pan-x [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:mx-0 md:min-h-0 md:flex-1 md:snap-none md:flex-col md:space-y-3 md:overflow-y-auto md:px-0 md:pb-0 md:pr-1"
+        role="group"
+      >
         {orders.map((order) => (
           <OrderListCard
             key={order.id}
@@ -166,7 +188,11 @@ function OrderListPanel({
           />
         ))}
       </div>
-      <div className="mt-4 rounded-[18px] border border-border bg-secondary/70 p-4">
+      <div className="mt-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground md:hidden">
+        <span>{copy.selection.compareHint}</span>
+        <span>{copy.selection.offers(orders.length)}</span>
+      </div>
+      <div className="mt-4 hidden rounded-[18px] border border-border bg-secondary/70 p-4 md:block">
         <p className="text-sm font-semibold text-secondary-foreground">
           {copy.selection.footerTitle}
         </p>
@@ -192,15 +218,15 @@ function OrderListCard({
   return (
     <button
       aria-pressed={selected}
-      className="group relative w-full rounded-[22px] border border-border bg-secondary/55 px-4 py-3.5 text-left transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/35 hover:bg-secondary"
+      className="group relative w-full max-w-[340px] shrink-0 snap-center rounded-[22px] border border-border bg-secondary/55 px-3 py-3 text-left transition-all duration-300 ease-out hover:-translate-y-0.5 hover:border-primary/35 hover:bg-secondary md:max-w-none md:px-4 md:py-3.5"
       onClick={() => onSelect(order.id)}
       style={selected ? selectedCardStyle(order) : undefined}
       type="button"
     >
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 md:gap-4">
         <ProductThumb order={order} />
         <span
-          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full border text-sm font-semibold"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-semibold md:h-[42px] md:w-[42px] md:text-sm"
           style={indexBadgeStyle(order, selected)}
         >
           {order.orderIndex}
@@ -228,18 +254,25 @@ function SelectedOrderPanel({
   copy,
   order,
   orderCount,
+  selectedIndex,
   pending,
   stateMessage,
 }: {
   copy: FirstOrderCopy;
   order: FirstOrderView;
   orderCount: number;
+  selectedIndex: number;
   pending: boolean;
   stateMessage: string;
 }) {
   return (
-    <section className="flex min-h-0 flex-col overflow-y-auto pr-1">
-      <SelectedOrderHeader copy={copy} order={order} orderCount={orderCount} />
+    <section className="flex flex-col md:min-h-0 md:overflow-y-auto md:pr-1">
+      <SelectedOrderHeader
+        copy={copy}
+        order={order}
+        orderCount={orderCount}
+        selectedIndex={selectedIndex}
+      />
       <SelectedOrderChips order={order} />
       <SelectedOrderHero order={order} />
       <SelectedOrderMetaTable copy={copy} order={order} />
@@ -257,10 +290,12 @@ function SelectedOrderHeader({
   copy,
   order,
   orderCount,
+  selectedIndex,
 }: {
   copy: FirstOrderCopy;
   order: FirstOrderView;
   orderCount: number;
+  selectedIndex: number;
 }) {
   return (
     <div className="mb-3 flex items-start justify-between gap-4">
@@ -268,12 +303,15 @@ function SelectedOrderHeader({
         <p className="text-[12px] font-semibold uppercase tracking-[0.28em] text-muted-foreground">
           {copy.selection.selectedKicker}
         </p>
-        <h2 className="mt-2 truncate text-[34px] font-semibold leading-none tracking-[-0.03em] text-foreground">
+        <h2 className="mt-2 truncate text-[28px] font-semibold leading-none tracking-[-0.03em] text-foreground md:text-[34px]">
           {order.customerName}
         </h2>
       </div>
-      <span className="shrink-0 rounded-full border border-border bg-secondary px-4 py-2 text-sm text-muted-foreground">
-        {copy.selection.offers(orderCount)}
+      <span className="shrink-0 rounded-full border border-border bg-secondary px-3 py-2 text-xs font-semibold text-muted-foreground md:px-4 md:text-sm">
+        <span className="md:hidden">
+          {copy.selection.offerProgress(selectedIndex + 1, orderCount)}
+        </span>
+        <span className="hidden md:inline">{copy.selection.offers(orderCount)}</span>
       </span>
     </div>
   );
@@ -281,9 +319,9 @@ function SelectedOrderHeader({
 
 function SelectedOrderChips({ order }: { order: FirstOrderView }) {
   return (
-    <div className="mb-4 flex items-center gap-3">
+    <div className="mb-3 flex flex-wrap items-center gap-2 md:mb-4 md:gap-3">
       <span
-        className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium"
+        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium md:px-4 md:py-2 md:text-sm"
         style={{
           borderColor: rgbaFromHex(order.colors.primary, 0.35),
           backgroundColor: rgbaFromHex(order.colors.primary, 0.12),
@@ -297,7 +335,7 @@ function SelectedOrderChips({ order }: { order: FirstOrderView }) {
         {order.themeName}
       </span>
       <span
-        className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium text-foreground/75"
+        className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium text-foreground/75 md:px-4 md:py-2 md:text-sm"
         style={{
           borderColor: rgbaFromHex(order.colors.secondary, 0.3),
           backgroundColor: rgbaFromHex(order.colors.secondary, 0.1),
@@ -314,23 +352,23 @@ function SelectedOrderHero({ order }: { order: FirstOrderView }) {
 
   return (
     <div
-      className="relative h-[255px] overflow-visible rounded-[26px] border bg-card shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+      className="relative h-[220px] overflow-hidden rounded-[22px] border bg-card shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] md:h-[255px] md:overflow-visible md:rounded-[26px]"
       style={heroStyle(order)}
     >
-      <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.05),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.02),transparent_55%)]" />
+      <div className="pointer-events-none absolute inset-0 rounded-[22px] bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.05),transparent_32%),linear-gradient(135deg,rgba(255,255,255,0.02),transparent_55%)] md:rounded-[26px]" />
       <div
-        className="pointer-events-none absolute right-[124px] top-[34px] h-[170px] w-[170px] rounded-[58%_42%_47%_53%/40%_51%_49%_60%] opacity-75 blur-[1px]"
+        className="pointer-events-none absolute right-[68px] top-[28px] h-[130px] w-[130px] rounded-[58%_42%_47%_53%/40%_51%_49%_60%] opacity-75 blur-[1px] md:right-[124px] md:top-[34px] md:h-[170px] md:w-[170px]"
         style={{
           background: `linear-gradient(135deg, rgba(${hexToRgbString(order.colors.primary)},0.84), rgba(${hexToRgbString(order.colors.primary)},0.34))`,
         }}
       />
       <div
-        className="pointer-events-none absolute right-[22px] top-[44px] h-[164px] w-[178px] rotate-[18deg] rounded-[38px] opacity-70"
+        className="pointer-events-none absolute right-[12px] top-[36px] h-[124px] w-[138px] rotate-[18deg] rounded-[30px] opacity-70 md:right-[22px] md:top-[44px] md:h-[164px] md:w-[178px] md:rounded-[38px]"
         style={{
           background: `linear-gradient(135deg, rgba(${hexToRgbString(order.colors.secondary)},0.78), rgba(${hexToRgbString(order.colors.secondary)},0.32))`,
         }}
       />
-      <div className="pointer-events-none absolute left-[26px] top-[28px] grid grid-cols-5 gap-3 opacity-40">
+      <div className="pointer-events-none absolute left-5 top-5 grid grid-cols-5 gap-2.5 opacity-40 md:left-[26px] md:top-[28px] md:gap-3">
         {dotIndexes.map((index) => (
           <span
             key={index}
@@ -340,21 +378,21 @@ function SelectedOrderHero({ order }: { order: FirstOrderView }) {
         ))}
       </div>
       <span
-        className="pointer-events-none absolute left-7 top-10 text-[72px] font-light tracking-[-0.04em]"
+        className="pointer-events-none absolute left-5 top-8 text-[56px] font-light tracking-[-0.04em] md:left-7 md:top-10 md:text-[72px]"
         style={{ color: rgbaFromHex(order.colors.text, 0.14) }}
       >
         {heroLetter}
       </span>
 
-      <div className="absolute bottom-7 left-7 z-[3]">
+      <div className="absolute bottom-5 left-5 z-[3] max-w-[44%] md:bottom-7 md:left-7 md:max-w-none">
         <p
-          className="mb-1 max-w-[240px] truncate text-[10px] font-semibold uppercase tracking-[0.18em]"
+          className="mb-1 max-w-full truncate text-[9px] font-semibold uppercase tracking-[0.16em] md:max-w-[240px] md:text-[10px] md:tracking-[0.18em]"
           style={{ color: rgbaFromHex(order.colors.text, 0.66) }}
         >
           {order.productCode}
         </p>
         <h3
-          className="max-w-[240px] text-[18px] font-semibold leading-[1.1] tracking-[-0.01em]"
+          className="max-w-full text-[16px] font-semibold leading-[1.1] tracking-[-0.01em] md:max-w-[240px] md:text-[18px]"
           style={{ color: order.colors.text }}
         >
           {order.productName}
@@ -366,22 +404,34 @@ function SelectedOrderHero({ order }: { order: FirstOrderView }) {
       </div>
 
       {order.imageUrl ? (
-        <span
-          className="pointer-events-none absolute bottom-[-24px] right-[-8px] z-[4] h-[350px] w-[66%]"
-          style={{ clipPath: "inset(-120px 0 24px 0)" }}
-        >
-          <Image
-            alt={order.productName}
-            className="object-contain object-bottom drop-shadow-[0_24px_40px_rgba(0,0,0,0.42)]"
-            fill
-            priority
-            sizes="(min-width: 1024px) 320px, 58vw"
-            src={order.imageUrl}
-          />
-        </span>
+        <>
+          <span className="pointer-events-none absolute inset-y-2 right-0 z-[4] w-[60%] md:hidden">
+            <Image
+              alt={order.productName}
+              className="object-contain object-bottom drop-shadow-[0_18px_28px_rgba(0,0,0,0.38)]"
+              fill
+              priority
+              sizes="60vw"
+              src={order.imageUrl}
+            />
+          </span>
+          <span
+            className="pointer-events-none absolute bottom-[-24px] right-[-8px] z-[4] hidden h-[350px] w-[66%] md:block"
+            style={{ clipPath: "inset(-120px 0 24px 0)" }}
+          >
+            <Image
+              alt={order.productName}
+              className="object-contain object-bottom drop-shadow-[0_24px_40px_rgba(0,0,0,0.42)]"
+              fill
+              priority
+              sizes="(min-width: 1024px) 320px, 58vw"
+              src={order.imageUrl}
+            />
+          </span>
+        </>
       ) : (
         <div
-          className="pointer-events-none absolute right-8 top-14 z-[4] grid size-40 place-items-center rounded-[34px] border bg-background/20"
+          className="pointer-events-none absolute right-5 top-12 z-[4] grid size-32 place-items-center rounded-[28px] border bg-background/20 md:right-8 md:top-14 md:size-40 md:rounded-[34px]"
           style={{
             borderColor: rgbaFromHex(order.colors.primary, 0.16),
             color: rgbaFromHex(order.colors.text, 0.35),
@@ -402,13 +452,63 @@ function SelectedOrderMetaTable({
   order: FirstOrderView;
 }) {
   return (
-    <div className="mt-3 overflow-hidden rounded-[18px] border border-border bg-card">
-      <MetaRow accent icon={Hash} label={copy.selection.meta.code} order={order} value={order.productCode} />
-      <MetaRow icon={CalendarDays} label={copy.selection.meta.requestedDate} order={order} value={order.requestedDateLabel} />
-      <MetaRow accent icon={PackageCheck} label={copy.selection.meta.quantity} order={order} value={order.quantityLabel} />
-      <MetaRow icon={Tag} label={copy.selection.meta.unitPrice} order={order} value={order.unitPriceLabel} />
-      <MetaRow accent icon={CircleDollarSign} label={copy.selection.meta.totalPrice} order={order} value={order.totalPriceLabel} />
-      <MetaRow icon={Route} label={copy.selection.meta.route} order={order} value={order.routeLabel} />
+    <>
+      <div className="mt-3 md:hidden">
+        <div className="grid grid-cols-2 gap-2">
+          <MobileMetric icon={PackageCheck} label={copy.selection.meta.quantity} order={order} value={order.quantityLabel} />
+          <MobileMetric icon={CalendarDays} label={copy.selection.deliveryPrefix} order={order} value={order.deliveryLabel} />
+          <MobileMetric accent icon={CircleDollarSign} label={copy.selection.meta.totalPrice} order={order} value={order.totalPriceLabel} />
+          <MobileMetric icon={Tag} label={copy.selection.meta.unitPrice} order={order} value={order.unitPriceLabel} />
+        </div>
+        <details className="group mt-2 overflow-hidden rounded-[18px] border border-border bg-card">
+          <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between px-4 text-sm font-semibold text-foreground [&::-webkit-details-marker]:hidden">
+            {copy.selection.details}
+            <span className="text-lg leading-none text-muted-foreground transition-transform group-open:rotate-45">+</span>
+          </summary>
+          <div className="border-t border-border">
+            <MetaRow icon={Hash} label={copy.selection.meta.code} order={order} value={order.productCode} />
+            <MetaRow icon={CalendarDays} label={copy.selection.meta.requestedDate} order={order} value={order.requestedDateLabel} />
+            <MetaRow icon={Route} label={copy.selection.meta.route} order={order} value={order.routeLabel} />
+          </div>
+        </details>
+      </div>
+      <div className="mt-3 hidden overflow-hidden rounded-[18px] border border-border bg-card md:block">
+        <MetaRow accent icon={Hash} label={copy.selection.meta.code} order={order} value={order.productCode} />
+        <MetaRow icon={CalendarDays} label={copy.selection.meta.requestedDate} order={order} value={order.requestedDateLabel} />
+        <MetaRow accent icon={PackageCheck} label={copy.selection.meta.quantity} order={order} value={order.quantityLabel} />
+        <MetaRow icon={Tag} label={copy.selection.meta.unitPrice} order={order} value={order.unitPriceLabel} />
+        <MetaRow accent icon={CircleDollarSign} label={copy.selection.meta.totalPrice} order={order} value={order.totalPriceLabel} />
+        <MetaRow icon={Route} label={copy.selection.meta.route} order={order} value={order.routeLabel} />
+      </div>
+    </>
+  );
+}
+
+function MobileMetric({
+  icon: Icon,
+  label,
+  value,
+  order,
+  accent = false,
+}: {
+  icon: typeof Hash;
+  label: string;
+  value: string;
+  order: FirstOrderView;
+  accent?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-[16px] border border-border bg-card p-3">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Icon size={15} style={{ color: accent ? order.colors.primary : order.colors.icon }} />
+        <span className="truncate text-[10px] font-semibold uppercase tracking-[0.08em]">{label}</span>
+      </div>
+      <p
+        className="mt-2 truncate text-[14px] font-semibold tracking-[-0.01em]"
+        style={{ color: accent ? order.colors.primary : undefined }}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -462,9 +562,9 @@ function SelectedOrderFooter({
   pending: boolean;
 }) {
   return (
-    <div className="mt-3 flex justify-end">
+    <div className="fixed inset-x-0 bottom-[var(--visual-viewport-bottom,0px)] z-20 mt-4 border-t border-border bg-background/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-xl md:static md:mt-3 md:flex md:justify-end md:border-0 md:bg-transparent md:p-0 md:backdrop-blur-none">
       <button
-        className="game-button-primary min-h-10 rounded-full px-5 text-sm shadow-lg shadow-primary/20 disabled:cursor-not-allowed disabled:opacity-60"
+        className="game-button-primary min-h-12 w-full rounded-full px-5 text-sm shadow-lg shadow-primary/20 disabled:cursor-not-allowed disabled:opacity-60 md:min-h-10 md:w-auto"
         disabled={pending}
         type="submit"
       >
@@ -480,7 +580,7 @@ function SelectedOrderFooter({
 function ProductThumb({ order }: { order: FirstOrderView }) {
   return (
     <span
-      className="relative flex h-[58px] w-[58px] shrink-0 items-center justify-center overflow-hidden rounded-[18px] border bg-card"
+      className="relative flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-[16px] border bg-card md:h-[58px] md:w-[58px] md:rounded-[18px]"
       style={{
         borderColor: rgbaFromHex(order.colors.primary, 0.18),
         background: `linear-gradient(135deg, ${rgbaFromHex(order.colors.gradientFrom, 0.54)}, ${rgbaFromHex(order.colors.gradientTo, 0.42)})`,

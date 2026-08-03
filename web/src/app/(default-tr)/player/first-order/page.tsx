@@ -102,8 +102,8 @@ export default async function FirstOrderPage() {
   );
 
   return (
-    <main className="h-screen overflow-hidden bg-background text-foreground">
-      <div className="relative mx-auto flex h-screen w-full max-w-[1440px] items-center justify-center px-5 py-5 lg:px-6 lg:py-6">
+    <main className="min-h-dvh bg-background text-foreground md:h-screen md:overflow-hidden">
+      <div className="relative mx-auto flex min-h-dvh w-full max-w-[1440px] items-start justify-center md:h-screen md:min-h-0 md:items-center md:px-5 md:py-5 lg:px-6 lg:py-6">
         <FirstOrderClient
           currentDay={factory.currentDay}
           factoryName={factory.name}
