@@ -18,6 +18,7 @@ import {
   getFactoryMapBoundedOffset,
   getFactoryMapCanvasHeight,
   getFactoryMapCanvasWidth,
+  getFactoryMapDisplaySectionWidth,
   getFactoryMapHorizontalPanBounds,
   getFactoryMapOfficeVerticalRise,
   getFactoryMapSectionWidth,
@@ -115,6 +116,33 @@ test("dört ve altı item iki kolonluk section genişliği üretir", () => {
 
 test("yedi item üçüncü kolonu ve buna uygun section genişliğini üretir", () => {
   assert.equal(getFactoryMapSectionWidth(7), 483);
+});
+
+test("dokuz ve altı mevcut genişliği, on ve üstü sabit accordion genişliğini kullanır", () => {
+  assert.equal(
+    getFactoryMapDisplaySectionWidth({
+      isExpanded: false,
+      itemCount: 10,
+      productionLineCount: 9,
+    }),
+    637,
+  );
+  assert.equal(
+    getFactoryMapDisplaySectionWidth({
+      isExpanded: false,
+      itemCount: 101,
+      productionLineCount: 100,
+    }),
+    328,
+  );
+  assert.equal(
+    getFactoryMapDisplaySectionWidth({
+      isExpanded: true,
+      itemCount: 101,
+      productionLineCount: 100,
+    }),
+    483,
+  );
 });
 
 test("negatif, ondalıklı ve geçersiz item sayıları güvenli normalize edilir", () => {
@@ -347,7 +375,8 @@ test("FactoryMap canonical layout hesabını Shipment açık kullanır", () => {
 
   assert.match(source, /includeShipmentArea: true/);
   assert.match(source, /includeOfficeArea: true/);
-  assert.match(source, /getFactoryMapSectionWidth\(section\.items\.length\)/);
+  assert.match(source, /getFactoryMapDisplaySectionWidth\(\{/);
+  assert.match(source, /productionLineCount: section\.productionLineCount/);
   assert.match(source, /getFactoryMapBoundedOffset\(\{/);
   assert.match(source, /FACTORY_MAP_SHIPMENT_AREA_HEIGHT/);
   assert.match(source, /FACTORY_MAP_SHIPMENT_AREA_WIDTH/);

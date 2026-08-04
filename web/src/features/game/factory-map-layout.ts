@@ -1,3 +1,8 @@
+import {
+  FACTORY_MAP_SECTION_PAGE_SIZE,
+  isFactoryMapSectionCollapsible,
+} from "./factory-map-section-disclosure";
+
 export const FACTORY_MAP_ROW_COUNT = 3;
 export const FACTORY_MAP_SLOT_WIDTH = 147;
 export const FACTORY_MAP_SLOT_GAP = 7;
@@ -234,6 +239,24 @@ export function getFactoryMapSectionWidth(itemCount: number) {
     FACTORY_MAP_SECTION_HORIZONTAL_PADDING * 2 +
       columnCount * FACTORY_MAP_SLOT_WIDTH +
       Math.max(0, columnCount - 1) * FACTORY_MAP_SLOT_GAP,
+  );
+}
+
+export function getFactoryMapDisplaySectionWidth({
+  isExpanded,
+  itemCount,
+  productionLineCount,
+}: {
+  isExpanded: boolean;
+  itemCount: number;
+  productionLineCount: number;
+}) {
+  if (!isFactoryMapSectionCollapsible(productionLineCount)) {
+    return getFactoryMapSectionWidth(itemCount);
+  }
+
+  return getFactoryMapSectionWidth(
+    isExpanded ? FACTORY_MAP_SECTION_PAGE_SIZE : 0,
   );
 }
 

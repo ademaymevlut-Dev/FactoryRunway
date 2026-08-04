@@ -1,7 +1,14 @@
 "use client";
 
 import Image from "next/image";
-import { Factory, Plus } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Factory,
+  Plus,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ShipmentMapArea } from "@/features/warehouse/components/shipment-map-area";
@@ -10,6 +17,12 @@ import { localeUpper, type SupportedLocale } from "@/lib/i18n/locales";
 
 import { useGameUiStore } from "../store/game-ui-store";
 import { gameCopy, type GameCopy } from "../game-copy";
+import {
+  clampFactoryMapSectionPage,
+  getFactoryMapSectionPageCount,
+  getFactoryMapSectionPageItems,
+  isFactoryMapSectionCollapsible,
+} from "../factory-map-section-disclosure";
 import {
   getFactoryMapDragDelta,
   resolveFactoryMapDragAxis,
@@ -35,10 +48,10 @@ import {
   getFactoryMapCanvasHeight,
   getFactoryMapCanvasWidth,
   getFactoryMapEffectiveScale,
+  getFactoryMapDisplaySectionWidth,
   getFactoryMapInitialOffset,
   getFactoryMapOfficeVerticalRise,
   getFactoryMapReanchoredOffset,
-  getFactoryMapSectionWidth,
   getFactoryMapUsableCenter,
   resolveFactoryMapViewportClass,
   type FactoryMapCameraInsets,
@@ -136,7 +149,13 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
   } = useGameUiStore();
   const [viewportClass, setViewportClass] =
     useState<FactoryMapViewportClass>("desktop");
+  const [expandedSectionId, setExpandedSectionId] = useState<string | null>(
+    null,
+  );
+  const [expandedSectionPage, setExpandedSectionPage] = useState(0);
   const viewportRef = useRef<HTMLElement | null>(null);
+  const sectionElementRefs = useRef(new Map<string, HTMLDivElement>());
+  const pendingSectionFocusRef = useRef<string | null>(null);
   const cameraInsetsRef = useRef<FactoryMapCameraInsets>(
     FACTORY_MAP_ZERO_CAMERA_INSETS,
   );
@@ -175,10 +194,27 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
         includeOfficeArea: true,
         includeShipmentArea: true,
         sectionWidths: snapshot.map.sections.map((section) =>
-          getFactoryMapSectionWidth(section.items.length),
+          getFactoryMapDisplaySectionWidth({
+            isExpanded: expandedSectionId === section.id,
+            itemCount: section.items.length,
+            productionLineCount: section.productionLineCount,
+          }),
         ),
       }),
-    [snapshot.map.sections],
+    [expandedSectionId, snapshot.map.sections],
+  );
+  const sectionHeroImageUrls = useMemo(
+    () =>
+      new Map(
+        snapshot.map.sections.map((section) => [
+          section.id,
+          getFactoryMapSectionHeroImageUrl(
+            section,
+            snapshot.investment.departments,
+          ),
+        ]),
+      ),
+    [snapshot.investment.departments, snapshot.map.sections],
   );
   const highlightedDepartmentIds = useMemo(
     () => new Set([...(hoveredDepartmentId ? [hoveredDepartmentId] : []), ...selectedDockDepartmentIds]),
@@ -209,6 +245,55 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     },
     [canvasHeight, canvasWidth, scale, viewportClass],
   );
+
+  const focusSectionInViewport = useCallback(
+    (sectionId: string) => {
+      const viewport = viewportRef.current;
+      const sectionElement = sectionElementRefs.current.get(sectionId);
+
+      if (!viewport || !sectionElement) return;
+
+      const viewportRect = viewport.getBoundingClientRect();
+      const sectionRect = sectionElement.getBoundingClientRect();
+      const usableCenter = getFactoryMapUsableCenter({
+        cameraInsets:
+          viewportClass === "desktop"
+            ? FACTORY_MAP_ZERO_CAMERA_INSETS
+            : cameraInsetsRef.current,
+        viewportHeight: viewportRect.height,
+        viewportWidth: viewportRect.width,
+      });
+      const targetCenterX = viewportRect.left + usableCenter.x;
+      const currentSectionCenterX = sectionRect.left + sectionRect.width / 2;
+      const nextOffset = boundOffsetToViewport(
+        {
+          x:
+            mapPanRef.current.x +
+            targetCenterX -
+            currentSectionCenterX,
+          y: mapPanRef.current.y,
+        },
+        viewportRect,
+      );
+
+      mapPanRef.current = nextOffset;
+      setMapPan(nextOffset);
+    },
+    [boundOffsetToViewport, setMapPan, viewportClass],
+  );
+
+  useEffect(() => {
+    const sectionId = pendingSectionFocusRef.current;
+
+    if (!sectionId) return;
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      focusSectionInViewport(sectionId);
+      pendingSectionFocusRef.current = null;
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [canvasWidth, expandedSectionId, focusSectionInViewport]);
 
   useEffect(() => {
     let animationFrameId: number | null = null;
@@ -394,6 +479,13 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
     selectLine(lineId);
     openPanel("lineDetail", { lineId });
   };
+  const toggleSectionDisclosure = (sectionId: string) => {
+    pendingSectionFocusRef.current = sectionId;
+    setExpandedSectionPage(0);
+    setExpandedSectionId((currentSectionId) =>
+      currentSectionId === sectionId ? null : sectionId,
+    );
+  };
   const handleShipmentActivate = () => {
     if (suppressClickRef.current) return;
 
@@ -525,7 +617,17 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
             />
           </div>
           {snapshot.map.sections.map((section, index) => (
-            <div className="factory-production-stage" key={section.id}>
+            <div
+              className="factory-production-stage"
+              key={section.id}
+              ref={(element) => {
+                if (element) {
+                  sectionElementRefs.current.set(section.id, element);
+                } else {
+                  sectionElementRefs.current.delete(section.id);
+                }
+              }}
+            >
               <FactoryMapSectionView
                 onAction={(item) => {
                   if (item.kind === "productionLine") {
@@ -550,7 +652,21 @@ export function FactoryMap({ snapshot }: { snapshot: GameSnapshot }) {
                 )}
                 onHoverDepartment={setHoveredDepartmentId}
                 copy={copy}
+                heroImageUrl={sectionHeroImageUrls.get(section.id) ?? null}
+                isExpanded={expandedSectionId === section.id}
                 locale={snapshot.locale}
+                onPageChange={(pageIndex) =>
+                  setExpandedSectionPage(
+                    clampFactoryMapSectionPage(
+                      pageIndex,
+                      section.productionLineCount,
+                    ),
+                  )
+                }
+                onToggleExpanded={() => toggleSectionDisclosure(section.id)}
+                pageIndex={
+                  expandedSectionId === section.id ? expandedSectionPage : 0
+                }
                 section={section}
                 selectedLineId={selectedLineId}
               />
@@ -623,17 +739,27 @@ function FactoryFloorDetails({
 
 function FactoryMapSectionView({
   copy,
+  heroImageUrl,
+  isExpanded,
   locale,
   onAction,
   onHoverDepartment,
+  onPageChange,
+  onToggleExpanded,
+  pageIndex,
   isHighlighted,
   section,
   selectedLineId,
 }: {
   copy: GameCopy["map"];
+  heroImageUrl: string | null;
+  isExpanded: boolean;
   locale: SupportedLocale;
   onAction: (item: FactoryMapItem) => void;
   onHoverDepartment: (departmentId: string | null) => void;
+  onPageChange: (pageIndex: number) => void;
+  onToggleExpanded: () => void;
+  pageIndex: number;
   isHighlighted: boolean;
   section: FactoryMapSection;
   selectedLineId: string | null;
@@ -641,38 +767,92 @@ function FactoryMapSectionView({
   const headerDepartment = section.departments[0];
   const headerTitle = formatDepartmentHeaderTitle(headerDepartment?.name ?? section.title);
   const headerIconKey = headerDepartment?.iconKey ?? "warehouse";
+  const productionLineItems = section.items.filter(
+    (item): item is Extract<FactoryMapItem, { kind: "productionLine" }> =>
+      item.kind === "productionLine",
+  );
+  const investmentAction = section.items.find(
+    (item): item is Extract<FactoryMapItem, { kind: "investmentAction" }> =>
+      item.kind === "investmentAction",
+  );
+  const isCollapsible = isFactoryMapSectionCollapsible(
+    section.productionLineCount,
+  );
+  const pageCount = getFactoryMapSectionPageCount(
+    section.productionLineCount,
+  );
+  const normalizedPageIndex = clampFactoryMapSectionPage(
+    pageIndex,
+    section.productionLineCount,
+  );
+  const visibleItems: FactoryMapItem[] = isCollapsible
+    ? getFactoryMapSectionPageItems(
+        productionLineItems,
+        normalizedPageIndex,
+      )
+    : section.items;
+  const sectionWidth = getFactoryMapDisplaySectionWidth({
+    isExpanded,
+    itemCount: section.items.length,
+    productionLineCount: section.productionLineCount,
+  });
+
+  if (isCollapsible && !isExpanded) {
+    return (
+      <FactoryMapSectionSummary
+        copy={copy}
+        headerIconKey={headerIconKey}
+        headerTitle={headerTitle}
+        heroImageUrl={heroImageUrl}
+        investmentAction={investmentAction}
+        isHighlighted={isHighlighted}
+        onAction={onAction}
+        onHoverDepartment={onHoverDepartment}
+        onToggleExpanded={onToggleExpanded}
+        section={section}
+        width={sectionWidth}
+      />
+    );
+  }
 
   return (
     <section
+      aria-label={headerTitle}
       className={cn(
         "factory-department-block",
         section.tone,
+        isCollapsible && "factory-department-block-expanded",
         isHighlighted &&
           "!border-[#006d8f]/55 ring-1 ring-primary/20 !shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_0_18px_rgba(0,109,143,0.10)]",
       )}
-      style={{ width: getFactoryMapSectionWidth(section.items.length) }}
+      id={isCollapsible ? `factory-map-section-lines-${section.id}` : undefined}
+      style={{ width: sectionWidth }}
     >
-      <div className="relative flex min-h-12 items-start justify-center px-3 pb-1.5 pt-3">
-        <div
-          className={cn(
-            "relative inline-flex max-w-[calc(100%-1.25rem)] items-center gap-2 rounded-full border border-white/10 bg-[#232429]/40 px-3 py-1.5 text-white/85 shadow-[0_8px_24px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-[border-color,box-shadow] duration-200",
-            isHighlighted && "border-[#006d8f]/35 shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_1px_0_rgba(255,255,255,0.10)]",
-          )}
-        >
-          <span className="flex size-4 shrink-0 items-center justify-center text-sky-300/80 drop-shadow-[0_0_5px_rgba(125,211,252,0.22)]">
-            <DepartmentHeaderIcon iconKey={headerIconKey} />
-          </span>
-          <h2 className="min-w-0 truncate text-[12px] font-semibold uppercase leading-none tracking-[0.16em] text-white/85">
-            {headerTitle}
-          </h2>
-          <span className="shrink-0 rounded-full border border-[#006d8f]/25 bg-[#006d8f]/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-sky-200/90">
-            {copy.lineCount(section.productionLineCount)}
-          </span>
-        </div>
-      </div>
+      {isCollapsible ? (
+        <FactoryMapExpandedSectionHeader
+          copy={copy}
+          headerIconKey={headerIconKey}
+          headerTitle={headerTitle}
+          investmentAction={investmentAction}
+          onAction={onAction}
+          onPageChange={onPageChange}
+          onToggleExpanded={onToggleExpanded}
+          pageCount={pageCount}
+          pageIndex={normalizedPageIndex}
+          section={section}
+        />
+      ) : (
+        <FactoryMapStandardSectionHeader
+          copy={copy}
+          headerIconKey={headerIconKey}
+          headerTitle={headerTitle}
+          isHighlighted={isHighlighted}
+          productionLineCount={section.productionLineCount}
+        />
+      )}
 
       <div className="factory-slot-grid">
-        {section.items.map((item) => (
+        {visibleItems.map((item) => (
           <FactoryMapItemCard
             copy={copy}
             isSelected={
@@ -688,6 +868,256 @@ function FactoryMapSectionView({
         ))}
       </div>
     </section>
+  );
+}
+
+function FactoryMapStandardSectionHeader({
+  copy,
+  headerIconKey,
+  headerTitle,
+  isHighlighted,
+  productionLineCount,
+}: {
+  copy: GameCopy["map"];
+  headerIconKey: string;
+  headerTitle: string;
+  isHighlighted: boolean;
+  productionLineCount: number;
+}) {
+  return (
+    <div className="relative flex min-h-12 items-start justify-center px-3 pb-1.5 pt-3">
+      <div
+        className={cn(
+          "relative inline-flex max-w-[calc(100%-1.25rem)] items-center gap-2 rounded-full border border-white/10 bg-[#232429]/40 px-3 py-1.5 text-white/85 shadow-[0_8px_24px_rgba(0,0,0,0.20),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-md transition-[border-color,box-shadow] duration-200",
+          isHighlighted &&
+            "border-[#006d8f]/35 shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_1px_0_rgba(255,255,255,0.10)]",
+        )}
+      >
+        <span className="flex size-4 shrink-0 items-center justify-center text-sky-300/80 drop-shadow-[0_0_5px_rgba(125,211,252,0.22)]">
+          <DepartmentHeaderIcon iconKey={headerIconKey} />
+        </span>
+        <h2 className="min-w-0 truncate text-[12px] font-semibold uppercase leading-none tracking-[0.16em] text-white/85">
+          {headerTitle}
+        </h2>
+        <span className="shrink-0 rounded-full border border-[#006d8f]/25 bg-[#006d8f]/10 px-2 py-0.5 text-[11px] font-semibold leading-none text-sky-200/90">
+          {copy.lineCount(productionLineCount)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function FactoryMapSectionSummary({
+  copy,
+  headerIconKey,
+  headerTitle,
+  heroImageUrl,
+  investmentAction,
+  isHighlighted,
+  onAction,
+  onHoverDepartment,
+  onToggleExpanded,
+  section,
+  width,
+}: {
+  copy: GameCopy["map"];
+  headerIconKey: string;
+  headerTitle: string;
+  heroImageUrl: string | null;
+  investmentAction:
+    | Extract<FactoryMapItem, { kind: "investmentAction" }>
+    | undefined;
+  isHighlighted: boolean;
+  onAction: (item: FactoryMapItem) => void;
+  onHoverDepartment: (departmentId: string | null) => void;
+  onToggleExpanded: () => void;
+  section: FactoryMapSection;
+  width: number;
+}) {
+  const representativeLine = section.items.find(
+    (item): item is Extract<FactoryMapItem, { kind: "productionLine" }> =>
+      item.kind === "productionLine",
+  );
+  const headerDepartmentId = section.departments[0]?.id ?? null;
+
+  return (
+    <section
+      aria-label={headerTitle}
+      className={cn(
+        "factory-department-block factory-department-block-summary",
+        section.tone,
+        isHighlighted &&
+          "!border-[#006d8f]/55 ring-1 ring-primary/20 !shadow-[0_0_18px_rgba(0,109,143,0.18),inset_0_0_18px_rgba(0,109,143,0.10)]",
+      )}
+      onMouseEnter={() => onHoverDepartment(headerDepartmentId)}
+      onMouseLeave={() => onHoverDepartment(null)}
+      style={{ width }}
+    >
+      <div className="factory-section-summary">
+        <button
+          aria-controls={`factory-map-section-lines-${section.id}`}
+          aria-expanded="false"
+          aria-label={copy.sectionDisclosure.expandAria(
+            headerTitle,
+            section.productionLineCount,
+          )}
+          className="factory-section-summary-main"
+          onClick={onToggleExpanded}
+          onPointerDown={(event) => event.stopPropagation()}
+          type="button"
+        >
+          <span className="factory-section-summary-header">
+            <span className="factory-section-summary-icon">
+              <DepartmentHeaderIcon iconKey={headerIconKey} />
+            </span>
+            <span className="factory-section-summary-title">
+              {headerTitle}
+            </span>
+            <span className="factory-section-summary-count">
+              {copy.lineCount(section.productionLineCount)}
+            </span>
+          </span>
+
+          <span className="factory-section-summary-visual">
+            {heroImageUrl ? (
+              <Image
+                alt=""
+                aria-hidden="true"
+                className="factory-section-summary-image"
+                draggable={false}
+                fill
+                sizes={`${width}px`}
+                src={heroImageUrl}
+              />
+            ) : (
+              <Factory aria-hidden="true" size={64} />
+            )}
+            <span className="factory-section-summary-visual-shade" />
+          </span>
+
+          <span className="factory-section-summary-meta">
+            {representativeLine ? (
+              <span
+                className={`factory-section-summary-workload workload-${representativeLine.workload.state}`}
+              >
+                <span>{copy.workloadTitle}</span>
+                <strong>{representativeLine.workload.daysLabel}</strong>
+                <b>{representativeLine.workload.label}</b>
+              </span>
+            ) : null}
+            <span className="factory-section-summary-open">
+              {copy.sectionDisclosure.showLines}
+              <ChevronDown aria-hidden="true" size={18} />
+            </span>
+          </span>
+        </button>
+
+        {investmentAction ? (
+          <button
+            className="factory-section-summary-invest"
+            onClick={() => onAction(investmentAction)}
+            onPointerDown={(event) => event.stopPropagation()}
+            type="button"
+          >
+            <Plus aria-hidden="true" size={16} />
+            <span>{investmentAction.title}</span>
+          </button>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
+function FactoryMapExpandedSectionHeader({
+  copy,
+  headerIconKey,
+  headerTitle,
+  investmentAction,
+  onAction,
+  onPageChange,
+  onToggleExpanded,
+  pageCount,
+  pageIndex,
+  section,
+}: {
+  copy: GameCopy["map"];
+  headerIconKey: string;
+  headerTitle: string;
+  investmentAction:
+    | Extract<FactoryMapItem, { kind: "investmentAction" }>
+    | undefined;
+  onAction: (item: FactoryMapItem) => void;
+  onPageChange: (pageIndex: number) => void;
+  onToggleExpanded: () => void;
+  pageCount: number;
+  pageIndex: number;
+  section: FactoryMapSection;
+}) {
+  return (
+    <div className="factory-section-expanded-header">
+      <div className="factory-section-expanded-title">
+        <span>
+          <DepartmentHeaderIcon iconKey={headerIconKey} />
+        </span>
+        <h2>{headerTitle}</h2>
+        <b>{copy.lineCount(section.productionLineCount)}</b>
+      </div>
+
+      <div className="factory-section-expanded-actions">
+        {investmentAction ? (
+          <button
+            aria-label={investmentAction.title}
+            className="factory-section-expanded-action"
+            onClick={() => onAction(investmentAction)}
+            onPointerDown={(event) => event.stopPropagation()}
+            title={investmentAction.title}
+            type="button"
+          >
+            <Plus aria-hidden="true" size={15} />
+          </button>
+        ) : null}
+
+        <div
+          aria-label={copy.sectionDisclosure.paginationAria(headerTitle)}
+          className="factory-section-pager"
+          role="group"
+        >
+          <button
+            aria-label={copy.sectionDisclosure.previousPage}
+            disabled={pageIndex <= 0}
+            onClick={() => onPageChange(pageIndex - 1)}
+            onPointerDown={(event) => event.stopPropagation()}
+            type="button"
+          >
+            <ChevronLeft aria-hidden="true" size={15} />
+          </button>
+          <span aria-live="polite">
+            {copy.sectionDisclosure.pageLabel(pageIndex + 1, pageCount)}
+          </span>
+          <button
+            aria-label={copy.sectionDisclosure.nextPage}
+            disabled={pageIndex >= pageCount - 1}
+            onClick={() => onPageChange(pageIndex + 1)}
+            onPointerDown={(event) => event.stopPropagation()}
+            type="button"
+          >
+            <ChevronRight aria-hidden="true" size={15} />
+          </button>
+        </div>
+
+        <button
+          aria-controls={`factory-map-section-lines-${section.id}`}
+          aria-expanded="true"
+          aria-label={copy.sectionDisclosure.collapseAria(headerTitle)}
+          className="factory-section-expanded-action"
+          onClick={onToggleExpanded}
+          onPointerDown={(event) => event.stopPropagation()}
+          type="button"
+        >
+          <X aria-hidden="true" size={15} />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -994,4 +1424,36 @@ function getInvestmentLabel(
   return firstDepartmentKey
     ? getMachineLabel(firstDepartmentKey)
     : copy.investmentLabelFallback;
+}
+
+function getFactoryMapSectionHeroImageUrl(
+  section: FactoryMapSection,
+  investmentDepartments: GameSnapshot["investment"]["departments"],
+) {
+  const sectionDepartmentIds = new Set(
+    section.departments.map((department) => department.id),
+  );
+  const templates = investmentDepartments
+    .filter((department) => sectionDepartmentIds.has(department.id))
+    .flatMap((department) => department.templates);
+  const gradePreference = [
+    "SMART",
+    "PRECISION",
+    "INDUSTRIAL",
+    "WORKSHOP",
+  ] as const;
+
+  for (const grade of gradePreference) {
+    const template = templates.find((item) => item.grade === grade);
+    const imageUrl = template?.detailImageUrl ?? template?.imageUrl;
+
+    if (imageUrl) return imageUrl;
+  }
+
+  const line = section.items.find(
+    (item): item is Extract<FactoryMapItem, { kind: "productionLine" }> =>
+      item.kind === "productionLine",
+  );
+
+  return line?.detailImageUrl ?? line?.imageUrl ?? null;
 }

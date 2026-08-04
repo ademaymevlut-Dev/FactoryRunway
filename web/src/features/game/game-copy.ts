@@ -63,6 +63,18 @@ export const gameCopy = {
       noCapacity: "kapasite yok.",
       days: (days: number) => `${days} gün.`,
       investmentLabelFallback: "Yeni Hat",
+      sectionDisclosure: {
+        collapseAria: (title: string) => `${title} üretim hatlarını kapat`,
+        expandAria: (title: string, count: number) =>
+          `${title}, ${count} üretim hattı. Hatları göster`,
+        nextPage: "Sonraki üretim hatları",
+        pageLabel: (currentPage: number, pageCount: number) =>
+          `${currentPage} / ${pageCount}`,
+        paginationAria: (title: string) =>
+          `${title} üretim hattı sayfaları`,
+        previousPage: "Önceki üretim hatları",
+        showLines: "Üretim Hatlarını Göster",
+      },
       shipmentArea: {
         ariaLabel: "Sevkiyat hazır ürün alanı",
         emptyStateLabel: "Sevkiyata hazır ürün bulunmuyor.",
@@ -320,6 +332,18 @@ export const gameCopy = {
       noCapacity: "no capacity.",
       days: (days: number) => `${days} days.`,
       investmentLabelFallback: "New Line",
+      sectionDisclosure: {
+        collapseAria: (title: string) => `Collapse ${title} production lines`,
+        expandAria: (title: string, count: number) =>
+          `${title}, ${count} production lines. Show lines`,
+        nextPage: "Next production lines",
+        pageLabel: (currentPage: number, pageCount: number) =>
+          `${currentPage} / ${pageCount}`,
+        paginationAria: (title: string) =>
+          `${title} production line pages`,
+        previousPage: "Previous production lines",
+        showLines: "Show Production Lines",
+      },
       shipmentArea: {
         ariaLabel: "Shipment ready area",
         emptyStateLabel: "No products are ready for shipment.",
@@ -578,6 +602,15 @@ export const gameCopy = {
       noCapacity: string;
       days: (days: number) => string;
       investmentLabelFallback: string;
+      sectionDisclosure: {
+        collapseAria: (title: string) => string;
+        expandAria: (title: string, count: number) => string;
+        nextPage: string;
+        pageLabel: (currentPage: number, pageCount: number) => string;
+        paginationAria: (title: string) => string;
+        previousPage: string;
+        showLines: string;
+      };
       shipmentArea: {
         ariaLabel: string;
         emptyStateLabel: string;
