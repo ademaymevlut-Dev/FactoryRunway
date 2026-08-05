@@ -380,6 +380,7 @@ function MobileHeaderContent({
   statusTriggerRef: RefObject<HTMLButtonElement | null>;
 }) {
   const factoryName = getMobileFactoryNamePresentation(snapshot.factory.name);
+  const cashMetric = snapshot.metrics.find((metric) => metric.id === "cash");
 
   return (
     <Dialog onOpenChange={onSheetOpenChange} open={sheetOpen}>
@@ -400,16 +401,34 @@ function MobileHeaderContent({
           </h1>
         </div>
 
+        {cashMetric ? (
+          <div
+            aria-label={`${cashMetric.label}: ${cashMetric.value}`}
+            className={styles.mobileCashMetric}
+          >
+            <span className="block truncate text-[8px] font-semibold uppercase leading-none tracking-[0.14em] text-muted-foreground">
+              {cashMetric.label}
+            </span>
+            <strong
+              className={`mt-1 block font-mono text-xs font-semibold leading-none tabular-nums text-white ${styles.mobileCashValue}`}
+            >
+              {cashMetric.value}
+            </strong>
+          </div>
+        ) : null}
+
         <DialogTrigger asChild>
-          <button
+          <Button
             aria-controls={MOBILE_FACTORY_STATUS_SHEET_ID}
             aria-expanded={sheetOpen}
             aria-label={copy.mobile.factoryStatus}
-            className={`relative grid size-11 shrink-0 place-items-center rounded-xl border border-primary/25 bg-primary/10 text-primary outline-none transition-colors hover:border-primary/50 hover:bg-primary/15 focus-visible:ring-2 focus-visible:ring-primary/55 ${styles.mobileStatusTrigger}`}
+            className={`relative size-11 shrink-0 rounded-xl shadow-[0_0_20px_color-mix(in_srgb,var(--primary)_28%,transparent)] hover:bg-primary/85 ${styles.mobileStatusTrigger}`}
             data-map-control="true"
             onPointerDown={(event) => event.stopPropagation()}
             ref={statusTriggerRef}
+            size="icon-lg"
             type="button"
+            variant="default"
           >
             <Factory aria-hidden="true" className="size-5" />
             {alertCount > 0 ? (
@@ -420,7 +439,7 @@ function MobileHeaderContent({
                 {alertCount > 9 ? "9+" : alertCount}
               </span>
             ) : null}
-          </button>
+          </Button>
         </DialogTrigger>
       </div>
 

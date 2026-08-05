@@ -37,14 +37,19 @@ test("telefon kompakt header, geniş tablet ve masaüstü web header kullanır",
   );
 });
 
-test("mobil header yalnız fabrika kimliği ve tek durum trigger'ı taşır", () => {
+test("mobil header fabrika kimliği, nakit özeti ve primary durum CTA'sı taşır", () => {
   const mobileHeaderStart = header.indexOf("function MobileHeaderContent");
   const sheetStart = header.indexOf("function MobileFactoryStatusSheet");
   const mobileHeader = header.slice(mobileHeaderStart, sheetStart);
 
   assert.match(mobileHeader, /<FactoryLogo \/>/);
   assert.match(mobileHeader, /mobileFactoryIdentity/);
+  assert.match(mobileHeader, /snapshot\.metrics\.find\(\(metric\) => metric\.id === "cash"\)/);
+  assert.match(mobileHeader, /mobileCashMetric/);
+  assert.match(mobileHeader, /cashMetric\.value/);
   assert.match(mobileHeader, /DialogTrigger asChild/);
+  assert.match(mobileHeader, /<Button/);
+  assert.match(mobileHeader, /variant="default"/);
   assert.match(mobileHeader, /aria-label=\{copy\.mobile\.factoryStatus\}/);
   assert.match(mobileHeader, /aria-expanded=\{sheetOpen\}/);
   assert.match(mobileHeader, /aria-controls=\{MOBILE_FACTORY_STATUS_SHEET_ID\}/);
@@ -53,6 +58,12 @@ test("mobil header yalnız fabrika kimliği ve tek durum trigger'ı taşır", ()
     mobileHeader,
     /AnimatedCashMetric|AnimatedXpMetric|AnimatedRunwayTokenMetric|Trophy|Mail|GameLocaleSwitcher|logoutAction/,
   );
+});
+
+test("mobil nakit değeri fabrika kimliği ile CTA arasında sağa hizalanır ve dar ekranda taşmaz", () => {
+  assert.match(styles, /\.mobileCashMetric\s*\{[\s\S]*?flex:\s*0 1 108px[\s\S]*?min-width:\s*0[\s\S]*?max-width:\s*108px[\s\S]*?margin-left:\s*auto[\s\S]*?text-align:\s*right/);
+  assert.match(styles, /\.mobileCashValue\s*\{[\s\S]*?overflow:\s*hidden[\s\S]*?text-overflow:\s*ellipsis[\s\S]*?white-space:\s*nowrap/);
+  assert.match(styles, /@media \(max-width: 374px\)[\s\S]*?\.mobileCashMetric\s*\{[\s\S]*?max-width:\s*86px/);
 });
 
 test("uzun, boşluksuz ve Unicode fabrika adları sunumda değiştirilmeden korunur", () => {

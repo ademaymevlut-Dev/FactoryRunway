@@ -55,6 +55,21 @@ test("accordion UI kapak, pager ve expanded stillerini taşır", () => {
   assert.match(factoryMapStyles, /\.factory-section-pager/);
 });
 
+test("kapalı bölüm DETAIL çözünürlüğünü korur ve şeffaf kenarları güvenli ölçekte kadraj dışına taşır", () => {
+  assert.match(
+    factoryMap,
+    /className="factory-section-summary-image"[\s\S]*?sizes="512px"/,
+  );
+  assert.match(
+    factoryMapStyles,
+    /\.factory-section-summary-image\s*\{[\s\S]*?object-fit:\s*contain;/,
+  );
+  assert.match(
+    factoryMapStyles,
+    /\.factory-section-summary-image\s*\{[\s\S]*?transform:\s*scale\(1\.55\);/,
+  );
+});
+
 test("accordion değişikliği snapshot ve hesaplama servislerine taşınmaz", () => {
   assert.doesNotMatch(snapshotService, /SectionDisclosure|sectionDisclosure/);
   assert.doesNotMatch(snapshotService, /SECTION_LINE_LIMIT|SECTION_PAGE_SIZE/);

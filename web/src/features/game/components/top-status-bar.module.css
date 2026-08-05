@@ -31,6 +31,20 @@
   white-space: nowrap;
 }
 
+.mobileCashMetric {
+  flex: 0 1 108px;
+  min-width: 0;
+  max-width: 108px;
+  margin-left: auto;
+  text-align: right;
+}
+
+.mobileCashValue {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mobileStatusTrigger {
   flex: 0 0 44px;
 }
@@ -136,6 +150,11 @@
 @media (max-width: 374px) {
   .mobileHeaderContent {
     --mobile-factory-name-max-width: 124px;
+  }
+
+  .mobileCashMetric {
+    flex-basis: 86px;
+    max-width: 86px;
   }
 }
 

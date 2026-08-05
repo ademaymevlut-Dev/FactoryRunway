@@ -986,7 +986,7 @@ function FactoryMapSectionSummary({
                 className="factory-section-summary-image"
                 draggable={false}
                 fill
-                sizes={`${width}px`}
+                sizes="512px"
                 src={heroImageUrl}
               />
             ) : (
