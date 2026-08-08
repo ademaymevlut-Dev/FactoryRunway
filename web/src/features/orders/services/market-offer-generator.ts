@@ -25,6 +25,22 @@ import {
   type OrderProductCandidate,
   type OrderProductCandidateColor,
 } from "@/lib/order-market/product-candidates";
+import {
+  calculateMarketScaleWeightBps,
+  calculateQuantityPriceMultiplierBps,
+  MARKET_OFFER_BALANCE_VERSION,
+  MARKET_PRICING_BALANCE_VERSION,
+  MARKET_SCALE_BALANCE_VERSION,
+  resolveMarketOfferPriceBand,
+  resolveMarketOfferStageRule,
+  resolveMarketOfferTypeRules,
+  resolveMarketPricingConfig,
+  resolveMarketScaleConfig,
+  type MarketOfferStageRuleConfig,
+  type MarketOfferTypeRuleConfig,
+  type MarketPricingConfig,
+  type MarketScaleConfig,
+} from "@/lib/order-market/market-offer-config";
 import { PRODUCT_TIER_ORDER } from "../product-tier-rules";
 
 const DEFAULT_MONTHLY_WORK_DAYS = 22;
@@ -32,6 +48,7 @@ const DELIVERY_CAPACITY_HORIZON_DAYS = 20;
 const MATERIAL_READY_DAYS = 1;
 const RECENT_OFFER_LOOKBACK = 48;
 const MARKET_OFFER_POLICY_VERSION = 5;
+const reportedMarketConfigErrors = new Set<string>();
 
 const COST_LINE_STATUSES = [
   FactoryProductionLineStatus.IDLE,
@@ -98,89 +115,14 @@ const TARGET_LOAD_RANGES: Record<
   },
 };
 const BASIC_LARGE_BLOCK_LOAD_RANGE = { minBps: 80_000, maxBps: 120_000 };
-const DEFAULT_DELIVERY_RANGES: Record<
-  MarketOrderOfferType,
-  { minDays: number; maxDays: number }
-> = {
-  EXPRESS: { minDays: 7, maxDays: 10 },
-  NORMAL: { minDays: 20, maxDays: 24 },
-  OPPORTUNITY: { minDays: 12, maxDays: 15 },
-  REPEAT: { minDays: 18, maxDays: 24 },
-};
 const PRODUCT_TIER_RANK: Record<ProductTier, number> = {
   BASIC: 0,
   STANDARD: 1,
   PREMIUM: 2,
   LUXURY: 3,
 };
-const OFFER_PRICE_BANDS_BPS: Record<
-  MarketOrderOfferType,
-  { minBps: number; maxBps: number }
-> = {
-  NORMAL: { minBps: 10_000, maxBps: 10_000 },
-  OPPORTUNITY: { minBps: 10_400, maxBps: 10_800 },
-  EXPRESS: { minBps: 11_000, maxBps: 11_600 },
-  REPEAT: { minBps: 9_900, maxBps: 10_200 },
-};
-
-type MarketOfferTypeRule = {
-  offerType: MarketOrderOfferType;
-  generationWeightBps: number;
-  minDeliveryDays: number;
-  maxDeliveryDays: number;
-  offerExpiryDays: number;
-  minimumIntervalDays: number;
-  priceMultiplierMinBps: number;
-  priceMultiplierMaxBps: number;
-};
-
-type MarketOfferStageRule = {
-  targetActiveOfferCount: number;
-  maxNewOffersPerDay: number;
-};
-
-const DEFAULT_MARKET_TYPE_RULES: MarketOfferTypeRule[] = [
-  {
-    offerType: MarketOrderOfferType.NORMAL,
-    generationWeightBps: 7200,
-    minDeliveryDays: 20,
-    maxDeliveryDays: 24,
-    offerExpiryDays: 3,
-    minimumIntervalDays: 0,
-    priceMultiplierMinBps: 10_000,
-    priceMultiplierMaxBps: 10_000,
-  },
-  {
-    offerType: MarketOrderOfferType.OPPORTUNITY,
-    generationWeightBps: 900,
-    minDeliveryDays: 12,
-    maxDeliveryDays: 15,
-    offerExpiryDays: 2,
-    minimumIntervalDays: 5,
-    priceMultiplierMinBps: 10_400,
-    priceMultiplierMaxBps: 10_800,
-  },
-  {
-    offerType: MarketOrderOfferType.EXPRESS,
-    generationWeightBps: 700,
-    minDeliveryDays: 7,
-    maxDeliveryDays: 10,
-    offerExpiryDays: 1,
-    minimumIntervalDays: 2,
-    priceMultiplierMinBps: 11_000,
-    priceMultiplierMaxBps: 11_600,
-  },
-  {
-    offerType: MarketOrderOfferType.REPEAT,
-    generationWeightBps: 1200,
-    minDeliveryDays: 18,
-    maxDeliveryDays: 24,
-    offerExpiryDays: 3,
-    minimumIntervalDays: 3,
-    priceMultiplierMinBps: 9_900,
-    priceMultiplierMaxBps: 10_200,
-  },
-];
+type MarketOfferTypeRule = MarketOfferTypeRuleConfig;
+type MarketOfferStageRule = MarketOfferStageRuleConfig;
 
 type OfferGenerationResult =
   | {
@@ -231,6 +173,7 @@ export type PlannedUnitCostBreakdown = {
 type PlannedOfferItem = {
   product: OrderProductCandidate;
   quantity: number;
+  quantityPriceMultiplierBps: number;
   unitPriceCents: number;
   totalPriceCents: bigint;
   estimatedUnitCostCents: number;
@@ -275,42 +218,6 @@ export type PlannedItemQuantity = {
   effectiveTierCapMax: number;
   globalTierCapMax: number;
   quantity: number;
-};
-
-const CUSTOMER_VOLUME_SCALE_BPS: Record<
-  FactoryScaleBand,
-  Record<string, number>
-> = {
-  // High trust requirements make bulk buyers extremely rare in the base weights.
-  // Factory scale changes that customer mix without multiplying product capacity.
-  COMPACT: {
-    capsule_collection: 8_000,
-    large_retail: 5_000,
-    mass_distribution: 1_000,
-    regular: 11_000,
-    small_batch: 12_000,
-  },
-  GROWING: {
-    capsule_collection: 7_000,
-    large_retail: 14_000,
-    mass_distribution: 40_000,
-    regular: 10_000,
-    small_batch: 7_000,
-  },
-  INDUSTRIAL: {
-    capsule_collection: 5_000,
-    large_retail: 30_000,
-    mass_distribution: 1_500_000,
-    regular: 7_500,
-    small_batch: 4_000,
-  },
-  ENTERPRISE: {
-    capsule_collection: 3_000,
-    large_retail: 40_000,
-    mass_distribution: 4_000_000,
-    regular: 5_000,
-    small_batch: 2_500,
-  },
 };
 
 export async function ensureMarketOfferForFactory(
@@ -516,10 +423,11 @@ export async function ensureMarketOfferForFactory(
     if (!offerTypeRule) continue;
 
     const customer = pickCustomerForOffer({
+      activeProductionLineCount,
       customerRelationshipById,
       customers: tierCustomers,
       customerRecentCounts,
-      factoryScaleBand,
+      marketScaleConfig: marketRules.scaleConfig,
       offerType: offerTypeRule.offerType,
       repeatCustomerIds: tierRepeatCustomerIds,
       seed: `${seedBase}:customer`,
@@ -555,6 +463,9 @@ export async function ensureMarketOfferForFactory(
       monthlyWorkDays,
       offerNo: `MO-${String(sequence).padStart(4, "0")}`,
       offerTypeRule,
+      pricingConfig: marketRules.pricingConfig,
+      marketScaleConfig: marketRules.scaleConfig,
+      marketScaleConfigSource: marketRules.scaleConfigSource,
       productTier,
       products,
       seed: seedBase,
@@ -744,6 +655,7 @@ async function fetchMarketRules(input: {
         minimumIntervalDays: true,
         priceMultiplierMinBps: true,
         priceMultiplierMaxBps: true,
+        metadata: true,
       },
     }),
     input.currentStageId
@@ -757,36 +669,85 @@ async function fetchMarketRules(input: {
       : null,
   ]);
 
+  const resolvedTypeRules = resolveMarketOfferTypeRules(typeRules);
+  const resolvedPricingConfig = resolveMarketPricingConfig(
+    typeRules.find((rule) => rule.offerType === MarketOrderOfferType.NORMAL)
+      ?.metadata,
+  );
+  const resolvedScaleConfig = resolveMarketScaleConfig(
+    typeRules.find((rule) => rule.offerType === MarketOrderOfferType.NORMAL)
+      ?.metadata,
+  );
+  const resolvedStageRule = resolveMarketOfferStageRule({
+    configuredRule: stageRule,
+    sortOrder: input.currentStageSortOrder ?? 10,
+  });
+
+  reportInvalidMarketConfigOnce(
+    `type:${input.sectorId}`,
+    resolvedTypeRules.validationErrors,
+  );
+  reportInvalidMarketConfigOnce(
+    `stage:${input.currentStageId ?? "missing"}`,
+    resolvedStageRule.validationErrors,
+  );
+  reportInvalidMarketConfigOnce(
+    `pricing:${input.sectorId}`,
+    resolvedPricingConfig.validationErrors,
+  );
+  reportInvalidMarketConfigOnce(
+    `scale:${input.sectorId}`,
+    resolvedScaleConfig.validationErrors,
+  );
+  debugMarketConfigSources({
+    pricingSource: resolvedPricingConfig.source,
+    scaleSource: resolvedScaleConfig.source,
+    sectorId: input.sectorId,
+    stageSource: resolvedStageRule.source,
+    typeSources: resolvedTypeRules.sources,
+  });
+
   return {
-    typeRules:
-      typeRules.length > 0 ? typeRules : DEFAULT_MARKET_TYPE_RULES,
-    stageRule: resolveMarketStageRule({
-      configuredRule: stageRule,
-      sortOrder: input.currentStageSortOrder ?? 10,
-    }),
+    pricingConfig: resolvedPricingConfig.config,
+    scaleConfig: resolvedScaleConfig.config,
+    scaleConfigSource: resolvedScaleConfig.source,
+    typeRules: resolvedTypeRules.rules,
+    stageRule: resolvedStageRule.rule,
   };
+}
+
+function reportInvalidMarketConfigOnce(key: string, errors: string[]) {
+  if (errors.length === 0 || reportedMarketConfigErrors.has(key)) return;
+
+  reportedMarketConfigErrors.add(key);
+  console.error("[market-config] Invalid DB config; using explicit fallback.", {
+    errors,
+    key,
+  });
+}
+
+function debugMarketConfigSources(input: {
+  pricingSource: "db" | "fallback";
+  scaleSource: "db" | "fallback";
+  sectorId: string;
+  stageSource: "db" | "fallback";
+  typeSources: Record<MarketOrderOfferType, "db" | "fallback">;
+}) {
+  if (
+    process.env.NODE_ENV !== "development" ||
+    process.env.MARKET_CONFIG_DEBUG !== "1"
+  ) {
+    return;
+  }
+
+  console.debug("[market-config] Resolved config sources.", input);
 }
 
 export function resolveMarketStageRule(input: {
   configuredRule: MarketOfferStageRule | null;
   sortOrder: number;
 }): MarketOfferStageRule {
-  const fallbackRule = getFallbackStageRule(input.sortOrder);
-
-  if (!input.configuredRule) return fallbackRule;
-
-  return {
-    maxNewOffersPerDay: clamp(
-      input.configuredRule.maxNewOffersPerDay,
-      1,
-      fallbackRule.maxNewOffersPerDay,
-    ),
-    targetActiveOfferCount: clamp(
-      input.configuredRule.targetActiveOfferCount,
-      1,
-      fallbackRule.targetActiveOfferCount,
-    ),
-  };
+  return resolveMarketOfferStageRule(input).rule;
 }
 
 export function calculateMarketOfferCreationCount(input: {
@@ -805,26 +766,6 @@ export function calculateMarketOfferCreationCount(input: {
   );
 
   return Math.min(missingMarketSlots, dailySlots);
-}
-
-function getFallbackStageRule(sortOrder: number): MarketOfferStageRule {
-  if (sortOrder <= 10) {
-    return { maxNewOffersPerDay: 1, targetActiveOfferCount: 3 };
-  }
-  if (sortOrder <= 20) {
-    return { maxNewOffersPerDay: 1, targetActiveOfferCount: 4 };
-  }
-  if (sortOrder <= 30) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 5 };
-  }
-  if (sortOrder <= 40) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 6 };
-  }
-  if (sortOrder <= 50) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 7 };
-  }
-
-  return { maxNewOffersPerDay: 3, targetActiveOfferCount: 8 };
 }
 
 async function fetchVirtualCustomersForFactory(input: {
@@ -1229,10 +1170,11 @@ function pickOfferTypeRule(input: {
 }
 
 function pickCustomerForOffer(input: {
+  activeProductionLineCount: number;
   customerRelationshipById: CustomerRelationshipById;
   customers: VirtualCustomerForOffer[];
   customerRecentCounts: Map<string, number>;
-  factoryScaleBand: FactoryScaleBand;
+  marketScaleConfig: MarketScaleConfig;
   offerType: MarketOrderOfferType;
   repeatCustomerIds: Set<string>;
   seed: string;
@@ -1257,8 +1199,9 @@ function pickCustomerForOffer(input: {
         (1 + recentPenalty * 0.75 + batchPenalty * 3),
     );
     const factoryScaledWeight = calculateFactoryScaledCustomerWeight({
+      activeProductionLineCount: input.activeProductionLineCount,
       baseWeight,
-      factoryScaleBand: input.factoryScaleBand,
+      marketScaleConfig: input.marketScaleConfig,
       volumeClassKey: customer.customerVolumeClass.key,
     });
 
@@ -1448,8 +1391,11 @@ function buildPlannedOffer(input: {
   factoryExpenseBreakdown: ReturnType<typeof calculateFactoryMonthlyExpenseCents>;
   factoryId: string;
   monthlyWorkDays: number;
+  marketScaleConfig: MarketScaleConfig;
+  marketScaleConfigSource: "db" | "fallback";
   offerNo: string;
   offerTypeRule: MarketOfferTypeRule;
+  pricingConfig: MarketPricingConfig;
   productTier: ProductTier;
   products: OrderProductCandidate[];
   seed: string;
@@ -1493,6 +1439,7 @@ function buildPlannedOffer(input: {
     customer: input.customer,
     factoryExpenseBreakdown: input.factoryExpenseBreakdown,
     monthlyWorkDays: input.monthlyWorkDays,
+    pricingConfig: input.pricingConfig,
     products: input.products,
     seed: input.seed,
     targetLoadDaysBps: targetLoadProfile.targetLoadDaysBps,
@@ -1563,6 +1510,18 @@ function buildPlannedOffer(input: {
       (item.product.requiresOutsource ? 500 : 0),
     0,
   );
+  const marketPricingMetadata = buildMarketPricingMetadata({
+    config: input.pricingConfig,
+    quantityPriceMultiplierBps:
+      itemPlans[0]?.quantityPriceMultiplierBps ?? 10_000,
+    totalOfferQuantity: totalQuantity,
+    typePriceMultiplierBps,
+  });
+  const marketScaleWeightBps = calculateMarketScaleWeightBps({
+    activeProductionLineCount: input.activeProductionLineCount,
+    config: input.marketScaleConfig,
+    volumeClassKey: input.customer.customerVolumeClass.key,
+  });
 
   return {
     sector: { connect: { id: input.customer.sectorId } },
@@ -1596,9 +1555,14 @@ function buildPlannedOffer(input: {
       targetDeliveryDays,
     }),
     metadata: {
+      ...marketPricingMetadata,
       generator: "product_tier_market_v5",
       activeProductionLineCount: input.activeProductionLineCount,
       factoryScaleBand: input.factoryScaleBand,
+      marketScaleBalanceVersion: MARKET_SCALE_BALANCE_VERSION,
+      marketScaleConfigSource: input.marketScaleConfigSource,
+      marketScaleModel: input.marketScaleConfig.model,
+      marketScaleWeightBps,
       marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
       isCollection,
       isLargeBasicBlock: targetLoadProfile.isLargeBasicBlock,
@@ -1623,7 +1587,6 @@ function buildPlannedOffer(input: {
       sharedFactoryCostBreakdown:
         input.factoryExpenseBreakdown.sharedCostBreakdown,
       monthlyWorkDays: input.monthlyWorkDays,
-      typePriceMultiplierBps,
     },
     items: {
       create: itemPlans.map((item, index) => ({
@@ -1641,6 +1604,7 @@ function buildPlannedOffer(input: {
         estimatedLoadDaysBps: item.estimatedLoadDaysBps,
         sortOrder: index,
         pricingSnapshot: {
+          ...marketPricingMetadata,
           baseUnitPriceCents: item.product.baseUnitPriceCents,
           estimatedOutsourceUnitCostCents:
             item.product.estimatedOutsourceUnitCostCents,
@@ -1677,14 +1641,16 @@ function buildPlannedOffer(input: {
           targetProductionDays: Math.ceil(
             targetLoadProfile.targetLoadDaysBps / DAY_BPS,
           ),
-          typePriceMultiplierBps,
           unitPriceCents: item.unitPriceCents,
           tierQuantityCapMax: item.tierCap.max,
           tierQuantityCapMin: item.tierCap.min,
         },
         metadata: {
+          balanceVersion: MARKET_OFFER_BALANCE_VERSION,
           generator: "product_tier_market_v5",
           factoryScaleBand: input.factoryScaleBand,
+          marketScaleBalanceVersion: MARKET_SCALE_BALANCE_VERSION,
+          marketScaleWeightBps,
           marketOfferPolicyVersion: MARKET_OFFER_POLICY_VERSION,
           requiresOutsource: item.product.requiresOutsource,
           estimatedOutsourceLeadDays: item.product.estimatedOutsourceLeadDays,
@@ -1831,34 +1797,42 @@ export function resolveOfferPriceBand(
   offerType: MarketOrderOfferType,
   configuredBand?: { minBps: number; maxBps: number },
 ) {
-  const policyBand =
-    OFFER_PRICE_BANDS_BPS[offerType] ?? OFFER_PRICE_BANDS_BPS.NORMAL;
+  return resolveMarketOfferPriceBand({ configuredBand, offerType }).band;
+}
 
-  if (!configuredBand) return policyBand;
-
-  const configuredMin = Math.min(
-    configuredBand.minBps,
-    configuredBand.maxBps,
-  );
-  const configuredMax = Math.max(
-    configuredBand.minBps,
-    configuredBand.maxBps,
-  );
-  const minBps = Math.max(policyBand.minBps, configuredMin);
-  const maxBps = Math.min(policyBand.maxBps, configuredMax);
-
-  return minBps <= maxBps ? { minBps, maxBps } : policyBand;
+export function buildMarketPricingMetadata(input: {
+  config: MarketPricingConfig;
+  quantityPriceMultiplierBps: number;
+  totalOfferQuantity: number;
+  typePriceMultiplierBps: number;
+}) {
+  return {
+    balanceVersion: MARKET_OFFER_BALANCE_VERSION,
+    pricingBalanceVersion: MARKET_PRICING_BALANCE_VERSION,
+    pricingModel: input.config.model,
+    quantityPriceMultiplierBps: input.quantityPriceMultiplierBps,
+    roundingMode: "HALF_UP_SINGLE_COMPOUND_INTEGER",
+    segmentPriceMultiplierMode: input.config.segmentPriceMultiplierMode,
+    totalOfferQuantity: input.totalOfferQuantity,
+    typePriceMultiplierBps: input.typePriceMultiplierBps,
+    volumePriceMultiplierMode: input.config.volumePriceMultiplierMode,
+  } as const;
 }
 
 export function calculateOfferUnitPriceCents(input: {
   baseUnitPriceCents: number;
+  quantityPriceMultiplierBps: number;
   typePriceMultiplierBps: number;
 }) {
+  const numerator =
+    BigInt(input.baseUnitPriceCents) *
+    BigInt(input.typePriceMultiplierBps) *
+    BigInt(input.quantityPriceMultiplierBps);
+  const denominator = BigInt(100_000_000);
+
   return Math.max(
     1,
-    Math.round(
-      (input.baseUnitPriceCents * input.typePriceMultiplierBps) / 10_000,
-    ),
+    Number((numerator + denominator / BigInt(2)) / denominator),
   );
 }
 
@@ -1946,11 +1920,12 @@ function buildItemPlans(input: {
   customer: VirtualCustomerForOffer;
   factoryExpenseBreakdown: ReturnType<typeof calculateFactoryMonthlyExpenseCents>;
   monthlyWorkDays: number;
+  pricingConfig: MarketPricingConfig;
   products: OrderProductCandidate[];
   seed: string;
   targetLoadDaysBps: number;
   typePriceMultiplierBps: number;
-}) {
+}): PlannedOfferItem[] {
   const primaryProduct = input.products[0];
 
   if (!primaryProduct) return [];
@@ -1974,7 +1949,7 @@ function buildItemPlans(input: {
     0,
   );
 
-  return shareWeights.flatMap(({ product, weight }, index) => {
+  const quantityPlans = shareWeights.flatMap(({ product, weight }, index) => {
     const tierCap = getTierQuantityCap(
       input.customer.customerVolumeClass.tierQuantityCaps,
       product.tier,
@@ -1998,46 +1973,68 @@ function buildItemPlans(input: {
 
     if (quantity <= 0) return [];
 
-    const unitPriceCents = calculateOfferUnitPriceCents({
-      baseUnitPriceCents: product.baseUnitPriceCents,
-      typePriceMultiplierBps: input.typePriceMultiplierBps,
-    });
+    return [{ index, product, quantity, quantityPolicy, tierCap }];
+  });
+  const costedQuantityPlans = quantityPlans.flatMap((plan) => {
     const plannedCostBreakdown = calculatePlannedUnitCostCents({
-      bottleneckDailyQuantity: product.bottleneckDailyQuantity,
+      bottleneckDailyQuantity: plan.product.bottleneckDailyQuantity,
       departmentCostById: input.factoryExpenseBreakdown.departmentCostById,
       leasingPaymentCents: input.factoryExpenseBreakdown.leasingPaymentCents,
       monthlySharedFactoryCostCents:
         input.factoryExpenseBreakdown.sharedFactoryCostCents,
       monthlyWorkDays: input.monthlyWorkDays,
-      outsourceUnitCostCents: product.estimatedOutsourceUnitCostCents,
-      quantity,
-      routeSteps: product.routeSteps,
+      outsourceUnitCostCents: plan.product.estimatedOutsourceUnitCostCents,
+      quantity: plan.quantity,
+      routeSteps: plan.product.routeSteps,
     });
 
-    if (!plannedCostBreakdown) return [];
+    return plannedCostBreakdown ? [{ ...plan, plannedCostBreakdown }] : [];
+  });
+  const totalOfferQuantity = costedQuantityPlans.reduce(
+    (total, plan) => total + plan.quantity,
+    0,
+  );
+  const quantityPriceMultiplierBps = calculateQuantityPriceMultiplierBps({
+    config: input.pricingConfig,
+    totalOfferQuantity,
+  });
 
-    const estimatedUnitCostCents =
-      plannedCostBreakdown.totalUnitCostCents;
-    const totalPriceCents = BigInt(unitPriceCents) * BigInt(quantity);
-    const estimatedProfitCents =
-      BigInt(unitPriceCents - estimatedUnitCostCents) * BigInt(quantity);
-    const requiredTotalPoints = product.requiredPointsPerUnit * quantity;
-    const estimatedLoadDaysBps = Math.ceil(
-      (quantity * 10_000) / Math.max(1, product.bottleneckDailyQuantity),
-    );
-    const colors = distributeColorQuantities({
-      colors: pickOfferColors({
-        product,
-        quantity,
-        seed: `${input.seed}:colors:${index}`,
-      }),
+  return costedQuantityPlans.map(
+    ({
+      index,
+      plannedCostBreakdown,
+      product,
       quantity,
-    });
+      quantityPolicy,
+      tierCap,
+    }) => {
+      const unitPriceCents = calculateOfferUnitPriceCents({
+        baseUnitPriceCents: product.baseUnitPriceCents,
+        quantityPriceMultiplierBps,
+        typePriceMultiplierBps: input.typePriceMultiplierBps,
+      });
+      const estimatedUnitCostCents =
+        plannedCostBreakdown.totalUnitCostCents;
+      const totalPriceCents = BigInt(unitPriceCents) * BigInt(quantity);
+      const estimatedProfitCents =
+        BigInt(unitPriceCents - estimatedUnitCostCents) * BigInt(quantity);
+      const requiredTotalPoints = product.requiredPointsPerUnit * quantity;
+      const estimatedLoadDaysBps = Math.ceil(
+        (quantity * 10_000) / Math.max(1, product.bottleneckDailyQuantity),
+      );
+      const colors = distributeColorQuantities({
+        colors: pickOfferColors({
+          product,
+          quantity,
+          seed: `${input.seed}:colors:${index}`,
+        }),
+        quantity,
+      });
 
-    return [
-      {
+      return {
         product,
         quantity,
+        quantityPriceMultiplierBps,
         unitPriceCents,
         totalPriceCents,
         estimatedUnitCostCents,
@@ -2048,9 +2045,9 @@ function buildItemPlans(input: {
         colors,
         tierCap,
         quantityPolicy,
-      },
-    ];
-  });
+      };
+    },
+  );
 }
 
 export function calculatePlannedItemQuantity(input: {
@@ -2268,19 +2265,9 @@ export function resolveOfferDeliveryRange(input: {
     return { maxDays: 30, minDays: 24 };
   }
 
-  const defaultRange = DEFAULT_DELIVERY_RANGES[input.offerType] ??
-    DEFAULT_DELIVERY_RANGES.NORMAL;
-
-  if (
-    input.offerType === MarketOrderOfferType.EXPRESS ||
-    input.offerType === MarketOrderOfferType.OPPORTUNITY
-  ) {
-    return defaultRange;
-  }
-
   return {
-    maxDays: Math.max(input.ruleMaxDeliveryDays, defaultRange.maxDays),
-    minDays: Math.max(input.ruleMinDeliveryDays, defaultRange.minDays),
+    maxDays: input.ruleMaxDeliveryDays,
+    minDays: input.ruleMinDeliveryDays,
   };
 }
 
@@ -2506,13 +2493,16 @@ export function resolveFactoryScaleBand(
 }
 
 export function calculateFactoryScaledCustomerWeight(input: {
+  activeProductionLineCount: number;
   baseWeight: number;
-  factoryScaleBand: FactoryScaleBand;
+  marketScaleConfig: MarketScaleConfig;
   volumeClassKey: string;
 }) {
-  const scaleBps =
-    CUSTOMER_VOLUME_SCALE_BPS[input.factoryScaleBand][input.volumeClassKey] ??
-    DAY_BPS;
+  const scaleBps = calculateMarketScaleWeightBps({
+    activeProductionLineCount: input.activeProductionLineCount,
+    config: input.marketScaleConfig,
+    volumeClassKey: input.volumeClassKey,
+  });
 
   return Math.max(
     1,

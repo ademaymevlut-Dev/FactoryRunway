@@ -418,7 +418,8 @@ function SegmentFields({
         <IdentityFields values={values} />
         <MultiplierField
           defaultValue={values?.priceMultiplierBps ?? 10000}
-          label="Fiyat çarpanı (bps)"
+          hint="Faz 2'de toplam teklif adedi için ayrı canonical fiyat eğrisi aktiftir; bu segment çarpanı simülasyon kararıyla pasif tutulur."
+          label="Fiyat çarpanı (bps, pasif)"
           name="priceMultiplierBps"
         />
         <MultiplierField
@@ -474,7 +475,8 @@ function VolumeFields({
         />
         <MultiplierField
           defaultValue={values?.priceMultiplierBps ?? 10000}
-          label="Fiyat çarpanı (bps)"
+          hint="Faz 2'de toplam teklif adedi için ayrı canonical fiyat eğrisi aktiftir; bu volume-class çarpanı çifte baskıyı önlemek için pasif tutulur."
+          label="Fiyat çarpanı (bps, pasif)"
           name="priceMultiplierBps"
         />
         <NumberField
@@ -576,8 +578,8 @@ function CustomerFields({
         </Field>
         <NumberField
           defaultValue={values?.trustRequirementBps ?? 0}
-          hint="Yüksek değer, müşterinin teklif seçim ağırlığını düşürür."
-          label="Güven gereksinimi"
+          hint="Hard erişim kapısı değildir. Yüksek değer, müşterinin teklif seçim ağırlığını yumuşak biçimde düşürür."
+          label="Güven seçim baskısı (bps)"
           min={0}
           name="trustRequirementBps"
         />
@@ -696,16 +698,18 @@ function NumberField({
 function MultiplierField({
   name,
   label,
+  hint = "10.000 = 1,00 kat.",
   defaultValue,
 }: {
   name: string;
   label: string;
+  hint?: string;
   defaultValue: number;
 }) {
   return (
     <NumberField
       defaultValue={defaultValue}
-      hint="10.000 = 1,00 kat."
+      hint={hint}
       label={label}
       min={1}
       name={name}

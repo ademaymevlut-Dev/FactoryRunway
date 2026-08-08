@@ -1,10 +1,14 @@
 import { PrismaPg } from "@prisma/adapter-pg";
 import { config as loadEnv } from "dotenv";
 
+import { PrismaClient } from "../src/generated/prisma/client";
 import {
-  MarketOrderOfferType,
-  PrismaClient,
-} from "../src/generated/prisma/client";
+  CANONICAL_MARKET_SCALE_CONFIG,
+  CANONICAL_MARKET_PRICING_CONFIG,
+  CANONICAL_MARKET_OFFER_TYPE_RULES,
+  MARKET_OFFER_BALANCE_VERSION,
+  getFallbackMarketStageRule,
+} from "../src/lib/order-market/market-offer-config";
 
 loadEnv({ path: ".env.local" });
 loadEnv();
@@ -19,73 +23,6 @@ const prisma = new PrismaClient({
   adapter: new PrismaPg({ connectionString }),
 });
 
-const offerTypeRules = [
-  {
-    offerType: MarketOrderOfferType.NORMAL,
-    generationWeightBps: 7200,
-    minDeliveryDays: 20,
-    maxDeliveryDays: 24,
-    offerExpiryDays: 3,
-    minimumIntervalDays: 0,
-    priceMultiplierMinBps: 10_000,
-    priceMultiplierMaxBps: 10_000,
-  },
-  {
-    offerType: MarketOrderOfferType.OPPORTUNITY,
-    generationWeightBps: 900,
-    minDeliveryDays: 12,
-    maxDeliveryDays: 15,
-    offerExpiryDays: 2,
-    minimumIntervalDays: 5,
-    priceMultiplierMinBps: 10_400,
-    priceMultiplierMaxBps: 10_800,
-  },
-  {
-    offerType: MarketOrderOfferType.EXPRESS,
-    generationWeightBps: 700,
-    minDeliveryDays: 7,
-    maxDeliveryDays: 10,
-    offerExpiryDays: 1,
-    minimumIntervalDays: 2,
-    priceMultiplierMinBps: 11_000,
-    priceMultiplierMaxBps: 11_600,
-  },
-  {
-    offerType: MarketOrderOfferType.REPEAT,
-    generationWeightBps: 1200,
-    minDeliveryDays: 18,
-    maxDeliveryDays: 24,
-    offerExpiryDays: 3,
-    minimumIntervalDays: 3,
-    priceMultiplierMinBps: 9_900,
-    priceMultiplierMaxBps: 10_200,
-  },
-] as const;
-
-function getStageRule(sortOrder: number) {
-  if (sortOrder <= 10) {
-    return { maxNewOffersPerDay: 1, targetActiveOfferCount: 3 };
-  }
-
-  if (sortOrder <= 20) {
-    return { maxNewOffersPerDay: 1, targetActiveOfferCount: 4 };
-  }
-
-  if (sortOrder <= 30) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 5 };
-  }
-
-  if (sortOrder <= 40) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 6 };
-  }
-
-  if (sortOrder <= 50) {
-    return { maxNewOffersPerDay: 2, targetActiveOfferCount: 7 };
-  }
-
-  return { maxNewOffersPerDay: 3, targetActiveOfferCount: 8 };
-}
-
 async function main() {
   const sectors = await prisma.sector.findMany({
     include: {
@@ -97,7 +34,7 @@ async function main() {
   });
 
   for (const sector of sectors) {
-    for (const rule of offerTypeRules) {
+    for (const rule of CANONICAL_MARKET_OFFER_TYPE_RULES) {
       await prisma.sectorMarketOfferTypeRule.upsert({
         where: {
           sectorId_offerType: {
@@ -109,14 +46,20 @@ async function main() {
           ...rule,
           sectorId: sector.id,
           metadata: {
-            balanceVersion: 2,
+            balanceVersion: MARKET_OFFER_BALANCE_VERSION,
+            configAuthority: "db-admin",
+            marketPricing: CANONICAL_MARKET_PRICING_CONFIG,
+            marketScale: CANONICAL_MARKET_SCALE_CONFIG,
             seedSource: "market-offer-rules",
           },
         },
         update: {
           ...rule,
           metadata: {
-            balanceVersion: 2,
+            balanceVersion: MARKET_OFFER_BALANCE_VERSION,
+            configAuthority: "db-admin",
+            marketPricing: CANONICAL_MARKET_PRICING_CONFIG,
+            marketScale: CANONICAL_MARKET_SCALE_CONFIG,
             seedSource: "market-offer-rules",
           },
         },
@@ -124,7 +67,7 @@ async function main() {
     }
 
     for (const stage of sector.operatingStages) {
-      const cadence = getStageRule(stage.sortOrder);
+      const cadence = getFallbackMarketStageRule(stage.sortOrder);
 
       await prisma.sectorMarketOfferStageRule.upsert({
         where: { operatingStageId: stage.id },
@@ -133,14 +76,16 @@ async function main() {
           sectorId: sector.id,
           operatingStageId: stage.id,
           metadata: {
-            balanceVersion: 2,
+            balanceVersion: 3,
+            configAuthority: "db-admin",
             seedSource: "market-offer-rules",
           },
         },
         update: {
           ...cadence,
           metadata: {
-            balanceVersion: 2,
+            balanceVersion: 3,
+            configAuthority: "db-admin",
             seedSource: "market-offer-rules",
           },
         },
